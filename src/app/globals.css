@@ -1,26 +1,85 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --bg: #f2f4f6;        /* toss gray bg */
+  --surface: #ffffff;
+  --text: #191f28;      /* near black */
+  --sub: #8b95a1;       /* gray text */
+  --border: #e5e8eb;
+  --blue: #3182f6;      /* toss blue */
+  --blue-press: #1b64da;
+  --blue-weak: #e8f3ff;
+  --red: #f04452;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-text: var(--text);
+  --color-sub: var(--sub);
+  --color-line: var(--border);
+  --color-blue: var(--blue);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
+html { -webkit-tap-highlight-color: transparent; }
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  font-family: "Pretendard", -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo",
+    system-ui, Roboto, "Helvetica Neue", sans-serif;
+  letter-spacing: -0.01em;
+}
+
+@layer components {
+  .card {
+    background: var(--surface);
+    border-radius: 20px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04), 0 4px 16px rgba(0, 0, 0, 0.04);
+  }
+  .btn {
+    border-radius: 14px;
+    font-weight: 600;
+    transition: transform 0.08s ease, background-color 0.15s ease, opacity 0.15s ease;
+    cursor: pointer;
+  }
+  .btn:active { transform: scale(0.97); }
+  .btn:disabled { opacity: 0.4; cursor: default; }
+  .btn:disabled:active { transform: none; }
+  .btn-primary { background: var(--blue); color: #fff; }
+  .btn-primary:hover { background: var(--blue-press); }
+  .btn-ghost { background: var(--blue-weak); color: var(--blue); }
+  .btn-gray { background: #f2f4f6; color: var(--text); }
+  .field {
+    background: #f9fafb;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 14px 16px;
+    outline: none;
+    transition: border-color 0.15s ease, background-color 0.15s ease;
+    width: 100%;
+  }
+  .field:focus { border-color: var(--blue); background: #fff; }
+  .chip {
+    border-radius: 999px;
+    padding: 7px 14px;
+    font-size: 14px;
+    font-weight: 600;
+    border: 1px solid var(--border);
+    background: #fff;
+    color: var(--sub);
+    transition: all 0.12s ease;
+    cursor: pointer;
+  }
+  .chip-on { background: var(--text); color: #fff; border-color: var(--text); }
+}
+
+@keyframes pop {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-pop { animation: pop 0.22s ease both; }
+
+@keyframes dot {
+  0%, 80%, 100% { opacity: 0.3; }
+  40% { opacity: 1; }
 }
