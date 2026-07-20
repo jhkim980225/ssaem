@@ -27,6 +27,22 @@ function renderMd(text: string): ReactNode[] {
   let i = 0;
   while (i < lines.length) {
     const line = lines[i];
+    // 코드펜스 블록
+    if (/^\s*```/.test(line)) {
+      const buf: string[] = [];
+      i++; // 여는 펜스 스킵
+      while (i < lines.length && !/^\s*```/.test(lines[i])) {
+        buf.push(lines[i]);
+        i++;
+      }
+      i++; // 닫는 펜스 스킵 (스트리밍 중 미도착이면 그냥 끝까지)
+      out.push(
+        <pre key={`c${i}`}>
+          <code>{buf.join("\n")}</code>
+        </pre>
+      );
+      continue;
+    }
     // 구분선
     if (/^\s*-{3,}\s*$/.test(line)) {
       out.push(<hr key={`h${i}`} />);
