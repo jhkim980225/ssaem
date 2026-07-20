@@ -6,7 +6,7 @@
 - Next.js 16 (App Router, TS, Tailwind, 반응형)
 - Supabase (Auth + Postgres + pgvector)
 - Claude API (답변 생성)
-- 임베딩: OpenAI `text-embedding-3-small` (선택 — 없으면 키워드 검색 폴백)
+- 임베딩: Gemini `gemini-embedding-001` 1536차원 (OPENAI_API_KEY 있으면 OpenAI 우선, 둘 다 없으면 키워드 폴백)
 
 ## 구조
 ```
@@ -22,7 +22,7 @@ supabase/schema.sql DB 스키마 v2 (설계: docs/db-design.md)
 2. `.env.local` 채우기:
    - `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`
    - `ANTHROPIC_API_KEY`
-   - (선택) `OPENAI_API_KEY` — 의미 검색용. 없으면 키워드 폴백.
+   - `GEMINI_API_KEY` — 답변 생성(무료)+임베딩. (선택) `ANTHROPIC_API_KEY`/`OPENAI_API_KEY` 있으면 우선.
 3. `npm run dev` → http://localhost:3000
 
 ## 흐름
