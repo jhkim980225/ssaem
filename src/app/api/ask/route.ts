@@ -19,7 +19,7 @@ export async function POST(req: Request) {
   // 강사 정보
   const { data: teacher } = await db
     .from("profiles")
-    .select("name, teacher_profiles(subject, tone_note)")
+    .select("name, teacher_profiles(subject)")
     .eq("id", teacherId)
     .eq("role", "teacher")
     .maybeSingle();
@@ -29,7 +29,7 @@ export async function POST(req: Request) {
   // 관련 청크 검색
   const hits = await retrieve(teacherId, question, 5);
   const system = buildTutorSystem(
-    { name: teacher.name, subject: tp?.subject, tone_note: tp?.tone_note },
+    { name: teacher.name, subject: tp?.subject },
     hits
   );
 

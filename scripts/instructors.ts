@@ -1,4 +1,4 @@
-// 강사 10명 픽스처. 각자 성격(tone) + 다른 과목 자료 + 검증용 질문.
+// 강사 10명 픽스처. 과목별 자료 + 검증용 질문.
 // 컴퓨터학원 기준 자격증 과목들.
 
 export type Material = { kind: "problem" | "style"; content: string };
@@ -6,7 +6,6 @@ export type Instructor = {
   id: string;
   name: string;
   subject: string;
-  tone: string;
   materials: Material[];
   // 검증: 이 질문 → expectIncludes 키워드가 든 청크가 top-1로 뽑혀야 함
   tests: { q: string; expectIncludes: string }[];
@@ -17,7 +16,6 @@ export const INSTRUCTORS: Instructor[] = [
     id: "t01",
     name: "김대차",
     subject: "전산회계 2급",
-    tone: "엄격하고 원칙을 강조한다. 존댓말을 쓰며, 학생이 자주 틀리는 부분을 정확히 짚어준다.",
     materials: [
       { kind: "problem", content: "거래의 8요소: 차변은 자산의 증가, 부채의 감소, 자본의 감소, 비용의 발생. 대변은 자산의 감소, 부채의 증가, 자본의 증가, 수익의 발생. 분개의 기본이므로 반드시 암기한다." },
       { kind: "problem", content: "시산표는 총계정원장 기록이 정확한지 검증한다. 차변 합계와 대변 합계가 일치해야 한다. 단, 분개 누락은 시산표로 발견할 수 없다." },
@@ -31,7 +29,6 @@ export const INSTRUCTORS: Instructor[] = [
     id: "t02",
     name: "이엑셀",
     subject: "컴퓨터활용능력 1급",
-    tone: "유머러스하고 비유를 잘 쓴다. 가끔 반말을 섞어 친근하게 설명한다.",
     materials: [
       { kind: "problem", content: "VLOOKUP은 세로로 값을 찾는다. =VLOOKUP(찾을값, 범위, 열번호, FALSE). 네번째 인자 FALSE는 정확히 일치, TRUE는 근사값이다. 실무에선 거의 FALSE를 쓴다." },
       { kind: "problem", content: "피벗테이블은 대량 데이터를 요약한다. 행, 열, 값 영역에 필드를 끌어 넣어 집계한다. 값 필드 설정에서 합계, 평균, 개수로 바꿀 수 있다." },
@@ -45,7 +42,6 @@ export const INSTRUCTORS: Instructor[] = [
     id: "t03",
     name: "박정보",
     subject: "정보처리기사",
-    tone: "차분하고 논리적이다. 개념을 단계별로 나눠 순서대로 설명한다.",
     materials: [
       { kind: "problem", content: "정규화는 데이터 중복을 줄인다. 1NF는 원자값, 2NF는 부분함수종속 제거, 3NF는 이행함수종속 제거, BCNF는 결정자가 후보키가 아닌 종속 제거다." },
       { kind: "problem", content: "블랙박스 테스트는 내부 구조를 모르고 입출력으로 검증한다. 동치분할, 경계값분석이 대표 기법이다. 화이트박스는 내부 로직 기반으로 커버리지를 본다." },
@@ -59,7 +55,6 @@ export const INSTRUCTORS: Instructor[] = [
     id: "t04",
     name: "최한글",
     subject: "워드프로세서",
-    tone: "친근하고 다정하다. 격려를 많이 하고 쉬운 말로 풀어준다.",
     materials: [
       { kind: "problem", content: "머리말과 꼬리말은 모든 페이지 위아래에 반복 표시된다. 쪽 번호는 꼬리말에 자주 넣는다. 짝수/홀수 페이지를 다르게 설정할 수도 있다." },
       { kind: "problem", content: "글맵시는 글자를 그림처럼 꾸미는 기능이다. 제목 디자인에 쓴다. 반면 문단 첫 글자 장식은 첫 글자를 크게 만드는 기능으로 서로 다르다." },
@@ -73,7 +68,6 @@ export const INSTRUCTORS: Instructor[] = [
     id: "t05",
     name: "정파이",
     subject: "파이썬 코딩",
-    tone: "열정적이고 템포가 빠르다. 예제 코드 중심으로 설명한다.",
     materials: [
       { kind: "problem", content: "리스트 컴프리헨션: [x*2 for x in range(5)] 는 [0,2,4,6,8]. 조건은 뒤에 붙인다. [x for x in nums if x>0]. 가독성 좋고 for문보다 빠르다." },
       { kind: "problem", content: "딕셔너리는 key-value 쌍이다. d = {'a':1}. d.get('b', 0)은 없으면 기본값 0 반환. for k, v in d.items() 로 순회한다." },
@@ -87,7 +81,6 @@ export const INSTRUCTORS: Instructor[] = [
     id: "t06",
     name: "강디비",
     subject: "SQLD",
-    tone: "깐깐하고 정의를 정확히 요구한다. 헷갈리는 개념을 콕 집어 구분해준다.",
     materials: [
       { kind: "problem", content: "JOIN 종류: INNER는 양쪽 일치 행만. LEFT OUTER는 왼쪽 전부 + 오른쪽 일치. 일치 없으면 NULL. CROSS는 곱집합이다." },
       { kind: "problem", content: "GROUP BY는 그룹으로 집계한다. HAVING은 그룹 조건, WHERE는 행 조건이다. 집계함수 조건은 WHERE가 아니라 HAVING에 쓴다." },
@@ -101,7 +94,6 @@ export const INSTRUCTORS: Instructor[] = [
     id: "t07",
     name: "문네트",
     subject: "네트워크관리사",
-    tone: "군더더기 없이 핵심만 간결하게 말한다.",
     materials: [
       { kind: "problem", content: "OSI 7계층: 물리-데이터링크-네트워크-전송-세션-표현-응용. 라우터는 3계층, 스위치는 2계층, 게이트웨이는 상위 계층에서 동작한다." },
       { kind: "problem", content: "서브넷 마스크 255.255.255.0 은 /24, 호스트 254개. TCP는 연결지향 신뢰성, UDP는 비연결 고속이다." },
@@ -115,7 +107,6 @@ export const INSTRUCTORS: Instructor[] = [
     id: "t08",
     name: "한포토",
     subject: "포토샵 그래픽",
-    tone: "감성적이고 시각적 비유를 즐겨 쓴다.",
     materials: [
       { kind: "problem", content: "레이어는 투명 필름을 겹치는 것과 같다. 위 레이어가 아래를 가린다. 레이어 마스크는 검은색으로 칠하면 숨기고 흰색으로 칠하면 드러낸다." },
       { kind: "problem", content: "클리핑 마스크는 아래 레이어 모양 안에만 위 레이어를 보이게 한다. 텍스트 안에 사진을 넣을 때 쓴다." },
@@ -129,7 +120,6 @@ export const INSTRUCTORS: Instructor[] = [
     id: "t09",
     name: "서리눅",
     subject: "리눅스마스터",
-    tone: "실전 위주다. 항상 실제 터미널 명령어 예시를 함께 준다.",
     materials: [
       { kind: "problem", content: "권한: chmod 755 file 은 소유자 rwx, 그룹/기타 r-x. chmod 644는 소유자 rw-, 나머지 r--. 숫자는 r=4 w=2 x=1의 합이다." },
       { kind: "problem", content: "프로세스: ps aux 로 목록 확인, kill -9 PID 로 강제 종료, top 으로 실시간 자원 사용을 본다. grep과 파이프로 필터링한다." },
@@ -143,7 +133,6 @@ export const INSTRUCTORS: Instructor[] = [
     id: "t10",
     name: "오시큐",
     subject: "정보보안기사",
-    tone: "신중하고 리스크를 강조한다. 위험 요소를 경고하는 톤이다.",
     materials: [
       { kind: "problem", content: "대칭키는 암호화/복호화 같은 키(AES), 빠르지만 키 분배가 문제. 비대칭키는 공개키/개인키 쌍(RSA)으로 키 분배를 해결하나 느리다." },
       { kind: "problem", content: "SQL 인젝션은 입력값에 악성 쿼리를 삽입하는 공격이다. 대응은 프리페어드 스테이트먼트와 입력값 검증이다. XSS는 스크립트 삽입 공격이다." },

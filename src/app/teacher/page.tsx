@@ -99,10 +99,8 @@ function Dashboard({ session }: { session: Session }) {
 
   const [name, setName] = useState("");
   const [subject, setSubject] = useState("");
-  const [tone, setTone] = useState("");
   const [savedProfile, setSavedProfile] = useState(false);
 
-  const [kind, setKind] = useState<"problem" | "style">("problem");
   const [content, setContent] = useState("");
   const [docs, setDocs] = useState<Doc[]>([]);
   const [events, setEvents] = useState<DocEvent[]>([]);
@@ -126,7 +124,6 @@ function Dashboard({ session }: { session: Session }) {
         if (d.profile) {
           setName(d.profile.name ?? "");
           setSubject(d.profile.subject ?? "");
-          setTone(d.profile.tone_note ?? "");
           setSavedProfile(true);
         }
       })
@@ -139,7 +136,7 @@ function Dashboard({ session }: { session: Session }) {
     const r = await fetch("/api/profile", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ name, subject, tone_note: tone }),
+      body: JSON.stringify({ name, subject }),
     });
     const d = await r.json();
     if (!r.ok) setMsg(d.error || "저장 실패");
@@ -162,7 +159,7 @@ function Dashboard({ session }: { session: Session }) {
     setMsg("PDF 처리 중…");
     const fd = new FormData();
     fd.append("file", file);
-    fd.append("kind", kind);
+    fd.append("kind", "problem");
     const r = await fetch("/api/upload", {
       method: "POST",
       headers: { Authorization: `Bearer ${token}` },
@@ -182,7 +179,7 @@ function Dashboard({ session }: { session: Session }) {
     const r = await fetch("/api/documents", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ kind, content }),
+      body: JSON.stringify({ kind: "problem", content }),
     });
     const d = await r.json();
     if (!r.ok) setMsg(d.error || "실패");
@@ -216,12 +213,6 @@ function Dashboard({ session }: { session: Session }) {
         </h2>
         <input className="field" placeholder="이름 (학생에게 표시)" value={name} onChange={(e) => setName(e.target.value)} />
         <input className="field" placeholder="과목 (예: 전산회계 2급)" value={subject} onChange={(e) => setSubject(e.target.value)} />
-        <textarea
-          className="field min-h-24 resize-none"
-          placeholder="말투/톤 지시 (예: 존댓말, 유머 섞기, 단계별로 차분히 설명)"
-          value={tone}
-          onChange={(e) => setTone(e.target.value)}
-        />
         <button onClick={saveProfile} className="btn btn-primary py-3 self-start px-6">
           프로필 저장
         </button>
@@ -230,17 +221,9 @@ function Dashboard({ session }: { session: Session }) {
       {/* 자료 */}
       <section className="rise d2 card p-5 lg:p-6 flex flex-col gap-3">
         <h2 className="font-bold text-[17px]">학습 자료</h2>
-        <div className="flex gap-2">
-          <button onClick={() => setKind("problem")} className={`chip ${kind === "problem" ? "chip-on" : ""}`}>
-            문제·풀이
-          </button>
-          <button onClick={() => setKind("style")} className={`chip ${kind === "style" ? "chip-on" : ""}`}>
-            말투 샘플
-          </button>
-        </div>
         <textarea
           className="field min-h-28 resize-none"
-          placeholder={kind === "problem" ? "문제와 풀이를 붙여넣으세요" : "평소 설명하는 말투 예시를 붙여넣으세요"}
+          placeholder="문제와 풀이를 붙여넣으세요"
           value={content}
           onChange={(e) => setContent(e.target.value)}
         />
@@ -274,7 +257,7 @@ function Dashboard({ session }: { session: Session }) {
                 <div className="text-[14px] min-w-0">
                   <div className="flex items-center gap-1.5 mb-1 flex-wrap">
                     <span className="chip !py-0.5 !px-2 !text-[11px]">
-                      {d.kind === "style" ? "말투" : "문제"}
+                      문제
                     </span>
                     {d.source === "pdf" && <span className="chip !py-0.5 !px-2 !text-[11px]">PDF</span>}
                     <span className="text-sub text-[11px]">청크 {d.chunks}개</span>
@@ -311,8 +294,7 @@ function Dashboard({ session }: { session: Session }) {
                 </span>
                 <span className="truncate flex-1">{e.title || "제목 없음"}</span>
                 <span className="text-sub shrink-0 text-[11px]">
-                  {e.kind === "style" ? "말투" : "문제"}
-                  {e.source === "pdf" ? "·PDF" : ""} · 청크 {e.chunks}
+                  문제{e.source === "pdf" ? "·PDF" : ""} · 청크 {e.chunks}
                 </span>
                 <span className="text-sub shrink-0 text-[11px]">
                   {new Date(e.created_at).toLocaleString("ko-KR", {
@@ -338,7 +320,7 @@ function Dashboard({ session }: { session: Session }) {
           <span className="chip !cursor-default">미리보기</span>
         </div>
         <p className="text-sub text-[13px] -mt-1">
-          등록한 자료·말투로 어떻게 답하는지 바로 확인하세요.
+          등록한 자료로 어떻게 답하는지 바로 확인하세요.
         </p>
         {savedProfile ? (
           <ChatPanel teacherId={uid} teacherName={name || "나"} compact />

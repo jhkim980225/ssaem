@@ -3,7 +3,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "학원 AI 튜터",
-  description: "선생님 말투 그대로 답해주는 AI 튜터",
+  description: "우리 선생님 자료로 답해주는 AI 튜터",
 };
 
 export const viewport: Viewport = {

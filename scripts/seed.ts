@@ -71,7 +71,7 @@ async function main() {
     }
 
     await db.from("profiles").upsert({ id: uid, academy_id: academyId, role: "teacher", name: ins.name });
-    await db.from("teacher_profiles").upsert({ id: uid, subject: ins.subject, tone_note: ins.tone, is_public: true });
+    await db.from("teacher_profiles").upsert({ id: uid, subject: ins.subject, is_public: true });
 
     // 기존 문서 제거 후 재삽입 (idempotent). chunks는 cascade.
     await db.from("documents").delete().eq("teacher_id", uid);

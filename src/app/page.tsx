@@ -13,13 +13,13 @@ export default function Home() {
       <div className="relative w-full max-w-md lg:max-w-2xl flex flex-col items-center text-center">
         <span className="rise chip chip-on mb-6 !cursor-default">✨ AI 튜터</span>
         <h1 className="rise d1 text-[32px] lg:text-[46px] leading-[1.25] font-extrabold tracking-tight">
-          선생님 말투 그대로,
+          우리 선생님 자료로
           <br />
           답해주는 AI
         </h1>
         <p className="rise d2 mt-4 text-[15px] lg:text-[17px] text-sub leading-relaxed">
-          강사님이 문제와 말투를 등록하면
-          <br className="lg:hidden" /> 학생은 그 선생님 스타일로 답변을 받아요.
+          강사님이 문제와 풀이를 등록하면
+          <br className="lg:hidden" /> 학생은 그 자료를 근거로 답변을 받아요.
         </p>
 
         <div className="rise d3 mt-10 w-full max-w-md flex flex-col sm:flex-row gap-3">
@@ -33,9 +33,9 @@ export default function Home() {
 
         <div className="mt-14 grid grid-cols-3 gap-3 lg:gap-4 w-full">
           {[
-            ["📚", "자료 등록", "문제·PDF·말투"],
+            ["📚", "자료 등록", "문제·풀이·PDF"],
             ["⚡", "자동 학습", "청킹·검색"],
-            ["💬", "말투 답변", "그 선생님처럼"],
+            ["💬", "근거 답변", "등록 자료 기반"],
           ].map(([e, t, s], i) => (
             <div key={t} className={`rise d${i + 4} card card-hover p-4 lg:p-6 text-center`}>
               <p className="text-[22px] lg:text-[28px]">{e}</p>
