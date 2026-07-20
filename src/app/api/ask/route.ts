@@ -74,20 +74,28 @@ export async function POST(req: Request) {
   const stream = new ReadableStream({
     async start(controller) {
       let answer = "";
+      // 클라이언트가 중간에 끊어도(탭 닫기) throw로 이력 저장까지 죽지 않게 가드
+      const push = (t: string) => {
+        try {
+          controller.enqueue(encoder.encode(t));
+        } catch {}
+      };
       try {
         for await (const delta of generateStream(system, [
           ...history,
           { role: "user", content: question },
         ])) {
           answer += delta;
-          controller.enqueue(encoder.encode(delta));
+          push(delta);
         }
       } catch (e) {
         const msg = `⚠️ 답변 생성 실패: ${e instanceof Error ? e.message : "unknown"}`;
-        if (!answer) controller.enqueue(encoder.encode(msg));
+        if (!answer) push(msg);
         console.error("generate:", e);
       }
-      controller.close();
+      try {
+        controller.close();
+      } catch {}
 
       // 이력 기록 (실패해도 답변엔 영향 없음)
       try {
