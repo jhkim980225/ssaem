@@ -89,9 +89,13 @@ export async function POST(req: Request) {
           push(delta);
         }
       } catch (e) {
-        const msg = `⚠️ 답변 생성 실패: ${e instanceof Error ? e.message : "unknown"}`;
+        const raw = e instanceof Error ? e.message : "unknown";
+        // 무료 쿼터 초과는 학생에게 친절하게 (영문 quota 에러 원문 노출 방지)
+        const msg = /429|quota|rate/i.test(raw)
+          ? "⚠️ 지금 질문이 몰려 있어요. 잠시 후(1분 정도) 다시 시도해 주세요."
+          : `⚠️ 답변 생성 실패: ${raw.slice(0, 120)}`;
         if (!answer) push(msg);
-        console.error("generate:", e);
+        console.error("generate:", raw);
       }
       try {
         controller.close();
