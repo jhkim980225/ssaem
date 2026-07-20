@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { serviceClient } from "@/lib/supabase";
 import { retrieve } from "@/lib/retrieve";
-import { anthropic, MODEL } from "@/lib/anthropic";
+import { generate, hasLlmKey } from "@/lib/anthropic";
 import { buildTutorSystem } from "@/lib/prompt";
 
 const HISTORY_LIMIT = 10; // 직전 메시지 N개만 맥락으로 (토큰 방어)
@@ -45,19 +45,26 @@ export async function POST(req: Request) {
     if (prior) history.push(...(prior.reverse() as typeof history));
   }
 
-  const started = Date.now();
-  const msg = await anthropic.messages.create({
-    model: MODEL,
-    max_tokens: 1200,
-    system,
-    messages: [...history, { role: "user", content: question }],
-  });
-  const latency = Date.now() - started;
+  // ponytail: LLM 키 전무하면 답변 생성 생략, 검색 결과만 반환 (비용 0 체험 모드)
+  if (!hasLlmKey()) {
+    const preview = hits
+      .map((h, i) => `[근거 ${i + 1}] ${h.content.slice(0, 200)}`)
+      .join("\n\n");
+    return NextResponse.json({
+      answer:
+        `⚠️ AI 답변 생성 꺼짐 (API 키 미설정).\n관련 자료 ${hits.length}개 검색됨:\n\n` +
+        (preview || "관련 자료 없음."),
+      used: hits.length,
+      conversationId,
+    });
+  }
 
-  const answer = msg.content
-    .map((b) => (b.type === "text" ? b.text : ""))
-    .join("\n")
-    .trim();
+  const started = Date.now();
+  const { text: answer, model: usedModel } = await generate(system, [
+    ...history,
+    { role: "user", content: question },
+  ]);
+  const latency = Date.now() - started;
 
   // 이력 기록 (실패해도 답변엔 영향 없음)
   try {
@@ -77,7 +84,7 @@ export async function POST(req: Request) {
         conversation_id: conversationId,
         role: "assistant",
         content: answer,
-        model: MODEL,
+        model: usedModel,
         latency_ms: latency,
       })
       .select("id")
