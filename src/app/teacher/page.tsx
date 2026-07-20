@@ -11,6 +11,7 @@ type Doc = {
   title: string | null;
   source: string;
   preview: string;
+  raw: string;
   chunks: number;
   created_at: string;
 };
@@ -57,17 +58,30 @@ export default function TeacherPage() {
 function AuthForm() {
   const [email, setEmail] = useState("");
   const [pw, setPw] = useState("");
+  const [invite, setInvite] = useState("");
   const [mode, setMode] = useState<"login" | "signup">("login");
   const [msg, setMsg] = useState("");
 
   async function submit() {
     setMsg("");
-    const { error } =
-      mode === "login"
-        ? await supabase.auth.signInWithPassword({ email, password: pw })
-        : await supabase.auth.signUp({ email, password: pw });
+    if (mode === "login") {
+      const { error } = await supabase.auth.signInWithPassword({ email, password: pw });
+      if (error) setMsg(error.message);
+      return;
+    }
+    // 가입: 초대코드 검증 서버 라우트 → 성공 시 바로 로그인
+    const r = await fetch("/api/signup", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password: pw, inviteCode: invite }),
+    });
+    const d = await r.json();
+    if (!r.ok) {
+      setMsg(d.error || "가입 실패");
+      return;
+    }
+    const { error } = await supabase.auth.signInWithPassword({ email, password: pw });
     if (error) setMsg(error.message);
-    else if (mode === "signup") setMsg("가입 완료. 메일 확인 후 로그인해 주세요.");
   }
 
   return (
@@ -79,6 +93,9 @@ function AuthForm() {
       <p className="rise d2 text-sub text-[14px] mb-3">계정으로 나만의 AI 튜터를 관리해요.</p>
       <input className="field" placeholder="이메일" value={email} onChange={(e) => setEmail(e.target.value)} />
       <input className="field" type="password" placeholder="비밀번호" value={pw} onChange={(e) => setPw(e.target.value)} />
+      {mode === "signup" && (
+        <input className="field" placeholder="초대코드" value={invite} onChange={(e) => setInvite(e.target.value)} />
+      )}
       <button onClick={submit} className="btn btn-primary py-4 mt-1">
         {mode === "login" ? "로그인" : "가입하기"}
       </button>
@@ -143,6 +160,26 @@ function Dashboard({ session }: { session: Session }) {
     else {
       setSavedProfile(true);
       setMsg("프로필 저장됨");
+    }
+  }
+
+  const [editId, setEditId] = useState<string | null>(null);
+  const [editText, setEditText] = useState("");
+
+  async function saveEdit() {
+    if (!editId || !editText.trim()) return;
+    setMsg("수정 중… (재청킹·재임베딩)");
+    const r = await fetch("/api/documents", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ id: editId, content: editText }),
+    });
+    const d = await r.json();
+    if (!r.ok) setMsg(d.error || "수정 실패");
+    else {
+      setMsg(`수정됨 (${d.chunks}청크)`);
+      setEditId(null);
+      loadDocs();
     }
   }
 
@@ -252,7 +289,20 @@ function Dashboard({ session }: { session: Session }) {
             <p className="text-sub text-[13px]">
               등록된 자료 {docs.length}개 · 청크 {docs.reduce((s, d) => s + d.chunks, 0)}개
             </p>
-            {docs.map((d) => (
+            {docs.map((d) =>
+              editId === d.id ? (
+                <div key={d.id} className="flex flex-col gap-2 rounded-[14px] border border-line p-3" style={{ background: "var(--fill-2)" }}>
+                  <textarea
+                    className="field min-h-32 resize-none !bg-white dark:!bg-transparent"
+                    value={editText}
+                    onChange={(e) => setEditText(e.target.value)}
+                  />
+                  <div className="flex gap-2">
+                    <button onClick={saveEdit} className="btn btn-primary py-2 px-5 text-[13px]">저장</button>
+                    <button onClick={() => setEditId(null)} className="btn btn-gray py-2 px-5 text-[13px]">취소</button>
+                  </div>
+                </div>
+              ) : (
               <div key={d.id} className="flex justify-between gap-2 rounded-[14px] border border-line p-3" style={{ background: "var(--fill-2)" }}>
                 <div className="text-[14px] min-w-0">
                   <div className="flex items-center gap-1.5 mb-1 flex-wrap">
@@ -265,11 +315,22 @@ function Dashboard({ session }: { session: Session }) {
                   <p className="font-medium truncate">{d.title || "제목 없음"}</p>
                   <p className="text-sub text-[13px] break-words">{d.preview}</p>
                 </div>
-                <button onClick={() => removeDoc(d.id)} className="shrink-0 text-[13px]" style={{ color: "var(--red)" }}>
-                  삭제
-                </button>
+                <div className="shrink-0 flex flex-col gap-2 items-end">
+                  {d.source === "text" && (
+                    <button
+                      onClick={() => { setEditId(d.id); setEditText(d.raw); }}
+                      className="text-[13px] text-blue"
+                    >
+                      수정
+                    </button>
+                  )}
+                  <button onClick={() => removeDoc(d.id)} className="text-[13px]" style={{ color: "var(--red)" }}>
+                    삭제
+                  </button>
+                </div>
               </div>
-            ))}
+              )
+            )}
           </div>
         )}
       </section>
@@ -329,6 +390,9 @@ function Dashboard({ session }: { session: Session }) {
         )}
       </section>
 
+      <Link href="/teacher/history" className="rise d4 btn btn-gray py-4 text-center">
+        학생 질문 이력 →
+      </Link>
       <Link href="/ask" className="rise d4 btn btn-ghost py-4 text-center">
         학생 화면으로 보기 →
       </Link>
