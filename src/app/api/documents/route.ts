@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { serviceClient } from "@/lib/supabase";
 import { teacherFromRequest } from "@/lib/auth";
-import { saveDocument, logDocumentEvent } from "@/lib/documents";
+import { saveDocument, updateDocument, logDocumentEvent } from "@/lib/documents";
 
 // 내 문서 목록 (청크 수 포함)
 export async function GET(req: Request) {
@@ -25,6 +25,7 @@ export async function GET(req: Request) {
     title: d.title,
     source: d.source,
     preview: d.raw_text.slice(0, 120),
+    raw: d.source === "text" ? d.raw_text : "", // 수정 프리필용 (PDF는 수정 불가)
     chunks: d.chunks?.[0]?.count ?? 0,
     created_at: d.created_at,
   }));
@@ -46,6 +47,25 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true, ...r });
   } catch (e) {
     return NextResponse.json({ error: e instanceof Error ? e.message : "실패" }, { status: 500 });
+  }
+}
+
+// 텍스트 자료 수정 (원문 교체 → 재청킹·재임베딩)
+export async function PATCH(req: Request) {
+  const uid = await teacherFromRequest(req);
+  if (!uid) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+
+  const body = await req.json().catch(() => null);
+  const id = (body?.id ?? "").toString();
+  const content = (body?.content ?? "").toString().trim();
+  if (!id || !content) return NextResponse.json({ error: "id, content required" }, { status: 400 });
+
+  try {
+    const r = await updateDocument({ documentId: id, teacherId: uid, rawText: content });
+    return NextResponse.json({ ok: true, ...r });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "실패";
+    return NextResponse.json({ error: msg }, { status: msg === "not found" ? 404 : 500 });
   }
 }
 
