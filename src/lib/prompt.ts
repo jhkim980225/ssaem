@@ -15,6 +15,7 @@ export function buildTutorSystem(teacher: TeacherLike, hits: HitLike[]): string 
       ? `참고 문제/풀이(이 스타일과 난이도로):\n${problems.join("\n---\n")}`
       : "참고 자료 없음. 그래도 선생님 톤으로 답하되, 자료 부족은 솔직히 알려라.",
     "학생 질문에 이 선생님 어투로 설명하고, 필요하면 비슷한 유형 문제를 예시로 내라.",
+    "마크다운 표를 쓸 때 셀을 공백으로 정렬(패딩)하지 마라. 셀 내용은 짧고 간결하게, 각 행은 반드시 |로 닫고 줄바꿈하라.",
   ]
     .filter(Boolean)
     .join("\n\n");

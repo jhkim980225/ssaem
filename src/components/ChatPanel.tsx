@@ -21,7 +21,8 @@ function inline(s: string, key = 0): ReactNode[] {
 }
 
 function renderMd(text: string): ReactNode[] {
-  const lines = text.split("\n");
+  // 방어: 모델이 표 정렬용으로 뿜는 공백 폭주 제거
+  const lines = text.replace(/ {3,}/g, " ").split("\n");
   const out: ReactNode[] = [];
   let i = 0;
   while (i < lines.length) {
@@ -43,10 +44,11 @@ function renderMd(text: string): ReactNode[] {
       continue;
     }
     // 표 블록
-    if (/^\s*\|.*\|\s*$/.test(line)) {
+    if (/^\s*\|.+/.test(line)) {
       const rows: string[][] = [];
-      while (i < lines.length && /^\s*\|.*\|\s*$/.test(lines[i])) {
-        const cells = lines[i].trim().slice(1, -1).split("|").map((c) => c.trim());
+      while (i < lines.length && /^\s*\|.+/.test(lines[i])) {
+        // 스트리밍 중 끝 | 가 아직 안 온 행도 허용
+        const cells = lines[i].trim().replace(/^\|/, "").replace(/\|\s*$/, "").split("|").map((c) => c.trim());
         if (!cells.every((c) => /^:?-{2,}:?$/.test(c))) rows.push(cells); // 구분선 스킵
         i++;
       }
@@ -121,9 +123,34 @@ export default function ChatPanel({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ teacherId, question, conversationId }),
       });
-      const d = await r.json();
-      if (r.ok && d.conversationId) setConversationId(d.conversationId);
-      setMsgs((m) => [...m, { role: "tutor", text: r.ok ? d.answer : `⚠️ ${d.error}` }]);
+      const convId = r.headers.get("X-Conversation-Id");
+      if (convId) setConversationId(convId);
+
+      // 에러·체험모드는 JSON, 정상 답변은 텍스트 스트림
+      if (r.headers.get("content-type")?.includes("application/json")) {
+        const d = await r.json();
+        if (r.ok && d.conversationId) setConversationId(d.conversationId);
+        setMsgs((m) => [...m, { role: "tutor", text: r.ok ? d.answer : `⚠️ ${d.error}` }]);
+      } else if (r.body) {
+        setLoading(false);
+        setMsgs((m) => [...m, { role: "tutor", text: "" }]);
+        const reader = r.body.getReader();
+        const dec = new TextDecoder();
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          const chunk = dec.decode(value, { stream: true });
+          setMsgs((m) => {
+            const next = m.slice();
+            next[next.length - 1] = {
+              role: "tutor",
+              text: next[next.length - 1].text + chunk,
+            };
+            return next;
+          });
+          scrollDown();
+        }
+      }
     } catch {
       setMsgs((m) => [...m, { role: "tutor", text: "⚠️ 요청 실패" }]);
     } finally {

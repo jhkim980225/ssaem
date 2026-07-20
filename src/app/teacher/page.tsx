@@ -270,7 +270,7 @@ function Dashboard({ session }: { session: Session }) {
               등록된 자료 {docs.length}개 · 청크 {docs.reduce((s, d) => s + d.chunks, 0)}개
             </p>
             {docs.map((d) => (
-              <div key={d.id} className="flex justify-between gap-2 rounded-[14px] bg-[#f9fafb] border border-line p-3">
+              <div key={d.id} className="flex justify-between gap-2 rounded-[14px] border border-line p-3" style={{ background: "var(--fill-2)" }}>
                 <div className="text-[14px] min-w-0">
                   <div className="flex items-center gap-1.5 mb-1 flex-wrap">
                     <span className="chip !py-0.5 !px-2 !text-[11px]">
@@ -304,7 +304,7 @@ function Dashboard({ session }: { session: Session }) {
                   style={
                     e.action === "created"
                       ? { background: "var(--blue-weak)", color: "var(--blue)", borderColor: "transparent" }
-                      : { background: "#fdeced", color: "var(--red)", borderColor: "transparent" }
+                      : { background: "var(--red-weak)", color: "var(--red)", borderColor: "transparent" }
                   }
                 >
                   {e.action === "created" ? "등록" : "제거"}

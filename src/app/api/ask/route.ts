@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { serviceClient } from "@/lib/supabase";
 import { retrieve } from "@/lib/retrieve";
-import { generate, hasLlmKey } from "@/lib/anthropic";
+import { generateStream, llmModel, hasLlmKey } from "@/lib/anthropic";
 import { buildTutorSystem } from "@/lib/prompt";
 
 const HISTORY_LIMIT = 10; // 직전 메시지 N개만 맥락으로 (토큰 방어)
@@ -33,18 +33,6 @@ export async function POST(req: Request) {
     hits
   );
 
-  // 대화 맥락 (이어지는 질문 지원)
-  const history: { role: "user" | "assistant"; content: string }[] = [];
-  if (conversationId) {
-    const { data: prior } = await db
-      .from("messages")
-      .select("role, content")
-      .eq("conversation_id", conversationId)
-      .order("created_at", { ascending: false })
-      .limit(HISTORY_LIMIT);
-    if (prior) history.push(...(prior.reverse() as typeof history));
-  }
-
   // ponytail: LLM 키 전무하면 답변 생성 생략, 검색 결과만 반환 (비용 0 체험 모드)
   if (!hasLlmKey()) {
     const preview = hits
@@ -59,44 +47,79 @@ export async function POST(req: Request) {
     });
   }
 
-  const started = Date.now();
-  const { text: answer, model: usedModel } = await generate(system, [
-    ...history,
-    { role: "user", content: question },
-  ]);
-  const latency = Date.now() - started;
-
-  // 이력 기록 (실패해도 답변엔 영향 없음)
-  try {
-    if (!conversationId) {
-      const { data: conv, error } = await db
-        .from("conversations")
-        .insert({ teacher_id: teacherId, title: question.slice(0, 60) })
-        .select("id")
-        .single();
-      if (error) throw error;
-      conversationId = conv.id;
-    }
-    await db.from("messages").insert({ conversation_id: conversationId, role: "user", content: question });
-    const { data: am } = await db
+  // 대화 맥락 (이어지는 질문 지원)
+  const history: { role: "user" | "assistant"; content: string }[] = [];
+  if (conversationId) {
+    const { data: prior } = await db
       .from("messages")
-      .insert({
-        conversation_id: conversationId,
-        role: "assistant",
-        content: answer,
-        model: usedModel,
-        latency_ms: latency,
-      })
-      .select("id")
-      .single();
-    if (am && hits.length) {
-      await db.from("message_citations").insert(
-        hits.map((h) => ({ message_id: am.id, chunk_id: h.id, similarity: h.similarity ?? null }))
-      );
-    }
-  } catch (e) {
-    console.error("history write:", e instanceof Error ? e.message : e);
+      .select("role, content")
+      .eq("conversation_id", conversationId)
+      .order("created_at", { ascending: false })
+      .limit(HISTORY_LIMIT);
+    if (prior) history.push(...(prior.reverse() as typeof history));
   }
 
-  return NextResponse.json({ answer, used: hits.length, conversationId });
+  // 스트리밍 전에 conversation 확보 → 헤더로 ID 전달
+  if (!conversationId) {
+    const { data: conv } = await db
+      .from("conversations")
+      .insert({ teacher_id: teacherId, title: question.slice(0, 60) })
+      .select("id")
+      .single();
+    conversationId = conv?.id ?? null;
+  }
+
+  const started = Date.now();
+  const encoder = new TextEncoder();
+  const stream = new ReadableStream({
+    async start(controller) {
+      let answer = "";
+      try {
+        for await (const delta of generateStream(system, [
+          ...history,
+          { role: "user", content: question },
+        ])) {
+          answer += delta;
+          controller.enqueue(encoder.encode(delta));
+        }
+      } catch (e) {
+        const msg = `⚠️ 답변 생성 실패: ${e instanceof Error ? e.message : "unknown"}`;
+        if (!answer) controller.enqueue(encoder.encode(msg));
+        console.error("generate:", e);
+      }
+      controller.close();
+
+      // 이력 기록 (실패해도 답변엔 영향 없음)
+      try {
+        if (!conversationId || !answer) return;
+        await db.from("messages").insert({ conversation_id: conversationId, role: "user", content: question });
+        const { data: am } = await db
+          .from("messages")
+          .insert({
+            conversation_id: conversationId,
+            role: "assistant",
+            content: answer,
+            model: llmModel(),
+            latency_ms: Date.now() - started,
+          })
+          .select("id")
+          .single();
+        if (am && hits.length) {
+          await db.from("message_citations").insert(
+            hits.map((h) => ({ message_id: am.id, chunk_id: h.id, similarity: h.similarity ?? null }))
+          );
+        }
+      } catch (e) {
+        console.error("history write:", e instanceof Error ? e.message : e);
+      }
+    },
+  });
+
+  return new Response(stream, {
+    headers: {
+      "Content-Type": "text/plain; charset=utf-8",
+      "Cache-Control": "no-store",
+      ...(conversationId ? { "X-Conversation-Id": conversationId } : {}),
+    },
+  });
 }
