@@ -34,6 +34,7 @@ export async function generate(system: string, messages: ChatMsg[], maxTokens = 
     body: JSON.stringify({
       model: GEMINI_MODEL,
       max_tokens: maxTokens,
+      reasoning_effort: "none", // thinking 토큰이 max_tokens 먹어서 답변 잘리는 것 방지
       messages: [{ role: "system", content: system }, ...messages],
     }),
   });

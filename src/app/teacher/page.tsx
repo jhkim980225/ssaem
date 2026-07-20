@@ -39,9 +39,16 @@ export default function TeacherPage() {
   }, []);
 
   if (!ready)
-    return <main className="flex-1 grid place-items-center text-sub">로딩…</main>;
+    return (
+      <main className="flex-1 grid place-items-center">
+        <div className="flex flex-col items-center gap-3">
+          <div className="skel w-12 h-12 !rounded-full" />
+          <div className="skel h-3.5 w-24" />
+        </div>
+      </main>
+    );
   return (
-    <main className="flex-1 w-full max-w-lg mx-auto px-5 py-8">
+    <main className={`flex-1 w-full mx-auto px-5 py-8 ${session ? "max-w-lg lg:max-w-6xl" : "max-w-lg"}`}>
       {session ? <Dashboard session={session} /> : <AuthForm />}
     </main>
   );
@@ -65,11 +72,11 @@ function AuthForm() {
 
   return (
     <div className="animate-pop flex flex-col gap-3 max-w-sm mx-auto mt-10">
-      <Link href="/" className="text-sub text-[14px] mb-2">
+      <Link href="/" className="rise text-sub text-[14px] mb-2">
         ← 홈
       </Link>
-      <h1 className="text-[26px] font-extrabold">강사 {mode === "login" ? "로그인" : "가입"}</h1>
-      <p className="text-sub text-[14px] mb-3">계정으로 나만의 AI 튜터를 관리해요.</p>
+      <h1 className="rise d1 text-[26px] font-extrabold">강사 {mode === "login" ? "로그인" : "가입"}</h1>
+      <p className="rise d2 text-sub text-[14px] mb-3">계정으로 나만의 AI 튜터를 관리해요.</p>
       <input className="field" placeholder="이메일" value={email} onChange={(e) => setEmail(e.target.value)} />
       <input className="field" type="password" placeholder="비밀번호" value={pw} onChange={(e) => setPw(e.target.value)} />
       <button onClick={submit} className="btn btn-primary py-4 mt-1">
@@ -187,21 +194,23 @@ function Dashboard({ session }: { session: Session }) {
   }
 
   return (
-    <div className="animate-pop flex flex-col gap-4">
-      <div className="flex justify-between items-center">
+    <div className="flex flex-col gap-4">
+      <div className="rise flex justify-between items-center">
         <div>
           <Link href="/" className="text-sub text-[13px]">
             ← 홈
           </Link>
-          <h1 className="text-[24px] font-extrabold">강사 대시보드</h1>
+          <h1 className="text-[24px] lg:text-[28px] font-extrabold">강사 대시보드</h1>
         </div>
         <button onClick={() => supabase.auth.signOut()} className="chip">
           로그아웃
         </button>
       </div>
 
+      <div className="lg:grid lg:grid-cols-[1fr_420px] lg:gap-5 lg:items-start flex flex-col gap-4">
+      <div className="flex flex-col gap-4 min-w-0">
       {/* 프로필 */}
-      <section className="card p-5 flex flex-col gap-3">
+      <section className="rise d1 card p-5 lg:p-6 flex flex-col gap-3">
         <h2 className="font-bold text-[17px]">
           내 프로필 {!savedProfile && <span className="text-blue text-[13px]">· 먼저 저장하세요</span>}
         </h2>
@@ -219,7 +228,7 @@ function Dashboard({ session }: { session: Session }) {
       </section>
 
       {/* 자료 */}
-      <section className="card p-5 flex flex-col gap-3">
+      <section className="rise d2 card p-5 lg:p-6 flex flex-col gap-3">
         <h2 className="font-bold text-[17px]">학습 자료</h2>
         <div className="flex gap-2">
           <button onClick={() => setKind("problem")} className={`chip ${kind === "problem" ? "chip-on" : ""}`}>
@@ -284,7 +293,7 @@ function Dashboard({ session }: { session: Session }) {
 
       {/* 자료 기록 (감사 로그) */}
       {events.length > 0 && (
-        <section className="card p-5 flex flex-col gap-3">
+        <section className="rise d3 card p-5 lg:p-6 flex flex-col gap-3">
           <h2 className="font-bold text-[17px]">자료 기록</h2>
           <p className="text-sub text-[13px] -mt-1">등록·제거 이력. 지운 자료도 기록은 남아요.</p>
           <div className="flex flex-col gap-2">
@@ -319,8 +328,11 @@ function Dashboard({ session }: { session: Session }) {
         </section>
       )}
 
-      {/* 자가 테스트 */}
-      <section className="card p-5 flex flex-col gap-3">
+      </div>
+
+      {/* 우측(PC) / 하단(모바일): 자가 테스트 */}
+      <div className="flex flex-col gap-4 lg:sticky lg:top-6">
+      <section className="rise d3 card p-5 lg:p-6 flex flex-col gap-3">
         <div className="flex items-center justify-between">
           <h2 className="font-bold text-[17px]">내 튜터 직접 테스트</h2>
           <span className="chip !cursor-default">미리보기</span>
@@ -335,9 +347,11 @@ function Dashboard({ session }: { session: Session }) {
         )}
       </section>
 
-      <Link href="/ask" className="btn btn-ghost py-4 text-center">
+      <Link href="/ask" className="rise d4 btn btn-ghost py-4 text-center">
         학생 화면으로 보기 →
       </Link>
+      </div>
+      </div>
     </div>
   );
 }
