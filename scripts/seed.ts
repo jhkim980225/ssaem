@@ -16,7 +16,7 @@ if (!url || !key) {
   process.exit(1);
 }
 const db = createClient(url, key, { auth: { persistSession: false } });
-const DEFAULT_PW = process.env.SEED_PASSWORD || "academy1234";
+const DEFAULT_PW = process.env.SEED_PASSWORD || "123456"; // supabase 최소 6자
 const SLUG = process.env.DEFAULT_ACADEMY_SLUG || "default";
 const ACADEMY_NAME = process.env.DEFAULT_ACADEMY_NAME || "우리학원";
 
@@ -39,17 +39,31 @@ async function ensureUser(email: string): Promise<string | null> {
     email_confirm: true,
   });
   if (!error && created?.user) return created.user.id;
-  // 이미 존재 → 조회
+  // 이미 존재 → 조회 + 비번을 현재 DEFAULT_PW로 갱신 (idempotent)
   const { data: list } = await db.auth.admin.listUsers();
-  return list?.users.find((u) => u.email === email)?.id ?? null;
+  const u = list?.users.find((x) => x.email === email);
+  if (u) await db.auth.admin.updateUserById(u.id, { password: DEFAULT_PW });
+  return u?.id ?? null;
+}
+
+// 구 도메인(@academy.test) 시드 계정 정리 — 목록 중복 방지
+async function cleanupOldSeedUsers() {
+  const { data: list } = await db.auth.admin.listUsers();
+  for (const u of list?.users ?? []) {
+    if (u.email?.endsWith("@academy.test")) {
+      await db.auth.admin.deleteUser(u.id); // profiles 등은 FK cascade
+      console.log(`🧹 구 계정 삭제: ${u.email}`);
+    }
+  }
 }
 
 async function main() {
   const academyId = await ensureAcademy();
   console.log(`학원: ${ACADEMY_NAME} (${SLUG})\n`);
+  await cleanupOldSeedUsers();
 
   for (const ins of INSTRUCTORS) {
-    const email = `${ins.id}@academy.test`;
+    const email = `${ins.id}@a.test`;
     const uid = await ensureUser(email);
     if (!uid) {
       console.error(`❌ ${ins.name}: 계정 생성/조회 실패`);
@@ -95,7 +109,7 @@ async function main() {
 
     console.log(`✅ ${ins.name} (${email}) — 문서 ${ins.materials.length}개 / 청크 ${total}개`);
   }
-  console.log(`\n완료. 로그인: <id>@academy.test / ${DEFAULT_PW}`);
+  console.log(`\n완료. 로그인: <id>@a.test / ${DEFAULT_PW}`);
 }
 
 main().catch((e) => {

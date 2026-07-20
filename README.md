@@ -34,7 +34,7 @@ supabase/schema.sql DB 스키마 v2 (설계: docs/db-design.md)
 - `npx tsx scripts/verify-instructors.ts` — 강사 10명 성격/자료/검색/프롬프트 (20/20)
 
 ## 시드 (Supabase 준비 후)
-- `npx tsx scripts/seed.ts` — 강사 10명 자동 생성. 로그인 `<id>@academy.test / academy1234`
+- `npx tsx scripts/seed.ts` — 강사 10명 자동 생성. 로그인 `<id>@a.test / 123456`
 
 ## 구현됨
 - 선생님 로그인·프로필·자료(텍스트/PDF) 등록·삭제
