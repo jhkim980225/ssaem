@@ -48,3 +48,63 @@ export async function embed(text: string): Promise<number[] | null> {
 
   return null;
 }
+
+// 여러 텍스트 한 번에 임베딩 (문서 등록/수정용 — 청크당 1콜 → 배치 1콜).
+export async function embedMany(texts: string[]): Promise<(number[] | null)[]> {
+  if (texts.length === 0) return [];
+  const inputs = texts.map((t) => t.slice(0, 8000));
+
+  if (process.env.OPENAI_API_KEY) {
+    const model = process.env.EMBED_MODEL || "text-embedding-3-small";
+    const res = await fetch("https://api.openai.com/v1/embeddings", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+      },
+      body: JSON.stringify({ model, input: inputs }),
+    });
+    if (!res.ok) throw new Error(`embed failed: ${res.status} ${await res.text()}`);
+    const data = (await res.json()).data as { index: number; embedding: number[] }[];
+    const out: (number[] | null)[] = new Array(inputs.length).fill(null);
+    for (const d of data) out[d.index] = d.embedding;
+    return out;
+  }
+
+  if (process.env.GEMINI_API_KEY) {
+    const model = process.env.GEMINI_EMBED_MODEL || "gemini-embedding-001";
+    const out: (number[] | null)[] = [];
+    // 배치 API 요청당 100개 제한
+    for (let s = 0; s < inputs.length; s += 100) {
+      const batch = inputs.slice(s, s + 100);
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${model}:batchEmbedContents`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-goog-api-key": process.env.GEMINI_API_KEY,
+          },
+          body: JSON.stringify({
+            requests: batch.map((text) => ({
+              model: `models/${model}`,
+              content: { parts: [{ text }] },
+              outputDimensionality: DIM,
+            })),
+          }),
+        }
+      );
+      if (!res.ok) throw new Error(`embed failed: ${res.status} ${await res.text()}`);
+      const embs = (await res.json()).embeddings as { values: number[] }[];
+      for (const e of embs) {
+        const v = e?.values;
+        if (!Array.isArray(v) || v.length !== DIM) throw new Error("bad embedding dim");
+        const norm = Math.hypot(...v) || 1;
+        out.push(v.map((x) => x / norm));
+      }
+    }
+    return out;
+  }
+
+  return inputs.map(() => null);
+}

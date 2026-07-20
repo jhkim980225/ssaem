@@ -1,5 +1,5 @@
 import { serviceClient } from "./supabase";
-import { embed } from "./embed";
+import { embedMany } from "./embed";
 import { chunkText } from "./chunk";
 
 // 원본 문서 저장 + 청킹 + 청크별 임베딩. 텍스트/PDF 공용.
@@ -28,16 +28,14 @@ export async function saveDocument(opts: {
   if (derr) throw derr;
 
   const pieces = chunkText(opts.rawText);
-  const rows = [];
-  for (let i = 0; i < pieces.length; i++) {
-    rows.push({
-      document_id: doc.id,
-      teacher_id: opts.teacherId,
-      ord: i,
-      content: pieces[i],
-      embedding: await embed(pieces[i]),
-    });
-  }
+  const vecs = await embedMany(pieces);
+  const rows = pieces.map((content, i) => ({
+    document_id: doc.id,
+    teacher_id: opts.teacherId,
+    ord: i,
+    content,
+    embedding: vecs[i],
+  }));
   const { error: cerr } = await db.from("chunks").insert(rows);
   if (cerr) throw cerr;
 
@@ -85,16 +83,14 @@ export async function updateDocument(opts: {
   if (derr) throw derr;
 
   const pieces = chunkText(opts.rawText);
-  const rows = [];
-  for (let i = 0; i < pieces.length; i++) {
-    rows.push({
-      document_id: opts.documentId,
-      teacher_id: opts.teacherId,
-      ord: i,
-      content: pieces[i],
-      embedding: await embed(pieces[i]),
-    });
-  }
+  const vecs = await embedMany(pieces);
+  const rows = pieces.map((content, i) => ({
+    document_id: opts.documentId,
+    teacher_id: opts.teacherId,
+    ord: i,
+    content,
+    embedding: vecs[i],
+  }));
   const { error: cerr } = await db.from("chunks").insert(rows);
   if (cerr) throw cerr;
 

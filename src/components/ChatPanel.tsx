@@ -1,5 +1,5 @@
 "use client";
-import { useRef, useState, type ReactNode } from "react";
+import { memo, useRef, useState, type ReactNode } from "react";
 import { avatarEmoji } from "@/lib/avatar";
 
 type Msg = { role: "user" | "tutor"; text: string };
@@ -105,6 +105,19 @@ function renderMd(text: string): ReactNode[] {
   return out;
 }
 
+// memo: 스트리밍 중 델타가 올 때마다 전체 목록이 리렌더되는데,
+// 텍스트 안 바뀐 이전 말풍선은 renderMd 재파싱 스킵 (긴 대화에서 체감).
+const TutorBubble = memo(function TutorBubble({ text, emoji }: { text: string; emoji: string }) {
+  return (
+    <div className="bubble-in self-start flex items-end gap-2 max-w-[92%]">
+      <div className="avatar !w-8 !h-8 !text-[15px] mb-1">{emoji}</div>
+      <div className="md card !rounded-[20px] !rounded-bl-[6px] px-4 py-3 text-[15px] leading-relaxed whitespace-pre-wrap min-w-0">
+        {renderMd(text)}
+      </div>
+    </div>
+  );
+});
+
 export default function ChatPanel({
   teacherId,
   teacherName,
@@ -202,12 +215,7 @@ export default function ChatPanel({
               {m.text}
             </div>
           ) : (
-            <div key={i} className="bubble-in self-start flex items-end gap-2 max-w-[92%]">
-              <div className="avatar !w-8 !h-8 !text-[15px] mb-1">{emoji}</div>
-              <div className="md card !rounded-[20px] !rounded-bl-[6px] px-4 py-3 text-[15px] leading-relaxed whitespace-pre-wrap min-w-0">
-                {renderMd(m.text)}
-              </div>
-            </div>
+            <TutorBubble key={i} text={m.text} emoji={emoji} />
           )
         )}
         {loading && (

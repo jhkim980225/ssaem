@@ -5,7 +5,7 @@ import { createClient } from "@supabase/supabase-js";
 import { config } from "dotenv";
 import { INSTRUCTORS } from "./instructors";
 import { chunkText } from "../src/lib/chunk";
-import { embed } from "../src/lib/embed";
+import { embedMany } from "../src/lib/embed";
 
 config({ path: ".env.local" });
 
@@ -92,16 +92,14 @@ async function main() {
       if (error) throw error;
 
       const pieces = chunkText(m.content);
-      const rows = [];
-      for (let i = 0; i < pieces.length; i++) {
-        rows.push({
-          document_id: doc.id,
-          teacher_id: uid,
-          ord: i,
-          content: pieces[i],
-          embedding: await embed(pieces[i]),
-        });
-      }
+      const vecs = await embedMany(pieces);
+      const rows = pieces.map((content, i) => ({
+        document_id: doc.id,
+        teacher_id: uid,
+        ord: i,
+        content,
+        embedding: vecs[i],
+      }));
       const { error: cerr } = await db.from("chunks").insert(rows);
       if (cerr) throw cerr;
       total += rows.length;

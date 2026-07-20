@@ -16,18 +16,27 @@ export async function POST(req: Request) {
 
   const db = serviceClient();
 
-  // 강사 정보
-  const { data: teacher } = await db
-    .from("profiles")
-    .select("name, teacher_profiles(subject)")
-    .eq("id", teacherId)
-    .eq("role", "teacher")
-    .maybeSingle();
+  // 강사 조회 + 청크 검색(질문 임베딩 포함) + 대화 맥락 — 서로 독립이라 병렬
+  const [{ data: teacher }, hits, priorRes] = await Promise.all([
+    db
+      .from("profiles")
+      .select("name, teacher_profiles(subject)")
+      .eq("id", teacherId)
+      .eq("role", "teacher")
+      .maybeSingle(),
+    retrieve(teacherId, question, 5),
+    conversationId
+      ? db
+          .from("messages")
+          .select("role, content")
+          .eq("conversation_id", conversationId)
+          .order("created_at", { ascending: false })
+          .limit(HISTORY_LIMIT)
+      : Promise.resolve({ data: null }),
+  ]);
   if (!teacher) return NextResponse.json({ error: "teacher not found" }, { status: 404 });
   const tp = Array.isArray(teacher.teacher_profiles) ? teacher.teacher_profiles[0] : teacher.teacher_profiles;
 
-  // 관련 청크 검색
-  const hits = await retrieve(teacherId, question, 5);
   const system = buildTutorSystem(
     { name: teacher.name, subject: tp?.subject },
     hits
@@ -47,17 +56,8 @@ export async function POST(req: Request) {
     });
   }
 
-  // 대화 맥락 (이어지는 질문 지원)
   const history: { role: "user" | "assistant"; content: string }[] = [];
-  if (conversationId) {
-    const { data: prior } = await db
-      .from("messages")
-      .select("role, content")
-      .eq("conversation_id", conversationId)
-      .order("created_at", { ascending: false })
-      .limit(HISTORY_LIMIT);
-    if (prior) history.push(...(prior.reverse() as typeof history));
-  }
+  if (priorRes.data) history.push(...(priorRes.data.reverse() as typeof history));
 
   // 스트리밍 전에 conversation 확보 → 헤더로 ID 전달
   if (!conversationId) {
