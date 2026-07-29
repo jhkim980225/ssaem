@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { extractText, getDocumentProxy } from "unpdf";
 import { teacherFromRequest } from "@/lib/auth";
 import { saveDocument } from "@/lib/documents";
+import { ocrPdf } from "@/lib/ocr";
 
 export const runtime = "nodejs";
 
@@ -20,9 +21,24 @@ export async function POST(req: Request) {
   const buf = new Uint8Array(await file.arrayBuffer());
   const pdf = await getDocumentProxy(buf);
   const { text } = await extractText(pdf, { mergePages: true });
-  const content = (Array.isArray(text) ? text.join("\n") : text).trim();
-  if (!content)
-    return NextResponse.json({ error: "텍스트 추출 실패 (스캔 PDF일 수 있음)" }, { status: 422 });
+  let content = (Array.isArray(text) ? text.join("\n") : text).trim();
+
+  // 스캔 PDF: 텍스트 레이어 없음 → LLM 비전 OCR 폴백
+  if (!content) {
+    try {
+      content = (await ocrPdf(buf)) ?? "";
+    } catch (e) {
+      return NextResponse.json(
+        { error: `OCR 실패: ${e instanceof Error ? e.message.slice(0, 120) : "unknown"}` },
+        { status: 422 }
+      );
+    }
+    if (!content)
+      return NextResponse.json(
+        { error: "텍스트 추출 실패 (스캔 PDF — OCR용 API 키 필요)" },
+        { status: 422 }
+      );
+  }
 
   try {
     const r = await saveDocument({

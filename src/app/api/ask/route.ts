@@ -3,6 +3,7 @@ import { serviceClient } from "@/lib/supabase";
 import { retrieve } from "@/lib/retrieve";
 import { generateStream, llmModel, hasLlmKey } from "@/lib/anthropic";
 import { buildTutorSystem } from "@/lib/prompt";
+import { userFromRequest } from "@/lib/auth";
 
 const HISTORY_LIMIT = 10; // 직전 메시지 N개만 맥락으로 (토큰 방어)
 
@@ -15,6 +16,9 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "teacherId, question required" }, { status: 400 });
 
   const db = serviceClient();
+
+  // 로그인 학생이면 대화에 연결 (익명도 허용 — 토큰 없으면 NULL)
+  const studentId = await userFromRequest(req);
 
   // 강사 조회 + 청크 검색(질문 임베딩 포함) + 대화 맥락 — 서로 독립이라 병렬
   const [{ data: teacher }, hits, priorRes] = await Promise.all([
@@ -63,7 +67,7 @@ export async function POST(req: Request) {
   if (!conversationId) {
     const { data: conv } = await db
       .from("conversations")
-      .insert({ teacher_id: teacherId, title: question.slice(0, 60) })
+      .insert({ teacher_id: teacherId, student_id: studentId, title: question.slice(0, 60) })
       .select("id")
       .single();
     conversationId = conv?.id ?? null;

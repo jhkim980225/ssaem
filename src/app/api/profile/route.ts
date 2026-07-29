@@ -1,22 +1,7 @@
 import { NextResponse } from "next/server";
 import { serviceClient } from "@/lib/supabase";
 import { teacherFromRequest } from "@/lib/auth";
-
-const DEFAULT_ACADEMY_SLUG = process.env.DEFAULT_ACADEMY_SLUG || "default";
-const DEFAULT_ACADEMY_NAME = process.env.DEFAULT_ACADEMY_NAME || "우리학원";
-
-// 학원 없으면 기본 학원에 붙임 (단일 학원 배포 기준).
-async function resolveAcademy(db: ReturnType<typeof serviceClient>): Promise<string> {
-  const { data } = await db.from("academies").select("id").eq("slug", DEFAULT_ACADEMY_SLUG).maybeSingle();
-  if (data) return data.id;
-  const { data: made, error } = await db
-    .from("academies")
-    .insert({ slug: DEFAULT_ACADEMY_SLUG, name: DEFAULT_ACADEMY_NAME })
-    .select("id")
-    .single();
-  if (error) throw error;
-  return made.id;
-}
+import { resolveAcademy } from "@/lib/academy";
 
 // 내 프로필 조회
 export async function GET(req: Request) {

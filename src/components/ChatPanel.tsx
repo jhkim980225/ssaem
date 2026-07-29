@@ -2,7 +2,7 @@
 import { memo, useRef, useState, type ReactNode } from "react";
 import { avatarEmoji } from "@/lib/avatar";
 
-type Msg = { role: "user" | "tutor"; text: string };
+export type Msg = { role: "user" | "tutor"; text: string };
 
 /* ── 마크다운-lite: **굵게**, `코드`, 표, 불릿만. 라이브러리 없이. ── */
 function inline(s: string, key = 0): ReactNode[] {
@@ -122,15 +122,21 @@ export default function ChatPanel({
   teacherId,
   teacherName,
   compact,
+  token,
+  initialConversationId,
+  initialMsgs,
 }: {
   teacherId: string;
   teacherName: string;
   compact?: boolean;
+  token?: string; // 로그인 학생: 대화를 계정에 연결
+  initialConversationId?: string | null; // 이전 대화 이어가기
+  initialMsgs?: Msg[];
 }) {
-  const [msgs, setMsgs] = useState<Msg[]>([]);
+  const [msgs, setMsgs] = useState<Msg[]>(initialMsgs ?? []);
   const [q, setQ] = useState("");
   const [loading, setLoading] = useState(false);
-  const [conversationId, setConversationId] = useState<string | null>(null);
+  const [conversationId, setConversationId] = useState<string | null>(initialConversationId ?? null);
   const scroller = useRef<HTMLDivElement>(null);
 
   const emoji = avatarEmoji(teacherName);
@@ -149,7 +155,10 @@ export default function ChatPanel({
     try {
       const r = await fetch("/api/ask", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify({ teacherId, question, conversationId }),
       });
       const convId = r.headers.get("X-Conversation-Id");
