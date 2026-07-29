@@ -164,7 +164,9 @@ export default function ChatPanel({
   const [loading, setLoading] = useState(false);
   const [conversationId, setConversationId] = useState<string | null>(initialConversationId ?? null);
   const [rated, setRated] = useState<number | null>(null); // 마지막 답변에 준 평가 (5=👍, 1=👎)
+  const [streaming, setStreaming] = useState(false);
   const scroller = useRef<HTMLDivElement>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
   const emoji = avatarEmoji(teacherName);
 
@@ -174,11 +176,13 @@ export default function ChatPanel({
 
   async function send() {
     const question = q.trim();
-    if (!question || loading || !teacherId) return;
+    if (!question || loading || streaming || !teacherId) return;
     setQ("");
     setMsgs((m) => [...m, { role: "user", text: question }]);
     setLoading(true);
     scrollDown();
+    const ac = new AbortController();
+    abortRef.current = ac;
     try {
       const r = await fetch("/api/ask", {
         method: "POST",
@@ -187,6 +191,7 @@ export default function ChatPanel({
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({ teacherId, question, conversationId }),
+        signal: ac.signal,
       });
       const convId = r.headers.get("X-Conversation-Id");
       if (convId) setConversationId(convId);
@@ -204,6 +209,7 @@ export default function ChatPanel({
         setMsgs((m) => [...m, { role: "tutor", text: r.ok ? d.answer : `⚠️ ${d.error}` }]);
       } else if (r.body) {
         setLoading(false);
+        setStreaming(true);
         setMsgs((m) => [...m, { role: "tutor", text: "", sources }]);
         const reader = r.body.getReader();
         const dec = new TextDecoder();
@@ -220,10 +226,17 @@ export default function ChatPanel({
           scrollDown();
         }
       }
-    } catch {
-      setMsgs((m) => [...m, { role: "tutor", text: "⚠️ 요청 실패" }]);
+    } catch (e) {
+      if (e instanceof DOMException && e.name === "AbortError") {
+        // 사용자가 중단 — 부분 답변은 그대로 두고 조용히 종료
+      } else {
+        setQ(question); // 실패한 질문 복원 → 바로 재전송 가능
+        setMsgs((m) => [...m, { role: "tutor", text: "⚠️ 요청 실패 — 질문을 다시 보내주세요." }]);
+      }
     } finally {
+      abortRef.current = null;
       setLoading(false);
+      setStreaming(false);
       scrollDown();
     }
   }
@@ -270,7 +283,7 @@ export default function ChatPanel({
             <div key={i} className="flex flex-col gap-1">
               <TutorBubble text={m.text} emoji={emoji} sources={m.sources} />
               {/* 마지막 답변에만 피드백 (서버가 마지막 assistant 메시지에 기록) */}
-              {i === lastTutorIdx && !loading && m.text && !m.text.startsWith("⚠️") && conversationId && (
+              {i === lastTutorIdx && !loading && !streaming && m.text && !m.text.startsWith("⚠️") && conversationId && (
                 <div className="self-start flex items-center gap-1 pl-11">
                   {rated === null ? (
                     <>
@@ -307,25 +320,39 @@ export default function ChatPanel({
         )}
       </div>
 
-      <div className="flex gap-2 mt-3 pb-[env(safe-area-inset-bottom)]">
-        <input
-          className="field !rounded-full"
-          placeholder="질문 입력"
+      <div className="flex gap-2 mt-3 items-end pb-[env(safe-area-inset-bottom)]">
+        <textarea
+          className="field !rounded-[26px] resize-none leading-snug"
+          placeholder="질문 입력 (Shift+Enter 줄바꿈)"
+          rows={Math.min(4, Math.max(1, q.split("\n").length))}
           value={q}
           onChange={(e) => setQ(e.target.value)}
           onKeyDown={(e) => {
-            // 한글 IME 조합 중 Enter 중복 전송 방지
-            if (e.key === "Enter" && !e.nativeEvent.isComposing) send();
+            // Enter 전송, Shift+Enter 줄바꿈. 한글 IME 조합 중 Enter 중복 전송 방지
+            if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
+              e.preventDefault();
+              send();
+            }
           }}
         />
-        <button
-          onClick={send}
-          disabled={loading || !q.trim()}
-          aria-label="전송"
-          className="btn btn-primary !rounded-full w-[52px] h-[52px] shrink-0 grid place-items-center text-[20px]"
-        >
-          ↑
-        </button>
+        {streaming ? (
+          <button
+            onClick={() => abortRef.current?.abort()}
+            aria-label="답변 중단"
+            className="btn !rounded-full w-[52px] h-[52px] shrink-0 grid place-items-center text-[18px] border border-line"
+          >
+            ■
+          </button>
+        ) : (
+          <button
+            onClick={send}
+            disabled={loading || !q.trim()}
+            aria-label="전송"
+            className="btn btn-primary !rounded-full w-[52px] h-[52px] shrink-0 grid place-items-center text-[20px]"
+          >
+            ↑
+          </button>
+        )}
       </div>
     </div>
   );

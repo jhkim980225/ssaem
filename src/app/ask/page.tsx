@@ -14,6 +14,7 @@ type Chat = { teacherId: string; teacherName: string; convId?: string; msgs?: Ms
 export default function AskPage() {
   const [teachers, setTeachers] = useState<Teacher[] | null>(null); // null = 로딩
   const [chat, setChat] = useState<Chat | null>(null);
+  const [nonce, setNonce] = useState(0); // "새 대화"로 같은 강사 채팅 리마운트
   const [err, setErr] = useState("");
 
   const [session, setSession] = useState<Session | null>(null);
@@ -183,9 +184,20 @@ export default function AskPage() {
         {/* 채팅 영역 */}
         {chat ? (
           <div
-            key={chat.convId ?? chat.teacherId}
+            key={`${chat.convId ?? chat.teacherId}-${nonce}`}
             className="animate-pop card p-4 lg:p-6 lg:min-h-[62vh] flex flex-col"
           >
+            <div className="flex justify-end -mb-2">
+              <button
+                onClick={() => {
+                  setChat({ teacherId: chat.teacherId, teacherName: chat.teacherName });
+                  setNonce((n) => n + 1);
+                }}
+                className="text-sub text-[12px]"
+              >
+                + 새 대화
+              </button>
+            </div>
             <ChatPanel
               teacherId={chat.teacherId}
               teacherName={chat.teacherName}

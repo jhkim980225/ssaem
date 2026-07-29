@@ -184,6 +184,7 @@ function Dashboard({ session }: { session: Session }) {
   }
 
   async function removeDoc(id: string) {
+    if (!confirm("이 자료를 삭제할까요? 되돌릴 수 없어요.")) return;
     const r = await fetch(`/api/documents?id=${id}`, {
       method: "DELETE",
       headers: { Authorization: `Bearer ${token}` },
