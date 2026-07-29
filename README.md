@@ -37,13 +37,15 @@ supabase/schema.sql DB 스키마 v2 (설계: docs/db-design.md)
 - `npx tsx scripts/seed.ts` — 강사 10명 자동 생성. 로그인 `<id>@a.test / 123456`
 
 ## 구현됨
-- 선생님 로그인·프로필·자료(텍스트/PDF) 등록·삭제
+- 선생님 로그인·프로필·자료(텍스트/PDF) 등록·수정·삭제
+- 스캔 PDF OCR 폴백 (Gemini/Claude 비전 — 텍스트 레이어 없을 때)
 - 문서 청킹 → 청크별 임베딩 저장
 - 학생 질문 → RAG 검색(임베딩/lexical 폴백) → 근거 기반 스트리밍 답변
-- Q&A 이력 기록(qa_logs)
+- 학생 로그인/가입(선택) → 질문 이력 계정 저장·이어가기. 익명 질문도 계속 허용
+- 선생님용 학생 질문 이력 조회(`/teacher/history`)
+- 학원별 진입 URL `/a/<slug>` (그 학원 강사만 노출)
+- Q&A 이력 기록(conversations/messages/citations)
 
 ## 남은 것 (TODO)
-- 스캔 PDF OCR (지금은 텍스트 PDF만)
-- 자료 수정(현재 삭제 후 재등록)
-- 선생님용 학생 질문 이력 조회 화면
-- Supabase 이메일 인증 설정 (개발 중엔 confirm 끄면 편함)
+- 학원별 강사 가입 연결 (현재 가입은 기본 학원 고정)
+- 수강(enrollments)·강좌(courses) UI
