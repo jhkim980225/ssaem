@@ -38,7 +38,7 @@ export async function POST(req: Request) {
   const [{ data: teacher }, hits, priorRes] = await Promise.all([
     db
       .from("profiles")
-      .select("name, teacher_profiles(subject)")
+      .select("name, teacher_profiles(subject, tone_note)")
       .eq("id", teacherId)
       .eq("role", "teacher")
       .maybeSingle(),
@@ -56,7 +56,7 @@ export async function POST(req: Request) {
   const tp = Array.isArray(teacher.teacher_profiles) ? teacher.teacher_profiles[0] : teacher.teacher_profiles;
 
   const system = buildTutorSystem(
-    { name: teacher.name, subject: tp?.subject },
+    { name: teacher.name, subject: tp?.subject, tone_note: tp?.tone_note },
     hits
   );
 

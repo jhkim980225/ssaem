@@ -10,7 +10,7 @@ export async function GET(req: Request) {
   const db = serviceClient();
   const { data, error } = await db
     .from("profiles")
-    .select("name, academy_id, role, teacher_profiles(subject, is_public)")
+    .select("name, academy_id, role, teacher_profiles(subject, is_public, tone_note)")
     .eq("id", uid)
     .maybeSingle();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
@@ -22,6 +22,7 @@ export async function GET(req: Request) {
       name: data.name,
       subject: tp?.subject ?? "",
       is_public: tp?.is_public ?? true,
+      tone_note: tp?.tone_note ?? "",
     },
   });
 }
@@ -35,6 +36,7 @@ export async function POST(req: Request) {
   const name = (body?.name ?? "").toString().trim();
   if (!name) return NextResponse.json({ error: "name required" }, { status: 400 });
   const subject = (body?.subject ?? "").toString().trim() || null;
+  const toneNote = (body?.tone_note ?? "").toString().trim().slice(0, 500) || null;
 
   const db = serviceClient();
   const academyId = await resolveAcademy(db);
@@ -46,7 +48,7 @@ export async function POST(req: Request) {
 
   const { error: terr } = await db
     .from("teacher_profiles")
-    .upsert({ id: uid, subject });
+    .upsert({ id: uid, subject, tone_note: toneNote });
   if (terr) return NextResponse.json({ error: terr.message }, { status: 500 });
 
   return NextResponse.json({ ok: true });

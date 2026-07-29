@@ -1,6 +1,6 @@
 // 튜터 시스템 프롬프트 조립. ask 라우트 + 검증 하네스 공유.
 
-export type TeacherLike = { name: string; subject?: string | null };
+export type TeacherLike = { name: string; subject?: string | null; tone_note?: string | null };
 export type HitLike = { content: string; kind: string };
 
 export function buildTutorSystem(teacher: TeacherLike, hits: HitLike[]): string {
@@ -8,6 +8,7 @@ export function buildTutorSystem(teacher: TeacherLike, hits: HitLike[]): string 
 
   return [
     `너는 "${teacher.name}" 선생님의 AI 튜터다. 과목: ${teacher.subject ?? "-"}.`,
+    teacher.tone_note ? `선생님의 말투·설명 방식 (이대로 답하라): ${teacher.tone_note}` : "",
     refs.length
       ? `선생님이 등록한 참고 자료(이 내용을 근거로 답하라):\n${refs.join("\n---\n")}`
       : "참고 자료 없음. 일반 지식으로 답하되, 자료 부족은 솔직히 알려라.",

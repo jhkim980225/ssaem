@@ -116,6 +116,7 @@ function Dashboard({ session }: { session: Session }) {
 
   const [name, setName] = useState("");
   const [subject, setSubject] = useState("");
+  const [toneNote, setToneNote] = useState("");
   const [savedProfile, setSavedProfile] = useState(false);
 
   const [content, setContent] = useState("");
@@ -141,6 +142,7 @@ function Dashboard({ session }: { session: Session }) {
         if (d.profile) {
           setName(d.profile.name ?? "");
           setSubject(d.profile.subject ?? "");
+          setToneNote(d.profile.tone_note ?? "");
           setSavedProfile(true);
         }
       })
@@ -153,7 +155,7 @@ function Dashboard({ session }: { session: Session }) {
     const r = await fetch("/api/profile", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ name, subject }),
+      body: JSON.stringify({ name, subject, tone_note: toneNote }),
     });
     const d = await r.json();
     if (!r.ok) setMsg(d.error || "저장 실패");
@@ -251,6 +253,13 @@ function Dashboard({ session }: { session: Session }) {
         </h2>
         <input className="field" placeholder="이름 (학생에게 표시)" value={name} onChange={(e) => setName(e.target.value)} />
         <input className="field" placeholder="과목 (예: 전산회계 2급)" value={subject} onChange={(e) => setSubject(e.target.value)} />
+        <textarea
+          className="field min-h-20 resize-none"
+          placeholder="말투·설명 방식 (선택. 예: 존댓말로 차근차근, 실무 예시 위주, 암기팁 곁들이기)"
+          maxLength={500}
+          value={toneNote}
+          onChange={(e) => setToneNote(e.target.value)}
+        />
         <button onClick={saveProfile} className="btn btn-primary py-3 self-start px-6">
           프로필 저장
         </button>
