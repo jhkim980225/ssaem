@@ -109,6 +109,37 @@ async function main() {
   const detail = await json("GET", `/api/conversations?id=${sc.data.conversations[0].id}`, undefined, stoken!);
   ok(detail.status === 200 && detail.data.messages.length >= 2, "학생 대화 상세");
 
+  console.log("8) 학원별 강사 가입 흐름");
+  const invite = process.env.INVITE_CODE;
+  if (!invite) {
+    console.log("  - INVITE_CODE 없음 → 스킵");
+  } else {
+    const temail = `e2e-teacher-${Date.now()}@a.test`;
+    const tsu = await json("POST", "/api/signup", {
+      email: temail,
+      password: "e2epass1234",
+      inviteCode: invite,
+      academySlug: "e2e-academy",
+    });
+    ok(tsu.status === 200 && tsu.data.ok, "학원 슬러그로 강사 가입");
+    const ntoken = await login(temail, "e2epass1234");
+    ok(!!ntoken, "신규 강사 로그인");
+    const prof = await json("POST", "/api/profile", { name: "E2E강사", subject: "테스트과목" }, ntoken!);
+    ok(prof.status === 200, "프로필 저장 (학원 자동 소속)");
+    const byAcademy = await json("GET", "/api/teachers?academy=e2e-academy");
+    ok(
+      byAcademy.status === 200 &&
+        byAcademy.data.teachers.some((x: { name: string }) => x.name === "E2E강사"),
+      "학원 한정 강사 목록에 노출"
+    );
+    const defaultList = await json("GET", "/api/teachers?academy=default");
+    ok(
+      defaultList.status === 200 &&
+        !defaultList.data.teachers.some((x: { name: string }) => x.name === "E2E강사"),
+      "기본 학원 목록에는 미노출 (테넌트 격리)"
+    );
+  }
+
   console.log(`\n✅ E2E 전부 통과 (${pass} asserts)`);
 }
 
