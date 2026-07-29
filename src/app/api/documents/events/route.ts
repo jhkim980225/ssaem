@@ -7,7 +7,8 @@ export async function GET(req: Request) {
   const uid = await teacherFromRequest(req);
   if (!uid) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
-  const limit = Number(new URL(req.url).searchParams.get("limit") ?? 30);
+  const raw = Number(new URL(req.url).searchParams.get("limit") ?? 30);
+  const limit = Number.isFinite(raw) ? raw : 30;
   const db = serviceClient();
   const { data, error } = await db
     .from("document_events")

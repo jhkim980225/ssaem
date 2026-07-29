@@ -3,6 +3,8 @@ import { serviceClient } from "@/lib/supabase";
 import { teacherFromRequest } from "@/lib/auth";
 import { saveDocument, updateDocument, logDocumentEvent } from "@/lib/documents";
 
+const MAX_CONTENT = 200_000; // 임베딩 비용·메모리 방어
+
 // 내 문서 목록 (청크 수 포함)
 export async function GET(req: Request) {
   const uid = await teacherFromRequest(req);
@@ -41,6 +43,8 @@ export async function POST(req: Request) {
   const content = (body?.content ?? "").toString().trim();
   const kind = body?.kind === "style" ? "style" : "problem";
   if (!content) return NextResponse.json({ error: "content required" }, { status: 400 });
+  if (content.length > MAX_CONTENT)
+    return NextResponse.json({ error: `자료는 ${MAX_CONTENT.toLocaleString()}자 이하로 등록해주세요` }, { status: 400 });
 
   try {
     const r = await saveDocument({ teacherId: uid, kind, rawText: content, source: "text" });
@@ -59,6 +63,8 @@ export async function PATCH(req: Request) {
   const id = (body?.id ?? "").toString();
   const content = (body?.content ?? "").toString().trim();
   if (!id || !content) return NextResponse.json({ error: "id, content required" }, { status: 400 });
+  if (content.length > MAX_CONTENT)
+    return NextResponse.json({ error: `자료는 ${MAX_CONTENT.toLocaleString()}자 이하로 등록해주세요` }, { status: 400 });
 
   try {
     const r = await updateDocument({ documentId: id, teacherId: uid, rawText: content });

@@ -1,10 +1,15 @@
 import { NextResponse } from "next/server";
 import { serviceClient } from "@/lib/supabase";
 import { resolveAcademy } from "@/lib/academy";
+import { rateLimit, clientIp } from "@/lib/ratelimit";
 
 // 가입. 강사는 INVITE_CODE 일치 필요(스팸/무단 가입 차단), 학생은 초대코드 없이 이름만.
 // email_confirm: true로 만들어서 메일 인증 불필요.
 export async function POST(req: Request) {
+  // 대량 계정 생성 방어 — IP당 시간당 5회
+  if (!rateLimit(`signup:${clientIp(req)}`, 5, 3_600_000))
+    return NextResponse.json({ error: "가입 시도가 너무 잦아요. 잠시 후 다시" }, { status: 429 });
+
   const body = await req.json().catch(() => null);
   const email = (body?.email ?? "").toString().trim();
   const password = (body?.password ?? "").toString();
@@ -14,8 +19,8 @@ export async function POST(req: Request) {
 
   if (!email || !password)
     return NextResponse.json({ error: "이메일과 비밀번호를 입력하세요" }, { status: 400 });
-  if (password.length < 6)
-    return NextResponse.json({ error: "비밀번호는 6자 이상" }, { status: 400 });
+  if (password.length < 8)
+    return NextResponse.json({ error: "비밀번호는 8자 이상" }, { status: 400 });
 
   if (role === "teacher") {
     const required = process.env.INVITE_CODE;

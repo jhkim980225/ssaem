@@ -17,8 +17,13 @@ export async function POST(req: Request) {
   if (!(file instanceof File)) return NextResponse.json({ error: "file required" }, { status: 400 });
   if (file.type !== "application/pdf")
     return NextResponse.json({ error: "PDF만 지원" }, { status: 400 });
+  if (file.size > 15 * 1024 * 1024)
+    return NextResponse.json({ error: "PDF는 15MB 이하만 지원해요" }, { status: 413 });
 
   const buf = new Uint8Array(await file.arrayBuffer());
+  // MIME은 브라우저 자기신고 — 매직 바이트(%PDF)로 실제 PDF인지 확인
+  if (!(buf[0] === 0x25 && buf[1] === 0x50 && buf[2] === 0x44 && buf[3] === 0x46))
+    return NextResponse.json({ error: "PDF 파일이 아니에요" }, { status: 400 });
   const pdf = await getDocumentProxy(buf);
   const { text } = await extractText(pdf, { mergePages: true });
   let content = (Array.isArray(text) ? text.join("\n") : text).trim();

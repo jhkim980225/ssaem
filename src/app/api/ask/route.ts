@@ -4,16 +4,30 @@ import { retrieve } from "@/lib/retrieve";
 import { generateStream, llmModel, hasLlmKey } from "@/lib/anthropic";
 import { buildTutorSystem } from "@/lib/prompt";
 import { userFromRequest } from "@/lib/auth";
+import { rateLimit, clientIp } from "@/lib/ratelimit";
 
 const HISTORY_LIMIT = 10; // 직전 메시지 N개만 맥락으로 (토큰 방어)
+const MAX_QUESTION = 2000; // 임베딩·LLM 토큰 폭탄 방어
 
 export async function POST(req: Request) {
+  // 공개 엔드포인트 — IP당 분당 20회 (LLM 비용 방어)
+  if (!rateLimit(`ask:${clientIp(req)}`, 20, 60_000))
+    return NextResponse.json(
+      { error: "질문이 너무 잦아요. 잠시 후 다시 시도해 주세요." },
+      { status: 429 }
+    );
+
   const body = await req.json().catch(() => null);
   const teacherId = (body?.teacherId ?? "").toString();
   const question = (body?.question ?? "").toString().trim();
   let conversationId: string | null = (body?.conversationId ?? null) as string | null;
   if (!teacherId || !question)
     return NextResponse.json({ error: "teacherId, question required" }, { status: 400 });
+  if (question.length > MAX_QUESTION)
+    return NextResponse.json(
+      { error: `질문은 ${MAX_QUESTION}자 이하로 해주세요.` },
+      { status: 400 }
+    );
 
   const db = serviceClient();
 

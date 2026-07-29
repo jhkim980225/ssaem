@@ -16,7 +16,7 @@ if (!url || !key) {
   process.exit(1);
 }
 const db = createClient(url, key, { auth: { persistSession: false } });
-const DEFAULT_PW = process.env.SEED_PASSWORD || "123456"; // supabase 최소 6자
+const DEFAULT_PW = process.env.SEED_PASSWORD || "12345678"; // 앱 최소 8자와 맞춤
 const SLUG = process.env.DEFAULT_ACADEMY_SLUG || "default";
 const ACADEMY_NAME = process.env.DEFAULT_ACADEMY_NAME || "우리학원";
 
