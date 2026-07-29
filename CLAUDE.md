@@ -8,6 +8,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 학원 AI 튜터 (RAG). 강사가 문제/풀이 자료 등록 → 학생이 `/ask`에서 강사 선택 후 질문 → 그 강사 자료 근거로 스트리밍 답변. Next.js 16 App Router + Supabase(Auth/Postgres/pgvector) + Claude/Gemini.
 
+## 작업 내역 (필수 규칙)
+
+작업(기능·수정 단위)이 끝나면 **항상** `docs/작업내역.md` 맨 위(해당 날짜 섹션)에 한 항목 추가 — 커밋 해시, 무엇을·왜 1~3줄. 커밋에 포함.
+
 ## 커맨드
 
 ```bash
