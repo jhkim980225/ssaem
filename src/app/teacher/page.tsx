@@ -488,6 +488,9 @@ function Dashboard({ session }: { session: Session }) {
         )}
       </section>
 
+      <Link href="/teacher/insights" className="rise d4 btn btn-gray py-4 text-center">
+        인사이트 (질문 추이·자료 공백) →
+      </Link>
       <Link href="/teacher/history" className="rise d4 btn btn-gray py-4 text-center">
         학생 질문 이력 →
       </Link>

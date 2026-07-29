@@ -48,6 +48,7 @@ supabase/schema.sql DB 스키마 v2 (설계: docs/db-design.md)
 - 답변 피드백(👍/👎)·출처 보기, 강사 말투(tone_note) 프롬프트 반영
 - Q&A 이력 기록(conversations/messages/citations)
 
+- 강사 인사이트(`/teacher/insights`): 질문 추이·평가 통계·자료 공백 진단
+
 ## 남은 것 (TODO)
-- 강사 인사이트 대시보드 (질문 추이·낮은 평점 답변·자료 공백)
 - 수강신청(enrollments) UI — 지금은 학생이 강좌 자유 선택

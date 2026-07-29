@@ -30,6 +30,11 @@
   - 429(무료 일일 쿼터, 모델별 별도 버킷) 시 `GEMINI_FALLBACK_MODEL`(flash-lite)로 1회 재시도.
   - SSE 파싱: 미완성 라인 버퍼 유지, keep-alive 무시.
 
+## 인사이트 — GET /api/insights (src/app/api/insights/route.ts)
+
+- 최근 14일 메시지(최대 1000개)를 조인 로드 후 JS 집계: 질문/답변 수, 👍/👎, 일별 질문 수, 낮은 평점 답변(질문-답변 페어링), 자료 공백(근거 청크 없음 또는 최고 유사도 <0.45 — 렉시컬 null 유사도는 판단 제외).
+- 화면: `/teacher/insights`.
+
 ## 대화 이력 조회 — GET /api/conversations (강사·학생 공용)
 
 - 무인자: 내 대화 목록 (최근 50, 대화별 메시지 수). `profiles.role`로 분기 — 강사는 `teacher_id`, 학생은 `student_id` 필터. 학생 목록엔 강사 이름 포함. 응답에 `role` 동봉.
