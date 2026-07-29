@@ -22,11 +22,25 @@ export async function GET(req: Request) {
 
     const { data, error } = await db
       .from("messages")
-      .select("id, role, content, created_at")
+      .select("id, role, content, created_at, message_feedback(rating)")
       .eq("conversation_id", id)
       .order("created_at", { ascending: true });
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-    return NextResponse.json({ messages: data ?? [] });
+
+    type MRow = {
+      id: string; role: string; content: string; created_at: string;
+      message_feedback: { rating: number } | { rating: number }[] | null;
+    };
+    const messages = ((data ?? []) as MRow[]).map((m) => ({
+      id: m.id,
+      role: m.role,
+      content: m.content,
+      created_at: m.created_at,
+      rating: Array.isArray(m.message_feedback)
+        ? m.message_feedback[0]?.rating ?? null
+        : m.message_feedback?.rating ?? null,
+    }));
+    return NextResponse.json({ messages });
   }
 
   const { data: me } = await db.from("profiles").select("role").eq("id", uid).maybeSingle();

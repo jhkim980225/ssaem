@@ -5,7 +5,13 @@ import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
 
 type Conv = { id: string; title: string | null; created_at: string; messages: number };
-type Msg = { id: string; role: "user" | "assistant"; content: string; created_at: string };
+type Msg = {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+  created_at: string;
+  rating: number | null;
+};
 
 export default function HistoryPage() {
   const [session, setSession] = useState<Session | null>(null);
@@ -114,12 +120,18 @@ export default function HistoryPage() {
                       {m.content}
                     </div>
                   ) : (
-                    <div
-                      key={m.id}
-                      className="self-start max-w-[92%] px-4 py-2.5 text-[14px] leading-relaxed whitespace-pre-wrap rounded-[16px] rounded-bl-[5px] border border-line"
-                      style={{ background: "var(--fill-2)" }}
-                    >
-                      {m.content}
+                    <div key={m.id} className="self-start max-w-[92%] flex flex-col gap-1">
+                      <div
+                        className="px-4 py-2.5 text-[14px] leading-relaxed whitespace-pre-wrap rounded-[16px] rounded-bl-[5px] border border-line"
+                        style={{ background: "var(--fill-2)" }}
+                      >
+                        {m.content}
+                      </div>
+                      {m.rating !== null && (
+                        <span className="text-sub text-[12px] pl-1">
+                          학생 평가: {m.rating >= 4 ? "👍 도움됨" : "👎 도움 안 됨"}
+                        </span>
+                      )}
                     </div>
                   )
                 )}

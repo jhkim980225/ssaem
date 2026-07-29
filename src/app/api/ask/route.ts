@@ -145,11 +145,17 @@ export async function POST(req: Request) {
     },
   });
 
+  // 근거 미리보기 — 스트리밍 중 헤더 변경 불가하므로 시작 전에 실어 보냄 (한글 → URI 인코딩)
+  const sources = encodeURIComponent(
+    JSON.stringify(hits.map((h) => ({ kind: h.kind, preview: h.content.slice(0, 60) })))
+  );
+
   return new Response(stream, {
     headers: {
       "Content-Type": "text/plain; charset=utf-8",
       "Cache-Control": "no-store",
       ...(conversationId ? { "X-Conversation-Id": conversationId } : {}),
+      "X-Sources": sources,
     },
   });
 }

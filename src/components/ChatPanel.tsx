@@ -2,7 +2,8 @@
 import { memo, useRef, useState, type ReactNode } from "react";
 import { avatarEmoji } from "@/lib/avatar";
 
-export type Msg = { role: "user" | "tutor"; text: string };
+export type Source = { kind: string; preview: string };
+export type Msg = { role: "user" | "tutor"; text: string; sources?: Source[] };
 
 /* ── 마크다운-lite: **굵게**, `코드`, 표, 불릿만. 라이브러리 없이. ── */
 function inline(s: string, key = 0): ReactNode[] {
@@ -107,12 +108,37 @@ function renderMd(text: string): ReactNode[] {
 
 // memo: 스트리밍 중 델타가 올 때마다 전체 목록이 리렌더되는데,
 // 텍스트 안 바뀐 이전 말풍선은 renderMd 재파싱 스킵 (긴 대화에서 체감).
-const TutorBubble = memo(function TutorBubble({ text, emoji }: { text: string; emoji: string }) {
+const TutorBubble = memo(function TutorBubble({
+  text,
+  emoji,
+  sources,
+}: {
+  text: string;
+  emoji: string;
+  sources?: Source[];
+}) {
   return (
     <div className="bubble-in self-start flex items-end gap-2 max-w-[92%]">
       <div className="avatar !w-8 !h-8 !text-[15px] mb-1">{emoji}</div>
       <div className="md card !rounded-[20px] !rounded-bl-[6px] px-4 py-3 text-[15px] leading-relaxed whitespace-pre-wrap min-w-0">
         {renderMd(text)}
+        {sources && sources.length > 0 && (
+          <details className="mt-2 not-prose">
+            <summary className="text-sub text-[12px] cursor-pointer select-none">
+              출처 {sources.length}개
+            </summary>
+            <ul className="mt-1 flex flex-col gap-1">
+              {sources.map((s, i) => (
+                <li key={i} className="text-sub text-[12px] leading-snug">
+                  <span className="font-bold">
+                    {s.kind === "style" ? "설명 스타일" : "문제/풀이"}
+                  </span>{" "}
+                  · {s.preview}…
+                </li>
+              ))}
+            </ul>
+          </details>
+        )}
       </div>
     </div>
   );
@@ -137,6 +163,7 @@ export default function ChatPanel({
   const [q, setQ] = useState("");
   const [loading, setLoading] = useState(false);
   const [conversationId, setConversationId] = useState<string | null>(initialConversationId ?? null);
+  const [rated, setRated] = useState<number | null>(null); // 마지막 답변에 준 평가 (5=👍, 1=👎)
   const scroller = useRef<HTMLDivElement>(null);
 
   const emoji = avatarEmoji(teacherName);
@@ -163,6 +190,12 @@ export default function ChatPanel({
       });
       const convId = r.headers.get("X-Conversation-Id");
       if (convId) setConversationId(convId);
+      setRated(null); // 새 답변 → 평가 초기화
+      let sources: Source[] | undefined;
+      try {
+        const raw = r.headers.get("X-Sources");
+        if (raw) sources = JSON.parse(decodeURIComponent(raw));
+      } catch {}
 
       // 에러·체험모드는 JSON, 정상 답변은 텍스트 스트림
       if (r.headers.get("content-type")?.includes("application/json")) {
@@ -171,7 +204,7 @@ export default function ChatPanel({
         setMsgs((m) => [...m, { role: "tutor", text: r.ok ? d.answer : `⚠️ ${d.error}` }]);
       } else if (r.body) {
         setLoading(false);
-        setMsgs((m) => [...m, { role: "tutor", text: "" }]);
+        setMsgs((m) => [...m, { role: "tutor", text: "", sources }]);
         const reader = r.body.getReader();
         const dec = new TextDecoder();
         while (true) {
@@ -180,10 +213,8 @@ export default function ChatPanel({
           const chunk = dec.decode(value, { stream: true });
           setMsgs((m) => {
             const next = m.slice();
-            next[next.length - 1] = {
-              role: "tutor",
-              text: next[next.length - 1].text + chunk,
-            };
+            const last = next[next.length - 1];
+            next[next.length - 1] = { ...last, text: last.text + chunk };
             return next;
           });
           scrollDown();
@@ -196,6 +227,18 @@ export default function ChatPanel({
       scrollDown();
     }
   }
+
+  async function rate(rating: number) {
+    if (!conversationId || rated !== null) return;
+    setRated(rating);
+    fetch("/api/feedback", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ conversationId, rating }),
+    }).catch(() => {});
+  }
+
+  const lastTutorIdx = msgs.map((m) => m.role).lastIndexOf("tutor");
 
   return (
     <div className="flex flex-col h-full">
@@ -224,7 +267,28 @@ export default function ChatPanel({
               {m.text}
             </div>
           ) : (
-            <TutorBubble key={i} text={m.text} emoji={emoji} />
+            <div key={i} className="flex flex-col gap-1">
+              <TutorBubble text={m.text} emoji={emoji} sources={m.sources} />
+              {/* 마지막 답변에만 피드백 (서버가 마지막 assistant 메시지에 기록) */}
+              {i === lastTutorIdx && !loading && m.text && !m.text.startsWith("⚠️") && conversationId && (
+                <div className="self-start flex items-center gap-1 pl-11">
+                  {rated === null ? (
+                    <>
+                      <button onClick={() => rate(5)} aria-label="도움됨" className="chip !px-2.5 !py-1 text-[13px]">
+                        👍
+                      </button>
+                      <button onClick={() => rate(1)} aria-label="도움 안 됨" className="chip !px-2.5 !py-1 text-[13px]">
+                        👎
+                      </button>
+                    </>
+                  ) : (
+                    <span className="text-sub text-[12px]">
+                      {rated >= 4 ? "👍" : "👎"} 평가 감사해요
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
           )
         )}
         {loading && (
