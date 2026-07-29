@@ -174,6 +174,22 @@ async function main() {
     );
   }
 
+  console.log("10) 테스트 계정 정리");
+  // e2e가 만든 계정이 공개 목록/DB에 쌓이지 않게 삭제 (auth cascade로 profiles까지 제거)
+  const { createClient } = await import("@supabase/supabase-js");
+  const admin = createClient(SB, process.env.SUPABASE_SERVICE_ROLE_KEY!, {
+    auth: { persistSession: false },
+  });
+  const { data: users } = await admin.auth.admin.listUsers({ perPage: 200 });
+  let cleaned = 0;
+  for (const u of users?.users ?? []) {
+    if (u.email && /^e2e-/.test(u.email)) {
+      await admin.auth.admin.deleteUser(u.id);
+      cleaned++;
+    }
+  }
+  console.log(`  ✓ e2e-* 계정 ${cleaned}개 삭제`);
+
   console.log(`\n✅ E2E 전부 통과 (${pass} asserts)`);
 }
 
