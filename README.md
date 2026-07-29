@@ -19,10 +19,10 @@ supabase/schema.sql DB 스키마 v2 (설계: docs/db-design.md)
 
 ## 셋업
 1. Supabase 프로젝트 생성 → SQL editor에서 `supabase/schema.sql` 실행
-2. `.env.local` 채우기:
-   - `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`
-   - `ANTHROPIC_API_KEY`
-   - `GEMINI_API_KEY` — 답변 생성(무료)+임베딩. (선택) `ANTHROPIC_API_KEY`/`OPENAI_API_KEY` 있으면 우선.
+2. `.env.local` 채우기 — 전체 목록·설명은 `.env.local.example` 참조:
+   - 필수: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`
+   - LLM: `GEMINI_API_KEY`(무료) 또는 `ANTHROPIC_API_KEY`(우선). 임베딩은 `OPENAI_API_KEY` 우선, Gemini 폴백.
+   - 운영 필수: `INVITE_CODE` — 미설정 시 강사 가입이 열림
 3. `npm run dev` → http://localhost:3000
 
 ## 흐름

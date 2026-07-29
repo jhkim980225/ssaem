@@ -1,6 +1,6 @@
 -- 학원 AI 튜터 — DB 스키마 v2
 -- 설계 근거: docs/db-design.md
--- Supabase SQL editor에서 실행. (v1은 schema.v1.sql — 앱 코드는 아직 v1 참조 중)
+-- Supabase SQL editor에서 실행. 앱 코드는 v2 기준.
 
 create extension if not exists vector;
 create extension if not exists pgcrypto;
