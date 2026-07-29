@@ -140,6 +140,40 @@ async function main() {
     );
   }
 
+  console.log("9) 강좌 한정 검색 (급수별 콘텐츠)");
+  const cl = await json("GET", `/api/courses?teacher=${teacher.id}`);
+  const courseByTitle = (title: string) =>
+    cl.data.courses.find((x: { title: string }) => x.title === title);
+  const c1 = courseByTitle("전산회계 1급");
+  const ct = courseByTitle("전산세무 2급");
+  if (!c1 || !ct) {
+    console.log("  - 급수 강좌 없음 → scripts/seed-content.ts 먼저 실행. 스킵");
+  } else {
+    const askIn = async (courseId: string, question: string) => {
+      const r = await fetch(`${BASE}/api/ask`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ teacherId: teacher.id, question, courseId }),
+      });
+      const src = r.headers.get("x-sources");
+      return {
+        answer: await r.text(),
+        sources: src ? (JSON.parse(decodeURIComponent(src)) as { preview: string }[]) : [],
+      };
+    };
+    const g1 = await askIn(c1.id, "사채 할인발행 시 차금은 어떤 방법으로 상각해?");
+    ok(
+      g1.sources.some((s) => s.preview.includes("사채")) || /유효이자율법/.test(g1.answer),
+      "1급 강좌: 사채 자료 검색·반영"
+    );
+    const g2 = await askIn(ct.id, "개인 일반과세자 예정고지는 얼마 미만이면 안 나와?");
+    ok(
+      g2.sources.some((s) => s.preview.includes("부가가치세") || s.preview.includes("예정고지")) ||
+        /50만원/.test(g2.answer),
+      "세무 2급 강좌: 부가세 자료 검색·반영"
+    );
+  }
+
   console.log(`\n✅ E2E 전부 통과 (${pass} asserts)`);
 }
 
