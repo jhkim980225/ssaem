@@ -1,6 +1,5 @@
 "use client";
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
 import ChatPanel, { type Msg } from "@/components/ChatPanel";
@@ -92,9 +91,6 @@ export default function AskPage() {
     <main className="flex-1 w-full max-w-lg lg:max-w-5xl mx-auto px-5 py-8 flex flex-col gap-4">
       <div className="rise flex items-start justify-between gap-3">
         <div>
-          <Link href="/" className="text-sub text-[13px]">
-            ← 홈
-          </Link>
           <h1 className="text-[24px] lg:text-[28px] font-extrabold">질문하기</h1>
           <p className="text-sub text-[14px]">선생님을 고르고 궁금한 걸 물어보세요.</p>
         </div>

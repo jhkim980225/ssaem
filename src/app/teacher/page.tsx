@@ -90,9 +90,6 @@ function AuthForm() {
 
   return (
     <div className="animate-pop flex flex-col gap-3 max-w-sm mx-auto mt-10">
-      <Link href="/" className="rise text-sub text-[14px] mb-2">
-        ← 홈
-      </Link>
       <h1 className="rise d1 text-[26px] font-extrabold">강사 {mode === "login" ? "로그인" : "가입"}</h1>
       <p className="rise d2 text-sub text-[14px] mb-3">계정으로 나만의 AI 튜터를 관리해요.</p>
       <input className="field" placeholder="이메일" value={email} onChange={(e) => setEmail(e.target.value)} />

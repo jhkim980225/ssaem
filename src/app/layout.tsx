@@ -1,5 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
+import SiteHeader from "@/components/SiteHeader";
+import SiteFooter from "@/components/SiteFooter";
 
 export const metadata: Metadata = {
   title: "학원 AI 튜터",
@@ -30,7 +32,9 @@ export default function RootLayout({
       </head>
       {/* suppressHydrationWarning: 브라우저 확장(광고차단 등)이 body에 속성 주입 시 hydration 경고 방지 */}
       <body className="min-h-full flex flex-col" suppressHydrationWarning>
+        <SiteHeader />
         {children}
+        <SiteFooter />
       </body>
     </html>
   );

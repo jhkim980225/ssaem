@@ -1,0 +1,45 @@
+import Link from "next/link";
+
+export default function SiteFooter() {
+  return (
+    <footer className="border-t border-line mt-16">
+      <div className="mx-auto w-full max-w-5xl px-5 py-10 flex flex-col gap-8">
+        <div className="flex flex-col sm:flex-row sm:justify-between gap-8">
+          <div className="max-w-xs">
+            <p className="flex items-center gap-2 font-extrabold text-[15px]">
+              <span className="grid place-items-center w-7 h-7 rounded-[9px] bg-blue text-white text-[13px]">✨</span>
+              학원 AI 튜터
+            </p>
+            <p className="mt-3 text-[13px] text-sub leading-relaxed">
+              강사님이 등록한 문제·풀이를 근거로
+              <br />
+              학생 질문에 답하는 RAG 튜터입니다.
+            </p>
+          </div>
+
+          <div className="flex gap-14">
+            <div>
+              <p className="text-[12px] font-bold text-sub mb-3">학생</p>
+              <ul className="flex flex-col gap-2 text-[13px]">
+                <li><Link href="/ask" className="hover:text-blue transition-colors">질문하기</Link></li>
+              </ul>
+            </div>
+            <div>
+              <p className="text-[12px] font-bold text-sub mb-3">강사</p>
+              <ul className="flex flex-col gap-2 text-[13px]">
+                <li><Link href="/teacher" className="hover:text-blue transition-colors">대시보드</Link></li>
+                <li><Link href="/teacher/insights" className="hover:text-blue transition-colors">인사이트</Link></li>
+                <li><Link href="/teacher/history" className="hover:text-blue transition-colors">질문 이력</Link></li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pt-6 border-t border-line">
+          <p className="text-[12px] text-sub">© {new Date().getFullYear()} 학원 AI 튜터</p>
+          <p className="text-[12px] text-sub">전산회계 2급 · 1급 · 전산세무 2급 지원</p>
+        </div>
+      </div>
+    </footer>
+  );
+}
