@@ -1,0 +1,118 @@
+// 라이브 E2E: dev 서버(localhost:3000) + 실제 Supabase 필요.
+// npx tsx scripts/e2e-live.ts
+import assert from "node:assert";
+import { config } from "dotenv";
+config({ path: ".env.local" });
+
+const BASE = process.env.E2E_BASE || "http://localhost:3000";
+const SB = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const ANON = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+
+async function json(method: string, path: string, body?: unknown, token?: string) {
+  const r = await fetch(`${BASE}${path}`, {
+    method,
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  return { status: r.status, headers: r.headers, data: await r.json().catch(() => null) };
+}
+
+async function login(email: string, password: string): Promise<string | null> {
+  const r = await fetch(`${SB}/auth/v1/token?grant_type=password`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", apikey: ANON },
+    body: JSON.stringify({ email, password }),
+  });
+  if (!r.ok) return null;
+  return (await r.json()).access_token ?? null;
+}
+
+let pass = 0;
+function ok(cond: boolean, name: string) {
+  assert.ok(cond, `FAIL: ${name}`);
+  pass++;
+  console.log(`  ✓ ${name}`);
+}
+
+async function main() {
+  console.log("1) 강사 목록");
+  const t = await json("GET", "/api/teachers");
+  ok(t.status === 200 && t.data.teachers.length >= 1, "강사 목록 조회");
+  const teacher = t.data.teachers.find((x: { name: string }) => x.name === "김대차") ?? t.data.teachers[0];
+
+  console.log("2) RAG 답변 (스트리밍)");
+  const r1 = await fetch(`${BASE}/api/ask`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ teacherId: teacher.id, question: "차변에는 뭘 기입해요?" }),
+  });
+  const convId = r1.headers.get("x-conversation-id");
+  const sources = r1.headers.get("x-sources");
+  const answer = await r1.text();
+  ok(r1.status === 200 && answer.length > 30, "답변 스트림 수신");
+  ok(!!convId, "대화 ID 헤더");
+  ok(!!sources && JSON.parse(decodeURIComponent(sources)).length > 0, "출처 헤더");
+  ok(/차변|8요소/.test(answer), "답변이 자료 근거 반영");
+
+  console.log("3) 이어지는 질문 (맥락)");
+  const r2 = await fetch(`${BASE}/api/ask`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ teacherId: teacher.id, question: "방금 설명 한 줄로 요약해줘", conversationId: convId }),
+  });
+  ok(r2.status === 200 && (await r2.text()).length > 10, "후속 질문 답변");
+
+  console.log("4) 피드백");
+  const fb = await json("POST", "/api/feedback", { conversationId: convId, rating: 5 });
+  ok(fb.status === 200 && fb.data.ok, "피드백 기록");
+
+  console.log("5) 강사 로그인");
+  let ttoken: string | null = null;
+  for (const pw of [process.env.SEED_PASSWORD, "12345678", "123456"]) {
+    if (!pw) continue;
+    ttoken = await login("t01@a.test", pw);
+    if (ttoken) break;
+  }
+  ok(!!ttoken, "강사 로그인 (t01@a.test)");
+
+  console.log("6) 강사 API");
+  const docs = await json("GET", "/api/documents", undefined, ttoken!);
+  ok(docs.status === 200 && docs.data.documents.length >= 1, "문서 목록");
+  const c = await json("POST", "/api/courses", { title: "E2E 테스트반" }, ttoken!);
+  ok(c.status === 200 && c.data.id, "강좌 생성");
+  const pub = await json("GET", `/api/courses?teacher=${teacher.id}`);
+  ok(pub.status === 200 && pub.data.courses.some((x: { id: string }) => x.id === c.data.id), "공개 강좌 목록");
+  const del = await json("DELETE", `/api/courses?id=${c.data.id}`, undefined, ttoken!);
+  ok(del.status === 200, "강좌 삭제");
+  const ins = await json("GET", "/api/insights", undefined, ttoken!);
+  ok(ins.status === 200 && ins.data.totals.questions >= 1, "인사이트 집계");
+  const convs = await json("GET", "/api/conversations", undefined, ttoken!);
+  ok(convs.status === 200 && convs.data.role === "teacher", "강사 이력 role");
+
+  console.log("7) 학생 가입/이력");
+  const email = `e2e-${Date.now()}@a.test`;
+  const su = await json("POST", "/api/signup", { role: "student", name: "E2E학생", email, password: "e2epass1234" });
+  ok(su.status === 200 && su.data.ok, "학생 가입");
+  const stoken = await login(email, "e2epass1234");
+  ok(!!stoken, "학생 로그인");
+  const r3 = await fetch(`${BASE}/api/ask`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${stoken}` },
+    body: JSON.stringify({ teacherId: teacher.id, question: "시산표로 못 잡는 오류가 있나요?" }),
+  });
+  ok(r3.status === 200 && (await r3.text()).length > 30, "학생 계정 질문");
+  const sc = await json("GET", "/api/conversations", undefined, stoken!);
+  ok(sc.status === 200 && sc.data.role === "student" && sc.data.conversations.length >= 1, "학생 이력 (본인 대화)");
+  const detail = await json("GET", `/api/conversations?id=${sc.data.conversations[0].id}`, undefined, stoken!);
+  ok(detail.status === 200 && detail.data.messages.length >= 2, "학생 대화 상세");
+
+  console.log(`\n✅ E2E 전부 통과 (${pass} asserts)`);
+}
+
+main().catch((e) => {
+  console.error("\n❌", e.message);
+  process.exit(1);
+});

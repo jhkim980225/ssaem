@@ -29,9 +29,10 @@ supabase/schema.sql DB 스키마 v2 (설계: docs/db-design.md)
 - 선생님: `/teacher` 가입/로그인 → 프로필(이름·과목) 저장 → 문제/풀이 추가 (자동 임베딩)
 - 학생: `/ask` 선생님 선택 → 질문 → 관련 자료 검색 후 근거 기반 답변
 
-## 검증 (외부 API 불필요)
-- `npx tsx scripts/test-chunk.ts` — 전산회계 2급 문서 청킹
-- `npx tsx scripts/verify-instructors.ts` — 강사 10명 자료/검색/프롬프트 (20/20)
+## 검증
+- `npx tsx scripts/test-chunk.ts` — 문서 청킹 (외부 API 불필요)
+- `npx tsx scripts/verify-instructors.ts` — 강사 10명 자료/검색/프롬프트 20/20 (외부 API 불필요)
+- `npx tsx scripts/e2e-live.ts` — 라이브 E2E 19 asserts (dev 서버 + 실 Supabase 필요)
 
 ## 시드 (Supabase 준비 후)
 - `npx tsx scripts/seed.ts` — 강사 10명 자동 생성. 로그인 `<id>@a.test / 12345678` (`SEED_PASSWORD`로 변경)
