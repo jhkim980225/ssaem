@@ -28,7 +28,10 @@ export default function RootLayout({
           href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css"
         />
       </head>
-      <body className="min-h-full flex flex-col">{children}</body>
+      {/* suppressHydrationWarning: 브라우저 확장(광고차단 등)이 body에 속성 주입 시 hydration 경고 방지 */}
+      <body className="min-h-full flex flex-col" suppressHydrationWarning>
+        {children}
+      </body>
     </html>
   );
 }
