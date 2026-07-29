@@ -149,6 +149,7 @@ export default function ChatPanel({
   teacherName,
   compact,
   token,
+  courseId,
   initialConversationId,
   initialMsgs,
 }: {
@@ -156,6 +157,7 @@ export default function ChatPanel({
   teacherName: string;
   compact?: boolean;
   token?: string; // 로그인 학생: 대화를 계정에 연결
+  courseId?: string | null; // 강좌 필터 (공용 자료는 항상 포함)
   initialConversationId?: string | null; // 이전 대화 이어가기
   initialMsgs?: Msg[];
 }) {
@@ -190,7 +192,7 @@ export default function ChatPanel({
           "Content-Type": "application/json",
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-        body: JSON.stringify({ teacherId, question, conversationId }),
+        body: JSON.stringify({ teacherId, question, conversationId, courseId: courseId || null }),
         signal: ac.signal,
       });
       const convId = r.headers.get("X-Conversation-Id");

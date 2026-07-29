@@ -39,7 +39,10 @@ export async function POST(req: Request) {
   const toneNote = (body?.tone_note ?? "").toString().trim().slice(0, 500) || null;
 
   const db = serviceClient();
-  const academyId = await resolveAcademy(db);
+  // 가입 시 학원 링크로 왔으면 user_metadata에 slug가 있음 → 그 학원 소속
+  const { data: au } = await db.auth.admin.getUserById(uid);
+  const slug = (au?.user?.user_metadata?.academy_slug ?? null) as string | null;
+  const academyId = await resolveAcademy(db, slug);
 
   const { error: perr } = await db
     .from("profiles")

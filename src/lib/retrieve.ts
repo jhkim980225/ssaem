@@ -26,12 +26,15 @@ export async function retrieve(
     return (data ?? []) as Hit[];
   }
 
-  // 폴백: 강사 청크 전체를 가져와 lexical 스코어로 랭킹
-  const { data, error } = await db
+  // 폴백: 강사 청크 전체를 가져와 lexical 스코어로 랭킹 (강좌 필터 — 공용(null) 포함)
+  let q = db
     .from("chunks")
-    .select("id, content, documents!inner(kind)")
+    .select("id, content, documents!inner(kind, course_id)")
     .eq("teacher_id", teacherId)
     .limit(500);
+  if (courseId)
+    q = q.or(`course_id.is.null,course_id.eq.${courseId}`, { referencedTable: "documents" });
+  const { data, error } = await q;
   if (error) throw error;
 
   type Row = { id: string; content: string; documents: { kind: string } | { kind: string }[] };

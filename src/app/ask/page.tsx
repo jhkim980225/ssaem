@@ -7,6 +7,7 @@ import ChatPanel, { type Msg } from "@/components/ChatPanel";
 import { avatarEmoji } from "@/lib/avatar";
 
 type Teacher = { id: string; name: string; subject: string | null };
+type Course = { id: string; title: string };
 type Conv = { id: string; title: string | null; teacher_id: string; teacher_name: string | null; messages: number };
 // 현재 채팅 대상. convId/msgs 있으면 이전 대화 이어가기.
 type Chat = { teacherId: string; teacherName: string; convId?: string; msgs?: Msg[] };
@@ -15,6 +16,9 @@ export default function AskPage() {
   const [teachers, setTeachers] = useState<Teacher[] | null>(null); // null = 로딩
   const [chat, setChat] = useState<Chat | null>(null);
   const [nonce, setNonce] = useState(0); // "새 대화"로 같은 강사 채팅 리마운트
+  // 선택된 강사의 강좌 (teacherId 키로 보관 — 렌더에서 현재 강사 것만 사용)
+  const [courseData, setCourseData] = useState<{ teacherId: string; courses: Course[] } | null>(null);
+  const [courseId, setCourseId] = useState(""); // "" = 전체
   const [err, setErr] = useState("");
 
   const [session, setSession] = useState<Session | null>(null);
@@ -51,6 +55,18 @@ export default function AskPage() {
       })
       .catch(() => setConvs([]));
   }, [session]);
+
+  // 강사 선택 시 그 강사의 강좌 목록 로드
+  useEffect(() => {
+    const tid = chat?.teacherId;
+    if (!tid) return;
+    fetch(`/api/courses?teacher=${tid}`)
+      .then((r) => r.json())
+      .then((d) => setCourseData({ teacherId: tid, courses: d.courses ?? [] }))
+      .catch(() => setCourseData({ teacherId: tid, courses: [] }));
+  }, [chat?.teacherId]);
+
+  const courses = courseData && courseData.teacherId === chat?.teacherId ? courseData.courses : [];
 
   async function openConv(c: Conv) {
     if (!session) return;
@@ -126,7 +142,10 @@ export default function AskPage() {
               {teachers?.map((t) => (
                 <button
                   key={t.id}
-                  onClick={() => setChat({ teacherId: t.id, teacherName: t.name })}
+                  onClick={() => {
+                    setChat({ teacherId: t.id, teacherName: t.name });
+                    setCourseId("");
+                  }}
                   className={`t-item ${chat?.teacherId === t.id && !chat?.convId ? "t-item-on" : ""}`}
                 >
                   <span className="avatar">{avatarEmoji(t.name)}</span>
@@ -145,7 +164,10 @@ export default function AskPage() {
               {teachers?.map((t) => (
                 <button
                   key={t.id}
-                  onClick={() => setChat({ teacherId: t.id, teacherName: t.name })}
+                  onClick={() => {
+                    setChat({ teacherId: t.id, teacherName: t.name });
+                    setCourseId("");
+                  }}
                   className={`chip shrink-0 ${chat?.teacherId === t.id && !chat?.convId ? "chip-on" : ""}`}
                 >
                   {avatarEmoji(t.name)} {t.name}
@@ -187,13 +209,35 @@ export default function AskPage() {
             key={`${chat.convId ?? chat.teacherId}-${nonce}`}
             className="animate-pop card p-4 lg:p-6 lg:min-h-[62vh] flex flex-col"
           >
-            <div className="flex justify-end -mb-2">
+            <div className="flex items-center justify-between gap-2 -mb-2">
+              {/* 강좌 필터 — 공용 자료는 어떤 강좌를 골라도 포함 */}
+              {courses.length > 0 ? (
+                <div className="flex gap-1.5 overflow-x-auto">
+                  <button
+                    onClick={() => setCourseId("")}
+                    className={`chip !py-1 !px-2.5 !text-[12px] shrink-0 ${courseId === "" ? "chip-on" : ""}`}
+                  >
+                    전체
+                  </button>
+                  {courses.map((c) => (
+                    <button
+                      key={c.id}
+                      onClick={() => setCourseId(c.id)}
+                      className={`chip !py-1 !px-2.5 !text-[12px] shrink-0 ${courseId === c.id ? "chip-on" : ""}`}
+                    >
+                      {c.title}
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <span />
+              )}
               <button
                 onClick={() => {
                   setChat({ teacherId: chat.teacherId, teacherName: chat.teacherName });
                   setNonce((n) => n + 1);
                 }}
-                className="text-sub text-[12px]"
+                className="text-sub text-[12px] shrink-0"
               >
                 + 새 대화
               </button>
@@ -202,6 +246,7 @@ export default function AskPage() {
               teacherId={chat.teacherId}
               teacherName={chat.teacherName}
               token={session?.access_token}
+              courseId={courseId || null}
               initialConversationId={chat.convId ?? null}
               initialMsgs={chat.msgs}
             />

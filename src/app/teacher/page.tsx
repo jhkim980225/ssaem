@@ -16,6 +16,8 @@ type Doc = {
   created_at: string;
 };
 
+type Course = { id: string; title: string; documents: number };
+
 type DocEvent = {
   id: string;
   action: "created" | "deleted";
@@ -70,10 +72,12 @@ function AuthForm() {
       return;
     }
     // 가입: 초대코드 검증 서버 라우트 → 성공 시 바로 로그인
+    // /teacher?academy=<slug> 로 왔으면 그 학원 소속으로 가입
+    const academySlug = new URLSearchParams(window.location.search).get("academy");
     const r = await fetch("/api/signup", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password: pw, inviteCode: invite }),
+      body: JSON.stringify({ email, password: pw, inviteCode: invite, academySlug }),
     });
     const d = await r.json();
     if (!r.ok) {
@@ -124,16 +128,51 @@ function Dashboard({ session }: { session: Session }) {
   const [events, setEvents] = useState<DocEvent[]>([]);
   const [msg, setMsg] = useState("");
 
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [newCourse, setNewCourse] = useState("");
+  const [courseSel, setCourseSel] = useState(""); // "" = 공용 (모든 강좌에서 검색됨)
+
   const loadDocs = useCallback(async () => {
-    const [dr, er] = await Promise.all([
+    const [dr, er, cr] = await Promise.all([
       fetch("/api/documents", { headers: { Authorization: `Bearer ${token}` } }),
       fetch("/api/documents/events", { headers: { Authorization: `Bearer ${token}` } }),
+      fetch("/api/courses", { headers: { Authorization: `Bearer ${token}` } }),
     ]);
     const d = await dr.json();
     if (dr.ok) setDocs(d.documents ?? []);
     const e = await er.json();
     if (er.ok) setEvents(e.events ?? []);
+    const c = await cr.json();
+    if (cr.ok) setCourses(c.courses ?? []);
   }, [token]);
+
+  async function addCourse() {
+    const title = newCourse.trim();
+    if (!title) return;
+    const r = await fetch("/api/courses", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ title }),
+    });
+    const d = await r.json();
+    if (!r.ok) setMsg(d.error || "강좌 생성 실패");
+    else {
+      setNewCourse("");
+      loadDocs();
+    }
+  }
+
+  async function removeCourse(id: string) {
+    if (!confirm("강좌를 삭제할까요? 소속 자료는 공용으로 전환돼요.")) return;
+    const r = await fetch(`/api/courses?id=${id}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (r.ok) {
+      if (courseSel === id) setCourseSel("");
+      loadDocs();
+    } else setMsg("강좌 삭제 실패");
+  }
 
   useEffect(() => {
     fetch("/api/profile", { headers: { Authorization: `Bearer ${token}` } })
@@ -200,6 +239,7 @@ function Dashboard({ session }: { session: Session }) {
     const fd = new FormData();
     fd.append("file", file);
     fd.append("kind", "problem");
+    if (courseSel) fd.append("courseId", courseSel);
     const r = await fetch("/api/upload", {
       method: "POST",
       headers: { Authorization: `Bearer ${token}` },
@@ -219,7 +259,7 @@ function Dashboard({ session }: { session: Session }) {
     const r = await fetch("/api/documents", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ kind: "problem", content }),
+      body: JSON.stringify({ kind: "problem", content, courseId: courseSel || null }),
     });
     const d = await r.json();
     if (!r.ok) setMsg(d.error || "실패");
@@ -265,9 +305,57 @@ function Dashboard({ session }: { session: Session }) {
         </button>
       </section>
 
+      {/* 강좌 */}
+      <section className="rise d2 card p-5 lg:p-6 flex flex-col gap-3">
+        <h2 className="font-bold text-[17px]">강좌</h2>
+        <p className="text-sub text-[13px] -mt-1">
+          강좌를 만들면 자료를 반별로 나눠 담을 수 있어요. 학생은 강좌를 골라 질문해요.
+        </p>
+        <div className="flex gap-2">
+          <input
+            className="field"
+            placeholder="강좌 이름 (예: 전산회계 2급 야간반)"
+            value={newCourse}
+            onChange={(e) => setNewCourse(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.nativeEvent.isComposing) addCourse();
+            }}
+          />
+          <button onClick={addCourse} className="btn btn-primary px-5 shrink-0">
+            추가
+          </button>
+        </div>
+        {courses.length > 0 && (
+          <div className="flex flex-wrap gap-2">
+            {courses.map((c) => (
+              <span key={c.id} className="chip flex items-center gap-1.5">
+                {c.title} <span className="text-sub">({c.documents})</span>
+                <button onClick={() => removeCourse(c.id)} aria-label="강좌 삭제" className="text-sub">
+                  ×
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
+      </section>
+
       {/* 자료 */}
       <section className="rise d2 card p-5 lg:p-6 flex flex-col gap-3">
         <h2 className="font-bold text-[17px]">학습 자료</h2>
+        {courses.length > 0 && (
+          <select
+            className="field !py-2.5"
+            value={courseSel}
+            onChange={(e) => setCourseSel(e.target.value)}
+          >
+            <option value="">공용 (모든 강좌에서 검색됨)</option>
+            {courses.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.title}
+              </option>
+            ))}
+          </select>
+        )}
         <textarea
           className="field min-h-28 resize-none"
           placeholder="문제와 풀이를 붙여넣으세요"

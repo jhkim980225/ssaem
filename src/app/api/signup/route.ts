@@ -16,6 +16,7 @@ export async function POST(req: Request) {
   const inviteCode = (body?.inviteCode ?? "").toString().trim();
   const role = body?.role === "student" ? "student" : "teacher";
   const name = (body?.name ?? "").toString().trim();
+  const academySlug = (body?.academySlug ?? "").toString().trim() || null;
 
   if (!email || !password)
     return NextResponse.json({ error: "이메일과 비밀번호를 입력하세요" }, { status: 400 });
@@ -38,6 +39,8 @@ export async function POST(req: Request) {
     email,
     password,
     email_confirm: true,
+    // 학원별 가입 링크(/a/<slug> → /teacher?academy=<slug>)로 온 경우 프로필 저장 시 소속 결정
+    user_metadata: academySlug ? { academy_slug: academySlug } : undefined,
   });
   if (error) {
     const msg = /already/i.test(error.message) ? "이미 가입된 이메일이에요" : error.message;
@@ -46,7 +49,7 @@ export async function POST(req: Request) {
 
   // 학생은 프로필까지 즉시 생성 (강사는 대시보드에서 이름·과목 입력 시 생성)
   if (role === "student" && data.user) {
-    const academyId = await resolveAcademy(db);
+    const academyId = await resolveAcademy(db, academySlug);
     const { error: perr } = await db
       .from("profiles")
       .upsert({ id: data.user.id, academy_id: academyId, role: "student", name });

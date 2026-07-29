@@ -2,6 +2,19 @@ import { serviceClient } from "./supabase";
 import { embedMany } from "./embed";
 import { chunkText } from "./chunk";
 
+// 내 강좌인지 확인 — 아니면 null(공용)로 강등. 자료 등록 라우트 공용.
+export async function ownCourseOrNull(uid: string, raw: unknown): Promise<string | null> {
+  const id = (raw ?? "").toString();
+  if (!id) return null;
+  const { data } = await serviceClient()
+    .from("courses")
+    .select("id")
+    .eq("id", id)
+    .eq("teacher_id", uid)
+    .maybeSingle();
+  return data?.id ?? null;
+}
+
 // 원본 문서 저장 + 청킹 + 청크별 임베딩. 텍스트/PDF 공용.
 export async function saveDocument(opts: {
   teacherId: string;

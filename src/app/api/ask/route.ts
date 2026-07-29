@@ -19,6 +19,9 @@ export async function POST(req: Request) {
 
   const body = await req.json().catch(() => null);
   const teacherId = (body?.teacherId ?? "").toString();
+  // 강좌 필터 (공용 자료는 항상 포함). uuid 형식 아니면 무시 — RPC/FK 에러 방지
+  const rawCourse = (body?.courseId ?? "").toString();
+  const courseId = /^[0-9a-f-]{36}$/i.test(rawCourse) ? rawCourse : null;
   const question = (body?.question ?? "").toString().trim();
   let conversationId: string | null = (body?.conversationId ?? null) as string | null;
   if (!teacherId || !question)
@@ -42,7 +45,7 @@ export async function POST(req: Request) {
       .eq("id", teacherId)
       .eq("role", "teacher")
       .maybeSingle(),
-    retrieve(teacherId, question, 5),
+    retrieve(teacherId, question, 5, courseId),
     conversationId
       ? db
           .from("messages")
@@ -81,7 +84,7 @@ export async function POST(req: Request) {
   if (!conversationId) {
     const { data: conv } = await db
       .from("conversations")
-      .insert({ teacher_id: teacherId, student_id: studentId, title: question.slice(0, 60) })
+      .insert({ teacher_id: teacherId, student_id: studentId, course_id: courseId, title: question.slice(0, 60) })
       .select("id")
       .single();
     conversationId = conv?.id ?? null;

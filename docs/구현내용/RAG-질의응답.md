@@ -12,8 +12,9 @@
 
 ## 검색 — src/lib/retrieve.ts
 
-- 임베딩 가능: pgvector `match_chunks` RPC (강사·코스 필터 + 코사인 top-k, 기본 k=5).
-- 임베딩 불가(`embed()` → null): 강사 청크 최대 500개 로드 후 렉시컬 랭킹 폴백.
+- 임베딩 가능: pgvector `match_chunks` RPC (강사·강좌 필터 + 코사인 top-k, 기본 k=5).
+- 임베딩 불가(`embed()` → null): 강사 청크 최대 500개 로드 후 렉시컬 랭킹 폴백 (강좌 필터 동일 적용).
+- 강좌 필터는 공용 자료(`course_id` null)를 항상 포함. `/api/ask`의 `courseId`는 uuid 형식 검증 후 사용.
 
 ## 렉시컬 폴백 — src/lib/lexical.ts
 

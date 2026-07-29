@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { serviceClient } from "@/lib/supabase";
 import { teacherFromRequest } from "@/lib/auth";
-import { saveDocument, updateDocument, logDocumentEvent } from "@/lib/documents";
+import { saveDocument, updateDocument, logDocumentEvent, ownCourseOrNull } from "@/lib/documents";
 
 const MAX_CONTENT = 200_000; // 임베딩 비용·메모리 방어
 
@@ -45,9 +45,10 @@ export async function POST(req: Request) {
   if (!content) return NextResponse.json({ error: "content required" }, { status: 400 });
   if (content.length > MAX_CONTENT)
     return NextResponse.json({ error: `자료는 ${MAX_CONTENT.toLocaleString()}자 이하로 등록해주세요` }, { status: 400 });
+  const courseId = await ownCourseOrNull(uid, body?.courseId);
 
   try {
-    const r = await saveDocument({ teacherId: uid, kind, rawText: content, source: "text" });
+    const r = await saveDocument({ teacherId: uid, kind, rawText: content, source: "text", courseId });
     return NextResponse.json({ ok: true, ...r });
   } catch (e) {
     return NextResponse.json({ error: e instanceof Error ? e.message : "실패" }, { status: 500 });

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { extractText, getDocumentProxy } from "unpdf";
 import { teacherFromRequest } from "@/lib/auth";
-import { saveDocument } from "@/lib/documents";
+import { saveDocument, ownCourseOrNull } from "@/lib/documents";
 import { ocrPdf } from "@/lib/ocr";
 
 export const runtime = "nodejs";
@@ -45,6 +45,8 @@ export async function POST(req: Request) {
       );
   }
 
+  const courseId = await ownCourseOrNull(uid, form?.get("courseId"));
+
   try {
     const r = await saveDocument({
       teacherId: uid,
@@ -52,6 +54,7 @@ export async function POST(req: Request) {
       rawText: content,
       title: file.name,
       source: "pdf",
+      courseId,
     });
     return NextResponse.json({ ok: true, chars: content.length, ...r });
   } catch (e) {

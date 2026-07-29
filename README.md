@@ -43,9 +43,11 @@ supabase/schema.sql DB 스키마 v2 (설계: docs/db-design.md)
 - 학생 질문 → RAG 검색(임베딩/lexical 폴백) → 근거 기반 스트리밍 답변
 - 학생 로그인/가입(선택) → 질문 이력 계정 저장·이어가기. 익명 질문도 계속 허용
 - 선생님용 학생 질문 이력 조회(`/teacher/history`)
-- 학원별 진입 URL `/a/<slug>` (그 학원 강사만 노출)
+- 학원별 진입 URL `/a/<slug>` (그 학원 강사만 노출) + 학원별 강사 가입(`/teacher?academy=<slug>`)
+- 강좌: 강사가 강좌 만들어 자료 분류, 학생은 강좌 골라 질문 (공용 자료는 항상 포함)
+- 답변 피드백(👍/👎)·출처 보기, 강사 말투(tone_note) 프롬프트 반영
 - Q&A 이력 기록(conversations/messages/citations)
 
 ## 남은 것 (TODO)
-- 학원별 강사 가입 연결 (현재 가입은 기본 학원 고정)
-- 수강(enrollments)·강좌(courses) UI
+- 강사 인사이트 대시보드 (질문 추이·낮은 평점 답변·자료 공백)
+- 수강신청(enrollments) UI — 지금은 학생이 강좌 자유 선택
