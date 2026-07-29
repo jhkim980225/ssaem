@@ -5,7 +5,7 @@ import { supabase } from "@/lib/supabase";
 import ChatPanel, { type Msg } from "@/components/ChatPanel";
 import { avatarEmoji } from "@/lib/avatar";
 
-type Teacher = { id: string; name: string; subject: string | null };
+type Teacher = { id: string; name: string; subject: string | null; enrolled?: boolean };
 type Course = { id: string; title: string };
 type Conv = { id: string; title: string | null; teacher_id: string; teacher_name: string | null; messages: number };
 // 현재 채팅 대상. convId/msgs 있으면 이전 대화 이어가기.
@@ -21,24 +21,44 @@ export default function AskPage() {
   const [err, setErr] = useState("");
 
   const [session, setSession] = useState<Session | null>(null);
+  const [sessionReady, setSessionReady] = useState(false);
   const [role, setRole] = useState<"student" | "teacher" | null>(null);
   const [convs, setConvs] = useState<Conv[]>([]);
 
   useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      setSession(data.session);
+      setSessionReady(true);
+    });
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => setSession(s));
+    return () => sub.subscription.unsubscribe();
+  }, []);
+
+  // 강사 목록 — 세션 확정 후 로드 (로그인 학생은 초대된 비공개 강사 포함)
+  useEffect(() => {
+    if (!sessionReady) return;
     // 멀티테넌트: /ask?academy=<slug> 로 학원 한정 (미지정 시 전체)
-    const academy = new URLSearchParams(window.location.search).get("academy");
-    fetch(`/api/teachers${academy ? `?academy=${encodeURIComponent(academy)}` : ""}`)
+    const params = new URLSearchParams(window.location.search);
+    const academy = params.get("academy");
+    const preselect = params.get("teacher"); // 초대 링크 경유 시 자동 선택
+    fetch(`/api/teachers${academy ? `?academy=${encodeURIComponent(academy)}` : ""}`, {
+      headers: session ? { Authorization: `Bearer ${session.access_token}` } : {},
+    })
       .then((r) => r.json())
-      .then((d) => setTeachers(d.teachers ?? []))
+      .then((d) => {
+        const list: Teacher[] = d.teachers ?? [];
+        setTeachers(list);
+        if (preselect) {
+          const t = list.find((x) => x.id === preselect);
+          if (t) setChat({ teacherId: t.id, teacherName: t.name });
+        }
+      })
       .catch(() => {
         setErr("선생님 목록을 불러오지 못했어요");
         setTeachers([]);
       });
-
-    supabase.auth.getSession().then(({ data }) => setSession(data.session));
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => setSession(s));
-    return () => sub.subscription.unsubscribe();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionReady, session?.access_token]);
 
   // 로그인 시 내 이력 로드 (강사 계정이면 숨김 — /teacher/history 사용)
   // 로그아웃 시 리셋은 없음: 렌더가 session 유무로 가드하므로 stale 값이 안 보임
@@ -146,7 +166,12 @@ export default function AskPage() {
                 >
                   <span className="avatar">{avatarEmoji(t.name)}</span>
                   <span className="min-w-0">
-                    <span className="block text-[15px] font-bold truncate">{t.name}</span>
+                    <span className="block text-[15px] font-bold truncate">
+                      {t.name}
+                      {t.enrolled && (
+                        <span className="ml-1.5 text-[11px] font-bold text-blue align-middle">내 선생님</span>
+                      )}
+                    </span>
                     {t.subject && (
                       <span className="block text-[13px] text-sub truncate">{t.subject}</span>
                     )}

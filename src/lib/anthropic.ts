@@ -46,7 +46,9 @@ export async function* generateStream(
       body: JSON.stringify({
         model,
         max_tokens: maxTokens,
-        reasoning_effort: "none", // thinking 토큰이 max_tokens 먹어서 답변 잘리는 것 방지
+        // thinking 토큰이 max_tokens 먹어서 답변 잘리는 것 방지.
+        // lite 계열은 reasoning_effort를 400으로 거부 → flash에만 전달
+        ...(model.includes("lite") ? {} : { reasoning_effort: "none" }),
         stream: true,
         messages: [{ role: "system", content: system }, ...messages],
       }),

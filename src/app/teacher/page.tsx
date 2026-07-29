@@ -118,7 +118,10 @@ function Dashboard({ session }: { session: Session }) {
   const [name, setName] = useState("");
   const [subject, setSubject] = useState("");
   const [toneNote, setToneNote] = useState("");
+  const [isPublic, setIsPublic] = useState(true);
   const [savedProfile, setSavedProfile] = useState(false);
+  const [invite, setInvite] = useState<{ url: string; qrSvg: string } | null>(null);
+  const [copied, setCopied] = useState(false);
 
   const [content, setContent] = useState("");
   const [docs, setDocs] = useState<Doc[]>([]);
@@ -179,9 +182,14 @@ function Dashboard({ session }: { session: Session }) {
           setName(d.profile.name ?? "");
           setSubject(d.profile.subject ?? "");
           setToneNote(d.profile.tone_note ?? "");
+          setIsPublic(d.profile.is_public ?? true);
           setSavedProfile(true);
         }
       })
+      .catch(() => {});
+    fetch("/api/invite", { headers: { Authorization: `Bearer ${token}` } })
+      .then((r) => r.json())
+      .then((d) => d.url && setInvite({ url: d.url, qrSvg: d.qrSvg }))
       .catch(() => {});
     loadDocs();
   }, [token, loadDocs]);
@@ -191,7 +199,7 @@ function Dashboard({ session }: { session: Session }) {
     const r = await fetch("/api/profile", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ name, subject, tone_note: toneNote }),
+      body: JSON.stringify({ name, subject, tone_note: toneNote, is_public: isPublic }),
     });
     const d = await r.json();
     if (!r.ok) setMsg(d.error || "저장 실패");
@@ -297,10 +305,53 @@ function Dashboard({ session }: { session: Session }) {
           value={toneNote}
           onChange={(e) => setToneNote(e.target.value)}
         />
+        <label className="flex items-center gap-2 text-[14px] cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={isPublic}
+            onChange={(e) => setIsPublic(e.target.checked)}
+            className="w-4 h-4 accent-[var(--blue)]"
+          />
+          공개 강사 목록에 노출
+          <span className="text-sub text-[12px]">(끄면 초대받은 학생만 나를 볼 수 있어요)</span>
+        </label>
         <button onClick={saveProfile} className="btn btn-primary py-3 self-start px-6">
           프로필 저장
         </button>
       </section>
+
+      {/* 학생 초대 */}
+      {savedProfile && invite && (
+        <section className="rise d2 card p-5 lg:p-6 flex flex-col gap-3">
+          <h2 className="font-bold text-[17px]">학생 초대</h2>
+          <p className="text-sub text-[13px] -mt-1">
+            QR을 보여주거나 링크를 공유하세요. 학생이 접속하면 가입과 동시에 내 기본반에 등록돼요.
+          </p>
+          <div className="flex flex-col sm:flex-row gap-4 items-start">
+            <div
+              className="rounded-[14px] border border-line p-2 bg-white shrink-0 [&>svg]:block [&>svg]:w-[160px] [&>svg]:h-[160px]"
+              dangerouslySetInnerHTML={{ __html: invite.qrSvg }}
+            />
+            <div className="flex flex-col gap-2 min-w-0 w-full">
+              <p className="text-[12px] font-bold text-sub">초대 링크</p>
+              <p className="text-[13px] break-all rounded-[10px] border border-line px-3 py-2.5" style={{ background: "var(--fill-2)" }}>
+                {invite.url}
+              </p>
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(invite.url).then(() => {
+                    setCopied(true);
+                    setTimeout(() => setCopied(false), 1500);
+                  });
+                }}
+                className="btn btn-ghost py-2.5 px-5 self-start text-[14px]"
+              >
+                {copied ? "복사됨 ✓" : "링크 복사"}
+              </button>
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* 강좌 */}
       <section className="rise d2 card p-5 lg:p-6 flex flex-col gap-3">

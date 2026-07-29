@@ -37,6 +37,7 @@ export async function POST(req: Request) {
   if (!name) return NextResponse.json({ error: "name required" }, { status: 400 });
   const subject = (body?.subject ?? "").toString().trim() || null;
   const toneNote = (body?.tone_note ?? "").toString().trim().slice(0, 500) || null;
+  const isPublic = body?.is_public === undefined ? true : Boolean(body.is_public);
 
   const db = serviceClient();
   // 가입 시 학원 링크로 왔으면 user_metadata에 slug가 있음 → 그 학원 소속
@@ -51,7 +52,7 @@ export async function POST(req: Request) {
 
   const { error: terr } = await db
     .from("teacher_profiles")
-    .upsert({ id: uid, subject, tone_note: toneNote });
+    .upsert({ id: uid, subject, tone_note: toneNote, is_public: isPublic });
   if (terr) return NextResponse.json({ error: terr.message }, { status: 500 });
 
   return NextResponse.json({ ok: true });

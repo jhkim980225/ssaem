@@ -104,7 +104,12 @@ async function main() {
     body: JSON.stringify({ teacherId: teacher.id, question: "시산표로 못 잡는 오류가 있나요?" }),
   });
   ok(r3.status === 200 && (await r3.text()).length > 30, "학생 계정 질문");
-  const sc = await json("GET", "/api/conversations", undefined, stoken!);
+  // 이력 기록은 스트림 종료 후 비동기 — 짧게 재시도
+  let sc = await json("GET", "/api/conversations", undefined, stoken!);
+  for (let i = 0; i < 4 && !(sc.data?.conversations?.length >= 1); i++) {
+    await new Promise((r) => setTimeout(r, 700));
+    sc = await json("GET", "/api/conversations", undefined, stoken!);
+  }
   ok(sc.status === 200 && sc.data.role === "student" && sc.data.conversations.length >= 1, "학생 이력 (본인 대화)");
   const detail = await json("GET", `/api/conversations?id=${sc.data.conversations[0].id}`, undefined, stoken!);
   ok(detail.status === 200 && detail.data.messages.length >= 2, "학생 대화 상세");
@@ -138,7 +143,42 @@ async function main() {
         !defaultList.data.teachers.some((x: { name: string }) => x.name === "E2E강사"),
       "기본 학원 목록에는 미노출 (테넌트 격리)"
     );
+
+    console.log("8-1) 비공개 강사 — 초대된 학생만 노출");
+    const priv = await json(
+      "POST",
+      "/api/profile",
+      { name: "E2E강사", subject: "테스트과목", is_public: false },
+      ntoken!
+    );
+    ok(priv.status === 200, "강사 비공개 전환");
+    const anonList = await json("GET", "/api/teachers");
+    ok(
+      !anonList.data.teachers.some((x: { name: string }) => x.name === "E2E강사"),
+      "비공개 강사는 익명 목록에서 숨김"
+    );
+    const pinv = await json("GET", "/api/invite", undefined, ntoken!);
+    ok(pinv.status === 200 && pinv.data.code, "비공개 강사 초대 코드 발급");
+    const jemail = `e2e-priv-${Date.now()}@a.test`;
+    await json("POST", "/api/signup", { role: "student", name: "E2E초대학생", email: jemail, password: "e2epass1234" });
+    const jtoken = await login(jemail, "e2epass1234");
+    const joined = await json("POST", "/api/join", { code: pinv.data.code }, jtoken!);
+    ok(joined.status === 200 && joined.data.ok, "초대 코드로 수강 연결");
+    const myList = await json("GET", "/api/teachers", undefined, jtoken!);
+    type TRow = { name: string; enrolled?: boolean };
+    ok(
+      myList.data.teachers.some((x: TRow) => x.name === "E2E강사" && x.enrolled),
+      "초대된 학생에겐 비공개 강사 노출 (enrolled)"
+    );
   }
+
+  console.log("9-0) 초대 코드/QR 기본");
+  const inv = await json("GET", "/api/invite", undefined, ttoken!);
+  ok(inv.status === 200 && inv.data.code && inv.data.qrSvg.includes("<svg"), "초대 코드 + QR SVG 발급");
+  const chk = await json("GET", `/api/join?code=${encodeURIComponent(inv.data.code)}`);
+  ok(chk.status === 200 && chk.data.teacher.id === teacher.id, "코드 검증 → 강사 미리보기");
+  const badChk = await json("GET", "/api/join?code=abc.defgh");
+  ok(badChk.status === 404, "위조 코드 거부");
 
   console.log("9) 강좌 한정 검색 (급수별 콘텐츠)");
   const cl = await json("GET", `/api/courses?teacher=${teacher.id}`);
