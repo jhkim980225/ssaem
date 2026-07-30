@@ -41,7 +41,7 @@ export default function AdminPage() {
 }
 
 function AuthForm() {
-  const [mode, setMode] = useState<"signup" | "login">("signup");
+  const [mode, setMode] = useState<"signup" | "login">("login"); // 기본 로그인, 가입은 하단 링크
   const [academyName, setAcademyName] = useState("");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
