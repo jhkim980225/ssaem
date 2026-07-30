@@ -45,6 +45,31 @@ export async function GET(req: Request) {
     };
   });
 
+  // 강사별 학생 목록 (수강 연결 기준)
+  const studentsByTeacher = new Map<string, { id: string; name: string }[]>();
+  if (teachers.length) {
+    const { data: enr } = await db
+      .from("enrollments")
+      .select("courses!inner(teacher_id), profiles!enrollments_student_id_fkey(id, name)")
+      .in("courses.teacher_id", teachers.map((t) => t.id));
+    type ERow = {
+      courses: { teacher_id: string } | { teacher_id: string }[];
+      profiles: { id: string; name: string } | { id: string; name: string }[] | null;
+    };
+    for (const e of (enr ?? []) as ERow[]) {
+      const tid = Array.isArray(e.courses) ? e.courses[0]?.teacher_id : e.courses?.teacher_id;
+      const st = Array.isArray(e.profiles) ? e.profiles[0] : e.profiles;
+      if (!tid || !st) continue;
+      const arr = studentsByTeacher.get(tid) ?? [];
+      if (!arr.some((s) => s.id === st.id)) arr.push(st);
+      studentsByTeacher.set(tid, arr);
+    }
+  }
+  const teachersWithStudents = teachers.map((t) => ({
+    ...t,
+    students: studentsByTeacher.get(t.id) ?? [],
+  }));
+
   // 학원 학생 수 + 최근 7일 질문 수
   const [{ count: students }, { count: recentQuestions }] = await Promise.all([
     db
@@ -71,7 +96,7 @@ export async function GET(req: Request) {
   return NextResponse.json({
     admin: { name: me.name },
     academy: { name: academy?.name ?? "", slug: academy?.slug ?? "" },
-    teachers,
+    teachers: teachersWithStudents,
     stats: { teachers: teachers.length, students: students ?? 0, recentQuestions: recentQuestions ?? 0 },
     invite: { url: inviteUrl, qrSvg },
   });

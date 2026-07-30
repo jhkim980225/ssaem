@@ -8,7 +8,14 @@ import { avatarEmoji } from "@/lib/avatar";
 type AdminData = {
   admin: { name: string };
   academy: { name: string; slug: string };
-  teachers: { id: string; name: string; subject: string | null; is_public: boolean; documents: number }[];
+  teachers: {
+    id: string;
+    name: string;
+    subject: string | null;
+    is_public: boolean;
+    documents: number;
+    students: { id: string; name: string }[];
+  }[];
   stats: { teachers: number; students: number; recentQuestions: number };
   invite: { url: string; qrSvg: string };
 };
@@ -197,18 +204,36 @@ function Dashboard({ session }: { session: Session }) {
           data.teachers.map((t) => (
             <div
               key={t.id}
-              className="flex items-center gap-3 rounded-[14px] border border-line p-3"
+              className="rounded-[14px] border border-line p-3"
               style={{ background: "var(--fill-2)" }}
             >
-              <span className="avatar !w-10 !h-10 !text-[18px]">{avatarEmoji(t.name)}</span>
-              <div className="min-w-0 flex-1">
-                <p className="text-[14px] font-bold truncate">
-                  {t.name}
-                  {!t.is_public && <span className="ml-1.5 text-[11px] text-sub">비공개</span>}
-                </p>
-                <p className="text-[12px] text-sub truncate">{t.subject ?? "과목 미설정"}</p>
+              <div className="flex items-center gap-3">
+                <span className="avatar !w-10 !h-10 !text-[18px]">{avatarEmoji(t.name)}</span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[14px] font-bold truncate">
+                    {t.name}
+                    {!t.is_public && <span className="ml-1.5 text-[11px] text-sub">비공개</span>}
+                  </p>
+                  <p className="text-[12px] text-sub truncate">{t.subject ?? "과목 미설정"}</p>
+                </div>
+                <span className="text-[12px] text-sub shrink-0">
+                  자료 {t.documents} · 학생 {t.students.length}
+                </span>
               </div>
-              <span className="text-[12px] text-sub shrink-0">자료 {t.documents}</span>
+              {t.students.length > 0 && (
+                <details className="mt-2 pl-[52px]">
+                  <summary className="text-[12px] text-sub cursor-pointer select-none">
+                    학생 목록 보기
+                  </summary>
+                  <div className="mt-1.5 flex flex-wrap gap-1.5">
+                    {t.students.map((s) => (
+                      <span key={s.id} className="chip !py-1 !px-2.5 !text-[12px] !cursor-default">
+                        {avatarEmoji(s.name)} {s.name}
+                      </span>
+                    ))}
+                  </div>
+                </details>
+              )}
             </div>
           ))
         )}
