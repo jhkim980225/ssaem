@@ -176,8 +176,8 @@ export default function ChatPanel({
     requestAnimationFrame(() => scroller.current?.scrollTo({ top: 1e9, behavior: "smooth" }));
   }
 
-  async function send() {
-    const question = q.trim();
+  async function send(preset?: string) {
+    const question = (preset ?? q).trim();
     if (!question || loading || streaming || !teacherId) return;
     setQ("");
     setMsgs((m) => [...m, { role: "user", text: question }]);
@@ -271,6 +271,14 @@ export default function ChatPanel({
               <br />
               궁금한 걸 물어보세요.
             </p>
+            {/* 예시 질문 퀵칩 — 첫 질문 장벽 제거 (채널톡·Khanmigo 패턴) */}
+            <div className="flex flex-wrap justify-center gap-2 mt-2 px-4">
+              {["핵심 개념 쉽게 설명해줘", "연습 문제 하나 내줘", "자주 틀리는 포인트 알려줘"].map((s) => (
+                <button key={s} onClick={() => send(s)} className="chip !text-[13px]">
+                  {s}
+                </button>
+              ))}
+            </div>
           </div>
         )}
         {msgs.map((m, i) =>
@@ -347,7 +355,7 @@ export default function ChatPanel({
           </button>
         ) : (
           <button
-            onClick={send}
+            onClick={() => send()}
             disabled={loading || !q.trim()}
             aria-label="전송"
             className="btn btn-primary !rounded-full w-[52px] h-[52px] shrink-0 grid place-items-center text-[20px]"

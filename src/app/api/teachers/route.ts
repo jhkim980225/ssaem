@@ -74,5 +74,30 @@ export async function GET(req: Request) {
     teachers.sort((a, b) => Number(b.enrolled) - Number(a.enrolled));
   }
 
-  return NextResponse.json({ teachers });
+  // 강사 카드 메타: 자료 수·대화 수 (숨고/김과외 프로필 카드 패턴 — 데이터량 = 품질 신호)
+  const ids = teachers.map((t) => t.id);
+  const meta = new Map<string, { docs: number; convs: number }>();
+  if (ids.length) {
+    const [{ data: docs }, { data: convs }] = await Promise.all([
+      db.from("documents").select("teacher_id").in("teacher_id", ids),
+      db.from("conversations").select("teacher_id").in("teacher_id", ids),
+    ]);
+    for (const r of docs ?? []) {
+      const m = meta.get(r.teacher_id) ?? { docs: 0, convs: 0 };
+      m.docs++;
+      meta.set(r.teacher_id, m);
+    }
+    for (const r of convs ?? []) {
+      const m = meta.get(r.teacher_id) ?? { docs: 0, convs: 0 };
+      m.convs++;
+      meta.set(r.teacher_id, m);
+    }
+  }
+  const withMeta = teachers.map((t) => ({
+    ...t,
+    docs: meta.get(t.id)?.docs ?? 0,
+    convs: meta.get(t.id)?.convs ?? 0,
+  }));
+
+  return NextResponse.json({ teachers: withMeta });
 }

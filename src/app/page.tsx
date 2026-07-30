@@ -1,6 +1,25 @@
 import Link from "next/link";
+import { serviceClient } from "@/lib/supabase";
 
-export default function Home() {
+export const revalidate = 300; // 숫자 스트립 5분 캐시
+
+// 실 DB 카운트 — 마케팅 문구 대신 실데이터로 신뢰 (콴다·MagicSchool 패턴). 실패 시 0 → 스트립 숨김.
+async function getStats() {
+  try {
+    const db = serviceClient();
+    const [t, d, a] = await Promise.all([
+      db.from("teacher_profiles").select("id", { count: "exact", head: true }).eq("is_public", true),
+      db.from("documents").select("id", { count: "exact", head: true }),
+      db.from("messages").select("id", { count: "exact", head: true }).eq("role", "assistant"),
+    ]);
+    return { teachers: t.count ?? 0, docs: d.count ?? 0, answers: a.count ?? 0 };
+  } catch {
+    return { teachers: 0, docs: 0, answers: 0 };
+  }
+}
+
+export default async function Home() {
+  const stats = await getStats();
   return (
     <main className="relative flex-1 flex flex-col items-center justify-center px-5 py-16 overflow-hidden">
       {/* 은은한 블루 글로우 배경 */}
@@ -30,6 +49,24 @@ export default function Home() {
             학생으로 질문하기
           </Link>
         </div>
+
+        {/* 숫자 신뢰 스트립 — 실 DB 카운트 */}
+        {stats.answers > 0 && (
+          <div className="rise d3 mt-10 w-full card px-6 py-5 grid grid-cols-3 divide-x divide-[var(--border)]">
+            {(
+              [
+                ["활동 강사", stats.teachers],
+                ["등록 자료", stats.docs],
+                ["누적 답변", stats.answers],
+              ] as const
+            ).map(([label, n]) => (
+              <div key={label} className="text-center">
+                <p className="text-[20px] lg:text-[24px] font-extrabold tabular-nums">{n.toLocaleString()}</p>
+                <p className="text-[12px] text-sub mt-0.5">{label}</p>
+              </div>
+            ))}
+          </div>
+        )}
 
         <div className="mt-14 grid grid-cols-3 gap-3 lg:gap-4 w-full">
           {[

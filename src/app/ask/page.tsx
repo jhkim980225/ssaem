@@ -5,7 +5,7 @@ import { supabase } from "@/lib/supabase";
 import ChatPanel, { type Msg } from "@/components/ChatPanel";
 import { avatarEmoji } from "@/lib/avatar";
 
-type Teacher = { id: string; name: string; subject: string | null; enrolled?: boolean };
+type Teacher = { id: string; name: string; subject: string | null; enrolled?: boolean; docs?: number; convs?: number };
 type Course = { id: string; title: string };
 type Conv = { id: string; title: string | null; teacher_id: string; teacher_name: string | null; messages: number };
 // 현재 채팅 대상. convId/msgs 있으면 이전 대화 이어가기.
@@ -172,9 +172,16 @@ export default function AskPage() {
                         <span className="ml-1.5 text-[11px] font-bold text-blue align-middle">내 선생님</span>
                       )}
                     </span>
-                    {t.subject && (
-                      <span className="block text-[13px] text-sub truncate">{t.subject}</span>
-                    )}
+                    <span className="block text-[13px] text-sub truncate">
+                      {t.subject ?? ""}
+                      {/* 신뢰 메타 — 근거 데이터량이 곧 품질 신호 (숨고·김과외 프로필 패턴) */}
+                      {(t.docs ?? 0) > 0 && (
+                        <span className={t.subject ? "ml-1" : ""}>
+                          {t.subject ? "· " : ""}자료 {t.docs}
+                          {(t.convs ?? 0) > 0 ? ` · 답변 ${t.convs}` : ""}
+                        </span>
+                      )}
+                    </span>
                   </span>
                 </button>
               ))}

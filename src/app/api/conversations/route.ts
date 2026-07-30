@@ -56,6 +56,21 @@ export async function GET(req: Request) {
     .limit(50);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
+  // 미해결 큐: 👎(rating<=2) 받은 대화 표시 — 강사가 보완할 대상 (인터콤 핸드오프 패턴)
+  const flagged = new Set<string>();
+  if (!asStudent) {
+    const { data: low } = await db
+      .from("message_feedback")
+      .select("messages!inner(conversation_id, conversations!inner(teacher_id))")
+      .lte("rating", 2)
+      .eq("messages.conversations.teacher_id", uid);
+    type LRow = { messages: { conversation_id: string } | { conversation_id: string }[] };
+    for (const r of (low ?? []) as LRow[]) {
+      const m = Array.isArray(r.messages) ? r.messages[0] : r.messages;
+      if (m?.conversation_id) flagged.add(m.conversation_id);
+    }
+  }
+
   type Row = {
     id: string; title: string | null; created_at: string; teacher_id: string;
     messages: { count: number }[];
@@ -69,6 +84,7 @@ export async function GET(req: Request) {
       teacher_id: c.teacher_id,
       teacher_name: Array.isArray(c.teacher) ? c.teacher[0]?.name ?? null : c.teacher?.name ?? null,
       messages: c.messages?.[0]?.count ?? 0,
+      needs_review: flagged.has(c.id),
     }))
     .filter((c) => c.messages > 0); // 중간 이탈로 빈 대화는 숨김
   return NextResponse.json({ conversations, role: asStudent ? "student" : "teacher" });
