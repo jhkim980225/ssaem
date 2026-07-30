@@ -7,7 +7,7 @@ export default function Home() {
       <div
         aria-hidden
         className="pointer-events-none absolute -top-40 left-1/2 -translate-x-1/2 w-[720px] h-[480px] rounded-full opacity-60"
-        style={{ background: "radial-gradient(closest-side, rgba(49,130,246,0.12), transparent)" }}
+        style={{ background: "radial-gradient(closest-side, rgba(61,107,244,0.1), transparent)" }}
       />
 
       <div className="relative w-full max-w-md lg:max-w-2xl flex flex-col items-center text-center">
