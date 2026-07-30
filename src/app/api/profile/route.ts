@@ -40,10 +40,16 @@ export async function POST(req: Request) {
   const isPublic = body?.is_public === undefined ? true : Boolean(body.is_public);
 
   const db = serviceClient();
-  // 가입 시 학원 링크로 왔으면 user_metadata에 slug가 있음 → 그 학원 소속
+  // 원장 계정이 강사 프로필 API로 role 강등되는 것 방지
+  const { data: existing } = await db.from("profiles").select("role").eq("id", uid).maybeSingle();
+  if (existing?.role === "admin")
+    return NextResponse.json({ error: "원장 계정은 /admin에서 관리하세요" }, { status: 403 });
+
+  // 가입 시 초대/학원 링크 정보가 user_metadata에 있음 → 그 학원 소속 (id 우선, 다음 slug)
   const { data: au } = await db.auth.admin.getUserById(uid);
+  const metaAcademyId = (au?.user?.user_metadata?.academy_id ?? null) as string | null;
   const slug = (au?.user?.user_metadata?.academy_slug ?? null) as string | null;
-  const academyId = await resolveAcademy(db, slug);
+  const academyId = metaAcademyId ?? (await resolveAcademy(db, slug));
 
   const { error: perr } = await db
     .from("profiles")

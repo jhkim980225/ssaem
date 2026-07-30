@@ -172,6 +172,49 @@ async function main() {
     );
   }
 
+  console.log("8-2) 학원장 계층 (원장 → 강사)");
+  const aemail = `e2e-admin-${Date.now()}@a.test`;
+  const asu = await json("POST", "/api/signup", {
+    role: "admin",
+    academyName: "E2E학원",
+    name: "E2E원장",
+    email: aemail,
+    password: "e2epass1234",
+  });
+  ok(asu.status === 200 && asu.data.ok, "원장 가입 (학원 개설)");
+  const atoken = await login(aemail, "e2epass1234");
+  ok(!!atoken, "원장 로그인");
+  let adm = await json("GET", "/api/admin", undefined, atoken!);
+  ok(adm.status === 200 && adm.data.academy.name === "E2E학원", "원장 대시보드 (학원 정보)");
+  ok(adm.data.invite.url.includes("/join-teacher/") && adm.data.invite.qrSvg.includes("<svg"), "강사 초대 링크+QR");
+
+  const tcode: string = adm.data.invite.url.split("/join-teacher/")[1];
+  const tprev = await json("GET", `/api/join-teacher?code=${encodeURIComponent(tcode)}`);
+  ok(tprev.status === 200 && tprev.data.academy === "E2E학원", "강사 초대 코드 검증 → 학원 미리보기");
+
+  const temail2 = `e2e-tjoin-${Date.now()}@a.test`;
+  const tsu2 = await json("POST", "/api/signup", {
+    role: "teacher",
+    teacherInviteCode: tcode,
+    email: temail2,
+    password: "e2epass1234",
+  });
+  ok(tsu2.status === 200 && tsu2.data.ok, "초대 코드로 강사 가입 (전역 INVITE_CODE 불필요)");
+  const ttoken2 = await login(temail2, "e2epass1234");
+  const prof2 = await json("POST", "/api/profile", { name: "E2E합류강사", subject: "회계" }, ttoken2!);
+  ok(prof2.status === 200, "합류 강사 프로필 저장");
+  adm = await json("GET", "/api/admin", undefined, atoken!);
+  ok(
+    adm.data.teachers.some((x: { name: string }) => x.name === "E2E합류강사"),
+    "원장 대시보드에 합류 강사 반영 (같은 학원)"
+  );
+  const denied = await json("GET", "/api/admin", undefined, ttoken2!);
+  ok(denied.status === 403, "강사 계정의 원장 API 접근 차단");
+  // signup rate limit(5/시간)과 무관하게 위조 검증은 lib 직접 확인
+  const { verifyInviteCode, createInviteCode } = await import("../src/lib/invite");
+  ok(verifyInviteCode("t.forged.badsig1", "t") === null, "위조 강사 초대 코드 거부 (서명 불일치)");
+  ok(verifyInviteCode(createInviteCode("00000000-0000-4000-8000-000000000000", "s"), "t") === null, "학생 코드로 강사 가입 불가 (kind 분리)");
+
   console.log("9-0) 초대 코드/QR 기본");
   const inv = await json("GET", "/api/invite", undefined, ttoken!);
   ok(inv.status === 200 && inv.data.code && inv.data.qrSvg.includes("<svg"), "초대 코드 + QR SVG 발급");
@@ -229,6 +272,8 @@ async function main() {
     }
   }
   console.log(`  ✓ e2e-* 계정 ${cleaned}개 삭제`);
+  await admin.from("academies").delete().eq("name", "E2E학원");
+  console.log("  ✓ E2E학원 정리");
 
   console.log(`\n✅ E2E 전부 통과 (${pass} asserts)`);
 }

@@ -25,6 +25,12 @@ export default function SiteFooter() {
               </ul>
             </div>
             <div>
+              <p className="text-[12px] font-bold text-sub mb-3">학원</p>
+              <ul className="flex flex-col gap-2 text-[13px]">
+                <li><Link href="/admin" className="hover:text-blue transition-colors">학원장</Link></li>
+              </ul>
+            </div>
+            <div>
               <p className="text-[12px] font-bold text-sub mb-3">강사</p>
               <ul className="flex flex-col gap-2 text-[13px]">
                 <li><Link href="/teacher" className="hover:text-blue transition-colors">대시보드</Link></li>
