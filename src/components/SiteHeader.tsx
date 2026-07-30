@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 const NAV = [
   { href: "/ask", label: "질문하기" },
   { href: "/teacher", label: "강사 공간" },
+  { href: "/admin", label: "학원장" },
 ] as const;
 
 export default function SiteHeader() {
