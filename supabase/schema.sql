@@ -141,6 +141,27 @@ create table if not exists message_feedback (
 );
 
 -- ─────────────────────────────────────────────
+-- 플랜/과금 (docs/수익화-플랜.md)
+-- ─────────────────────────────────────────────
+-- 결제 주체 = 학원. 전환은 운영자가 SQL로 수동 (PG 미연동):
+--   update academies set plan = 'pro' where slug = '<slug>';
+alter table academies add column if not exists plan text not null default 'free'
+  check (plan in ('free', 'pro'));
+
+-- 도입 문의 (공개 폼 → 서버가 service_role로 insert. 조회는 운영자가 Supabase 대시보드에서)
+create table if not exists plan_inquiries (
+  id uuid primary key default gen_random_uuid(),
+  academy_slug text,
+  name text not null,
+  contact text not null,
+  message text,
+  status text not null default 'new' check (status in ('new', 'done')),
+  created_at timestamptz default now()
+);
+alter table plan_inquiries enable row level security;
+-- 정책 없음 = anon/authenticated 접근 전면 차단 (service_role만)
+
+-- ─────────────────────────────────────────────
 -- 헬퍼: 현재 사용자의 학원
 -- ─────────────────────────────────────────────
 create or replace function current_academy() returns uuid

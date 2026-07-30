@@ -5,6 +5,7 @@ import { generateStream, llmModel, hasLlmKey } from "@/lib/anthropic";
 import { buildTutorSystem } from "@/lib/prompt";
 import { userFromRequest } from "@/lib/auth";
 import { rateLimit, clientIp } from "@/lib/ratelimit";
+import { askLimitError } from "@/lib/plan";
 
 const HISTORY_LIMIT = 10; // 직전 메시지 N개만 맥락으로 (토큰 방어)
 const MAX_QUESTION = 2000; // 임베딩·LLM 토큰 폭탄 방어
@@ -33,6 +34,10 @@ export async function POST(req: Request) {
     );
 
   const db = serviceClient();
+
+  // 무료 플랜 일일 한도 (학원 단위) — LLM 비용 방어 + 업그레이드 트리거
+  const limitMsg = await askLimitError(db, teacherId);
+  if (limitMsg) return NextResponse.json({ error: limitMsg }, { status: 403 });
 
   // 로그인 학생이면 대화에 연결 (익명도 허용 — 토큰 없으면 NULL)
   const studentId = await userFromRequest(req);

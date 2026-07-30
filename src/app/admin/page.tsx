@@ -7,7 +7,7 @@ import { avatarEmoji } from "@/lib/avatar";
 
 type AdminData = {
   admin: { name: string };
-  academy: { name: string; slug: string };
+  academy: { name: string; slug: string; plan?: string };
   teachers: {
     id: string;
     name: string;
@@ -137,7 +137,14 @@ function Dashboard({ session }: { session: Session }) {
       <div className="rise flex items-start justify-between gap-3">
         <div>
           <p className="text-sub text-[13px]">학원장 대시보드</p>
-          <h1 className="text-[24px] lg:text-[28px] font-extrabold">{data.academy.name}</h1>
+          <h1 className="text-[24px] lg:text-[28px] font-extrabold flex items-center gap-2">
+            {data.academy.name}
+            {data.academy.plan === "pro" ? (
+              <span className="chip chip-on !cursor-default !px-2.5 !py-0.5 !text-[11px]">Pro</span>
+            ) : (
+              <a href="/pricing" className="chip !px-2.5 !py-0.5 !text-[11px]">무료 · Pro 보기</a>
+            )}
+          </h1>
           <p className="text-sub text-[13px]">
             학생 초대 URL: /a/{data.academy.slug} · {data.admin.name} 원장
           </p>

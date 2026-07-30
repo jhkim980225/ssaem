@@ -20,6 +20,13 @@ export async function GET(req: Request) {
 
   const academy = Array.isArray(me.academies) ? me.academies[0] : me.academies;
 
+  // 플랜 (plan 컬럼 미마이그레이션이면 free로 폴백 — 대시보드는 죽지 않게)
+  let plan = "free";
+  try {
+    const { data: a } = await db.from("academies").select("plan").eq("id", me.academy_id).maybeSingle();
+    if (a?.plan === "pro") plan = "pro";
+  } catch {}
+
   // 우리 학원 강사들 + 자료 수
   const { data: ts } = await db
     .from("profiles")
@@ -95,7 +102,7 @@ export async function GET(req: Request) {
 
   return NextResponse.json({
     admin: { name: me.name },
-    academy: { name: academy?.name ?? "", slug: academy?.slug ?? "" },
+    academy: { name: academy?.name ?? "", slug: academy?.slug ?? "", plan },
     teachers: teachersWithStudents,
     stats: { teachers: teachers.length, students: students ?? 0, recentQuestions: recentQuestions ?? 0 },
     invite: { url: inviteUrl, qrSvg },

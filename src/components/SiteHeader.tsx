@@ -6,6 +6,7 @@ const NAV = [
   { href: "/ask", label: "질문하기" },
   { href: "/teacher", label: "강사 공간" },
   { href: "/admin", label: "학원장" },
+  { href: "/pricing", label: "요금제" },
 ] as const;
 
 export default function SiteHeader() {

@@ -191,6 +191,7 @@ function Dashboard({ session }: { session: Session }) {
       .then((r) => r.json())
       .then((d) => d.url && setInvite({ url: d.url, qrSvg: d.qrSvg }))
       .catch(() => {});
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- async 함수라 setState는 await 이후, 동기 캐스케이드 아님
     loadDocs();
   }, [token, loadDocs]);
 
