@@ -87,7 +87,7 @@ export default function HistoryPage() {
             전체
           </button>
           <button onClick={() => setOnlyFlagged(true)} className={`chip !text-[13px] ${onlyFlagged ? "chip-on" : ""}`}>
-            👎 확인 필요 {convs?.filter((c) => c.needs_review).length}
+            확인 필요 {convs?.filter((c) => c.needs_review).length}
           </button>
         </div>
       )}
@@ -102,7 +102,6 @@ export default function HistoryPage() {
 
       {convs?.length === 0 && (
         <div className="rise d1 card p-10 text-center">
-          <p className="text-[30px] mb-2">📭</p>
           <p className="text-sub text-[14px]">아직 질문이 없어요.</p>
         </div>
       )}
@@ -113,7 +112,11 @@ export default function HistoryPage() {
             <button onClick={() => toggle(c.id)} className="w-full text-left p-4 lg:p-5 cursor-pointer">
               <div className="flex items-center justify-between gap-3">
                 <p className="font-bold text-[15px] truncate">
-                  {c.needs_review && <span className="mr-1.5 text-[12px] font-bold" style={{ color: "var(--red)" }}>👎</span>}
+                  {c.needs_review && (
+                    <span className="mr-1.5 text-[11px] font-bold px-1.5 py-0.5 rounded-md align-middle" style={{ color: "var(--red)", background: "var(--red-weak)" }}>
+                      확인 필요
+                    </span>
+                  )}
                   {c.title || "제목 없음"}
                 </p>
                 <span className="text-sub text-[12px] shrink-0">
@@ -145,7 +148,7 @@ export default function HistoryPage() {
                       </div>
                       {m.rating !== null && (
                         <span className="text-sub text-[12px] pl-1">
-                          학생 평가: {m.rating >= 4 ? "👍 도움됨" : "👎 도움 안 됨"}
+                          학생 평가: {m.rating >= 4 ? "도움됨" : "도움 안 됨"}
                         </span>
                       )}
                     </div>

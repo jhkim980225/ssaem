@@ -115,7 +115,6 @@ function Dashboard({ session }: { session: Session }) {
   if (err)
     return (
       <div className="card p-8 text-center max-w-sm mx-auto mt-10">
-        <p className="text-[30px] mb-2">🔒</p>
         <p className="font-bold mb-1">{err}</p>
         <p className="text-sub text-[13px] mb-4">이 화면은 학원장 계정 전용이에요.</p>
         <button className="btn btn-gray py-2.5 px-5 text-[14px]" onClick={() => supabase.auth.signOut()}>

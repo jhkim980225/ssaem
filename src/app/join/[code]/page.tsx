@@ -92,7 +92,7 @@ export default function JoinPage({ params }: { params: Promise<{ code: string }>
       ) : (
         <>
           <div className="animate-pop card p-6 flex items-center gap-4">
-            <span className="avatar !w-14 !h-14 !text-[26px]">{avatarEmoji(teacher.name)}</span>
+            <span className="avatar !w-14 !h-14 !text-[20px]">{avatarEmoji(teacher.name)}</span>
             <div>
               <p className="text-[13px] text-sub">선생님의 초대</p>
               <p className="text-[19px] font-extrabold">{teacher.name}</p>

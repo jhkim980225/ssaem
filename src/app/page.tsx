@@ -20,64 +20,91 @@ async function getStats() {
 
 export default async function Home() {
   const stats = await getStats();
+
   return (
-    <main className="relative flex-1 flex flex-col items-center justify-center px-5 py-16 overflow-hidden">
+    <main className="relative flex-1 overflow-hidden">
       {/* 은은한 블루 글로우 배경 */}
       <div
         aria-hidden
-        className="pointer-events-none absolute -top-40 left-1/2 -translate-x-1/2 w-[720px] h-[480px] rounded-full opacity-60"
+        className="pointer-events-none absolute -top-40 left-1/2 -translate-x-1/2 w-[900px] h-[520px] rounded-full opacity-50"
         style={{ background: "radial-gradient(closest-side, rgba(61,107,244,0.1), transparent)" }}
       />
 
-      <div className="relative w-full max-w-md lg:max-w-2xl flex flex-col items-center text-center">
-        <span className="rise chip chip-on mb-6 !cursor-default">✨ AI 튜터</span>
-        <h1 className="rise d1 text-[32px] lg:text-[46px] leading-[1.25] font-extrabold tracking-tight">
-          우리 선생님 자료로
-          <br />
-          답해주는 AI
-        </h1>
-        <p className="rise d2 mt-4 text-[15px] lg:text-[17px] text-sub leading-relaxed">
-          강사님이 문제와 풀이를 등록하면
-          <br className="lg:hidden" /> 학생은 그 자료를 근거로 답변을 받아요.
-        </p>
+      <div className="relative mx-auto w-full max-w-6xl px-5 lg:px-8 py-14 lg:py-24">
+        {/* 히어로 — 좌 텍스트 / 우 채팅 미리보기 */}
+        <div className="grid gap-12 lg:grid-cols-[1fr_420px] lg:gap-16 items-center">
+          <div className="text-center lg:text-left">
+            <p className="rise text-[13px] font-bold text-blue tracking-wide">학원 전용 AI 튜터</p>
+            <h1 className="rise d1 mt-3 text-[34px] lg:text-[52px] leading-[1.2] font-extrabold tracking-tight">
+              우리 선생님 자료로
+              <br />
+              답해주는 AI
+            </h1>
+            <p className="rise d2 mt-5 text-[15px] lg:text-[17px] text-sub leading-relaxed">
+              강사가 문제와 풀이를 등록하면, 학생은 그 자료를 근거로
+              <br className="hidden lg:block" /> 검증된 답변을 받습니다. 반복 질문 응대는 AI에게 맡기세요.
+            </p>
 
-        <div className="rise d3 mt-10 w-full max-w-md flex flex-col sm:flex-row gap-3">
-          <Link href="/teacher" className="btn btn-primary flex-1 py-4 text-[16px] text-center">
-            강사로 시작하기
-          </Link>
-          <Link href="/ask" className="btn btn-ghost flex-1 py-4 text-[16px] text-center">
-            학생으로 질문하기
-          </Link>
+            <div className="rise d3 mt-9 flex flex-col sm:flex-row gap-3 justify-center lg:justify-start">
+              <Link href="/teacher" className="btn btn-primary px-7 py-4 text-[15px] text-center">
+                강사로 시작하기
+              </Link>
+              <Link href="/ask" className="btn btn-ghost px-7 py-4 text-[15px] text-center">
+                학생으로 질문하기
+              </Link>
+            </div>
+
+            {stats.answers > 0 && (
+              <div className="rise d4 mt-10 flex gap-8 justify-center lg:justify-start">
+                {(
+                  [
+                    ["활동 강사", stats.teachers],
+                    ["등록 자료", stats.docs],
+                    ["누적 답변", stats.answers],
+                  ] as const
+                ).map(([label, n]) => (
+                  <div key={label} className="text-center lg:text-left">
+                    <p className="text-[22px] lg:text-[26px] font-extrabold tabular-nums">{n.toLocaleString()}</p>
+                    <p className="text-[12px] text-sub mt-0.5">{label}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* 정적 채팅 미리보기 — 제품을 말 대신 화면으로 (일러스트·이모지 없음) */}
+          <div className="rise d3 card p-5 lg:p-6 flex flex-col gap-3" aria-hidden>
+            <div className="flex items-center gap-2.5 pb-3 border-b border-line">
+              <span className="avatar !w-9 !h-9 !text-[14px]">김</span>
+              <div>
+                <p className="text-[14px] font-bold leading-tight">김대차 선생님</p>
+                <p className="text-[12px] text-sub leading-tight">전산회계 2급</p>
+              </div>
+            </div>
+            <div className="self-end max-w-[85%] px-4 py-2.5 text-[14px] leading-relaxed bg-blue text-white rounded-[18px] rounded-br-[6px]">
+              선급비용이랑 미지급비용 차이가 뭐예요?
+            </div>
+            <div className="self-start max-w-[92%] px-4 py-2.5 text-[14px] leading-relaxed rounded-[18px] rounded-bl-[6px] border border-line bg-[var(--fill-2)]">
+              선급비용은 먼저 낸 돈 중 아직 비용이 아닌 것, 미지급비용은 비용은 발생했는데 아직 안 낸
+              거예요. 선생님 자료 3장의 분개 예시로 설명할게요.
+            </div>
+            <p className="self-start text-[12px] text-sub pl-1">근거: 등록 자료 2건 인용</p>
+          </div>
         </div>
 
-        {/* 숫자 신뢰 스트립 — 실 DB 카운트 */}
-        {stats.answers > 0 && (
-          <div className="rise d3 mt-10 w-full card px-6 py-5 grid grid-cols-3 divide-x divide-[var(--border)]">
-            {(
-              [
-                ["활동 강사", stats.teachers],
-                ["등록 자료", stats.docs],
-                ["누적 답변", stats.answers],
-              ] as const
-            ).map(([label, n]) => (
-              <div key={label} className="text-center">
-                <p className="text-[20px] lg:text-[24px] font-extrabold tabular-nums">{n.toLocaleString()}</p>
-                <p className="text-[12px] text-sub mt-0.5">{label}</p>
-              </div>
-            ))}
-          </div>
-        )}
-
-        <div className="mt-14 grid grid-cols-3 gap-3 lg:gap-4 w-full">
-          {[
-            ["📚", "자료 등록", "문제·풀이·PDF"],
-            ["⚡", "자동 학습", "청킹·검색"],
-            ["💬", "근거 답변", "등록 자료 기반"],
-          ].map(([e, t, s], i) => (
-            <div key={t} className={`rise d${i + 4} card card-hover p-4 lg:p-6 text-center`}>
-              <p className="text-[22px] lg:text-[28px]">{e}</p>
-              <p className="mt-2 text-[13px] lg:text-[15px] font-bold">{t}</p>
-              <p className="mt-0.5 text-[11px] lg:text-[13px] text-sub">{s}</p>
+        {/* 특징 3가지 — 텍스트 카드 */}
+        <div className="mt-20 lg:mt-28 grid sm:grid-cols-3 gap-4">
+          {(
+            [
+              ["자료 등록", "문제·풀이·PDF를 올리면 자동으로 검색 가능한 지식이 됩니다. 스캔 PDF도 OCR로 처리해요."],
+              ["근거 기반 답변", "인터넷이 아니라 우리 학원 자료에서만 답을 찾습니다. 출처 청크까지 함께 보여줘요."],
+              ["질문 인사이트", "학생들이 뭘 어려워하는지, 어떤 답변이 아쉬웠는지 강사와 원장이 한눈에 봅니다."],
+            ] as const
+          ).map(([t, s], i) => (
+            <div key={t} className={`rise d${i + 4} card card-hover p-6 lg:p-7`}>
+              <p className="w-8 h-1 rounded-full bg-blue mb-4" aria-hidden />
+              <p className="text-[16px] font-extrabold">{t}</p>
+              <p className="mt-2 text-[14px] text-sub leading-relaxed">{s}</p>
             </div>
           ))}
         </div>

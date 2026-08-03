@@ -86,8 +86,8 @@ export default function InsightsPage() {
               [
                 ["질문", data.totals.questions],
                 ["답변", data.totals.answers],
-                ["👍 도움됨", data.totals.up],
-                ["👎 아쉬움", data.totals.down],
+                ["도움됨", data.totals.up],
+                ["아쉬움", data.totals.down],
               ] as const
             ).map(([label, n]) => (
               <div key={label} className="card p-4">
@@ -132,7 +132,7 @@ export default function InsightsPage() {
 
           {/* 낮은 평점 답변 */}
           <section className="rise d3 card p-5 flex flex-col gap-2">
-            <h2 className="font-bold text-[15px]">👎 아쉬웠던 답변</h2>
+            <h2 className="font-bold text-[15px]">아쉬웠던 답변</h2>
             {data.lowRated.length === 0 ? (
               <p className="text-sub text-[14px] py-3 text-center">낮은 평가를 받은 답변이 없어요 👏</p>
             ) : (

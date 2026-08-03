@@ -7,7 +7,7 @@ export default function SiteFooter() {
         <div className="flex flex-col sm:flex-row sm:justify-between gap-8">
           <div className="max-w-xs">
             <p className="flex items-center gap-2 font-extrabold text-[15px]">
-              <span className="grid place-items-center w-7 h-7 rounded-[9px] bg-blue text-white text-[13px]">✨</span>
+              <span className="grid place-items-center w-7 h-7 rounded-[9px] bg-blue text-white text-[11px] font-extrabold">AI</span>
               학원 AI 튜터
             </p>
             <p className="mt-3 text-[13px] text-sub leading-relaxed">

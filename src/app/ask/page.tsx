@@ -198,7 +198,7 @@ export default function AskPage() {
                   }}
                   className={`chip shrink-0 ${chat?.teacherId === t.id && !chat?.convId ? "chip-on" : ""}`}
                 >
-                  {avatarEmoji(t.name)} {t.name}
+                  {t.name}
                   {t.subject ? ` · ${t.subject}` : ""}
                 </button>
               ))}
@@ -283,8 +283,8 @@ export default function AskPage() {
           (teachers?.length ?? 0) > 0 && (
             <div className="rise d2 card p-10 lg:min-h-[62vh] grid place-items-center text-center">
               <div>
-                <p className="text-[34px] mb-3">👋</p>
-                <p className="text-sub text-[14px]">선생님을 선택하세요.</p>
+                <p className="text-[16px] font-bold mb-1">선생님을 선택하세요</p>
+                <p className="text-sub text-[14px]">왼쪽 목록에서 과목 선생님을 고르면 바로 질문할 수 있어요.</p>
               </div>
             </div>
           )

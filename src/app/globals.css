@@ -157,7 +157,8 @@ body {
   .avatar {
     display: grid; place-items: center; flex-shrink: 0;
     width: 42px; height: 42px; border-radius: 999px;
-    background: var(--fill); font-size: 20px;
+    background: var(--blue-weak); color: var(--blue);
+    font-size: 16px; font-weight: 800;
   }
 
   /* PC에서만 카드 래핑 (tailwind variant는 컴포넌트 클래스에 안 먹음) */

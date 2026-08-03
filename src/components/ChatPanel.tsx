@@ -265,7 +265,7 @@ export default function ChatPanel({
       >
         {msgs.length === 0 && (
           <div className="flex flex-col items-center gap-3 py-10">
-            <div className="avatar !w-14 !h-14 !text-[26px]">{emoji}</div>
+            <div className="avatar !w-14 !h-14 !text-[20px]">{emoji}</div>
             <p className="text-sub text-[14px] text-center">
               {teacherName} 선생님에게
               <br />
@@ -297,17 +297,15 @@ export default function ChatPanel({
                 <div className="self-start flex items-center gap-1 pl-11">
                   {rated === null ? (
                     <>
-                      <button onClick={() => rate(5)} aria-label="도움됨" className="chip !px-2.5 !py-1 text-[13px]">
-                        👍
+                      <button onClick={() => rate(5)} className="chip !px-2.5 !py-1 !text-[12px]">
+                        도움됐어요
                       </button>
-                      <button onClick={() => rate(1)} aria-label="도움 안 됨" className="chip !px-2.5 !py-1 text-[13px]">
-                        👎
+                      <button onClick={() => rate(1)} className="chip !px-2.5 !py-1 !text-[12px]">
+                        아쉬워요
                       </button>
                     </>
                   ) : (
-                    <span className="text-sub text-[12px]">
-                      {rated >= 4 ? "👍" : "👎"} 평가 감사해요
-                    </span>
+                    <span className="text-sub text-[12px]">평가 감사해요</span>
                   )}
                 </div>
               )}
