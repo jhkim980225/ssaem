@@ -1,5 +1,5 @@
 "use client";
-import { memo, useRef, useState, type ReactNode } from "react";
+import { memo, useEffect, useRef, useState, type ReactNode } from "react";
 import { avatarEmoji } from "@/lib/avatar";
 
 export type Source = { kind: string; preview: string };
@@ -152,6 +152,7 @@ export default function ChatPanel({
   courseId,
   initialConversationId,
   initialMsgs,
+  autoAsk,
 }: {
   teacherId: string;
   teacherName: string;
@@ -160,6 +161,7 @@ export default function ChatPanel({
   courseId?: string | null; // 강좌 필터 (공용 자료는 항상 포함)
   initialConversationId?: string | null; // 이전 대화 이어가기
   initialMsgs?: Msg[];
+  autoAsk?: string; // 인기 질문 클릭 등으로 마운트 즉시 물어볼 질문
 }) {
   const [msgs, setMsgs] = useState<Msg[]>(initialMsgs ?? []);
   const [q, setQ] = useState("");
@@ -170,8 +172,17 @@ export default function ChatPanel({
   const [streaming, setStreaming] = useState(false);
   const scroller = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const autoSent = useRef(false);
 
   const emoji = avatarEmoji(teacherName);
+
+  // 인기 질문 클릭 진입 — 마운트 시 1회만 자동 전송 (키 변경으로 리마운트되면 다시 1회)
+  useEffect(() => {
+    if (!autoAsk || autoSent.current) return;
+    autoSent.current = true;
+    send(autoAsk);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoAsk]);
 
   function scrollDown() {
     requestAnimationFrame(() => scroller.current?.scrollTo({ top: 1e9, behavior: "smooth" }));
