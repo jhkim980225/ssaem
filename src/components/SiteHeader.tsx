@@ -17,7 +17,7 @@ export default function SiteHeader() {
       className="sticky top-0 z-40 border-b border-line"
       style={{ background: "color-mix(in srgb, var(--surface) 82%, transparent)", backdropFilter: "blur(14px)", WebkitBackdropFilter: "blur(14px)" }}
     >
-      <div className="mx-auto w-full max-w-6xl px-5 lg:px-8 h-[60px] flex items-center justify-between gap-3">
+      <div className="mx-auto w-full max-w-[1600px] px-5 lg:px-8 h-[60px] flex items-center justify-between gap-3">
         <Link href="/" className="flex items-center gap-2 shrink-0 group">
           <span className="grid place-items-center w-8 h-8 rounded-[10px] bg-blue text-white text-[12px] font-extrabold transition-transform group-hover:rotate-[-8deg]">
             AI

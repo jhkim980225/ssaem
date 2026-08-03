@@ -51,7 +51,7 @@ export default function TeacherPage() {
       </main>
     );
   return (
-    <main className={`flex-1 w-full mx-auto px-5 py-8 ${session ? "max-w-lg lg:max-w-6xl" : "max-w-lg"}`}>
+    <main className={`flex-1 w-full mx-auto px-5 lg:px-8 py-8 ${session ? "max-w-lg lg:max-w-[1600px]" : "max-w-lg"}`}>
       {session ? <Dashboard session={session} /> : <AuthForm />}
     </main>
   );

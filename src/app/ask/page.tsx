@@ -154,8 +154,8 @@ export default function AskPage() {
   }
 
   return (
-    <main className="flex-1 w-full max-w-6xl mx-auto px-5 lg:px-8 py-5 lg:py-7">
-      <div className="grid gap-4 lg:grid-cols-[228px_minmax(0,1fr)] xl:grid-cols-[228px_minmax(0,1fr)_264px] items-start">
+    <main className="flex-1 w-full max-w-[1600px] mx-auto px-5 lg:px-8 py-5 lg:py-7">
+      <div className="grid gap-4 lg:gap-5 lg:grid-cols-[240px_minmax(0,1fr)] xl:grid-cols-[240px_minmax(0,1fr)_300px] 2xl:grid-cols-[280px_minmax(0,1fr)_340px] items-start">
         {/* ── 좌측 레일: 검색 · 선생님 · 내 이력 ───────────────── */}
         {/* min-w-0: 그리드 자식 기본 min-width:auto 때문에 내부 가로 스크롤이 페이지를 밀어냄 */}
         <aside className="rise flex flex-col gap-3 min-w-0 lg:sticky lg:top-[76px]">

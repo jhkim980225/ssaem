@@ -3,7 +3,7 @@ import Link from "next/link";
 export default function SiteFooter() {
   return (
     <footer className="border-t border-line mt-16">
-      <div className="mx-auto w-full max-w-5xl px-5 py-10 flex flex-col gap-8">
+      <div className="mx-auto w-full max-w-[1600px] px-5 lg:px-8 py-10 flex flex-col gap-8">
         <div className="flex flex-col sm:flex-row sm:justify-between gap-8">
           <div className="max-w-xs">
             <p className="flex items-center gap-2 font-extrabold text-[15px]">

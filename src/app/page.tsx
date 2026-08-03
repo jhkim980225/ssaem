@@ -30,9 +30,9 @@ export default async function Home() {
         style={{ background: "radial-gradient(closest-side, rgba(61,107,244,0.1), transparent)" }}
       />
 
-      <div className="relative mx-auto w-full max-w-6xl px-5 lg:px-8 py-14 lg:py-24">
-        {/* 히어로 — 좌 텍스트 / 우 채팅 미리보기 */}
-        <div className="grid gap-12 lg:grid-cols-[1fr_420px] lg:gap-16 items-center">
+      <div className="relative mx-auto w-full max-w-[1600px] px-5 lg:px-8 py-14 lg:py-24">
+        {/* 히어로 — 좌 텍스트 / 우 채팅 미리보기. 넓은 화면에서도 텍스트 줄 길이는 제한 */}
+        <div className="grid gap-12 lg:grid-cols-[minmax(0,620px)_minmax(0,460px)] lg:gap-16 items-center lg:justify-center xl:justify-between">
           <div className="text-center lg:text-left">
             <p className="rise text-[13px] font-bold text-blue tracking-wide">학원 전용 AI 튜터</p>
             <h1 className="rise d1 mt-3 text-[34px] lg:text-[52px] leading-[1.2] font-extrabold tracking-tight">
@@ -93,7 +93,7 @@ export default async function Home() {
         </div>
 
         {/* 특징 3가지 — 텍스트 카드 */}
-        <div className="mt-20 lg:mt-28 grid sm:grid-cols-3 gap-4">
+        <div className="mt-20 lg:mt-28 grid sm:grid-cols-3 gap-4 lg:gap-5">
           {(
             [
               ["자료 등록", "문제·풀이·PDF를 올리면 AI가 답할 때 바로 찾아 써요. 스캔한 PDF도 알아서 읽어요."],
