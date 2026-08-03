@@ -11,9 +11,9 @@ export default function SiteFooter() {
               학원 AI 튜터
             </p>
             <p className="mt-3 text-[13px] text-sub leading-relaxed">
-              강사님이 등록한 문제·풀이를 근거로
+              선생님이 올린 문제·풀이를 근거로
               <br />
-              학생 질문에 답하는 RAG 튜터입니다.
+              학생 질문에 답하는 AI 튜터예요.
             </p>
           </div>
 

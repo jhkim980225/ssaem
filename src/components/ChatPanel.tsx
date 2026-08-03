@@ -233,7 +233,7 @@ export default function ChatPanel({
         // 사용자가 중단 — 부분 답변은 그대로 두고 조용히 종료
       } else {
         setQ(question); // 실패한 질문 복원 → 바로 재전송 가능
-        setMsgs((m) => [...m, { role: "tutor", text: "⚠️ 요청 실패 — 질문을 다시 보내주세요." }]);
+        setMsgs((m) => [...m, { role: "tutor", text: "⚠️ 답변을 받지 못했어요 — 질문을 다시 보내주세요." }]);
       }
     } finally {
       abortRef.current = null;

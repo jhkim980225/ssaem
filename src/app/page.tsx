@@ -41,8 +41,8 @@ export default async function Home() {
               답해주는 AI
             </h1>
             <p className="rise d2 mt-5 text-[15px] lg:text-[17px] text-sub leading-relaxed">
-              강사가 문제와 풀이를 등록하면, 학생은 그 자료를 근거로
-              <br className="hidden lg:block" /> 검증된 답변을 받습니다. 반복 질문 응대는 AI에게 맡기세요.
+              강사가 문제와 풀이를 올리면, 학생은 그 자료를 근거로
+              <br className="hidden lg:block" /> 답을 받아요. 반복 질문 응대는 AI에게 맡기세요.
             </p>
 
             <div className="rise d3 mt-9 flex flex-col sm:flex-row gap-3 justify-center lg:justify-start">
@@ -88,7 +88,7 @@ export default async function Home() {
               선급비용은 먼저 낸 돈 중 아직 비용이 아닌 것, 미지급비용은 비용은 발생했는데 아직 안 낸
               거예요. 선생님 자료 3장의 분개 예시로 설명할게요.
             </div>
-            <p className="self-start text-[12px] text-sub pl-1">근거: 등록 자료 2건 인용</p>
+            <p className="self-start text-[12px] text-sub pl-1">근거: 선생님 자료 2건 인용</p>
           </div>
         </div>
 
@@ -96,9 +96,9 @@ export default async function Home() {
         <div className="mt-20 lg:mt-28 grid sm:grid-cols-3 gap-4">
           {(
             [
-              ["자료 등록", "문제·풀이·PDF를 올리면 자동으로 검색 가능한 지식이 됩니다. 스캔 PDF도 OCR로 처리해요."],
-              ["근거 기반 답변", "인터넷이 아니라 우리 학원 자료에서만 답을 찾습니다. 출처 청크까지 함께 보여줘요."],
-              ["질문 인사이트", "학생들이 뭘 어려워하는지, 어떤 답변이 아쉬웠는지 강사와 원장이 한눈에 봅니다."],
+              ["자료 등록", "문제·풀이·PDF를 올리면 AI가 답할 때 바로 찾아 써요. 스캔한 PDF도 알아서 읽어요."],
+              ["근거 기반 답변", "인터넷이 아니라 우리 학원 자료에서만 답을 찾아요. 어느 자료를 근거로 했는지도 함께 보여줘요."],
+              ["질문 인사이트", "학생들이 뭘 어려워하는지, 어떤 답변이 아쉬웠는지 강사와 원장이 바로 확인해요."],
             ] as const
           ).map(([t, s], i) => (
             <div key={t} className={`rise d${i + 4} card card-hover p-6 lg:p-7`}>

@@ -54,7 +54,7 @@ export default function AskPage() {
         }
       })
       .catch(() => {
-        setErr("선생님 목록을 불러오지 못했어요");
+        setErr("선생님 목록을 불러오지 못했어요. 새로고침해 주세요.");
         setTeachers([]);
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -150,7 +150,7 @@ export default function AskPage() {
             )}
 
             {teachers?.length === 0 && (
-              <p className="text-sub text-[14px] py-2 lg:p-3">등록된 선생님이 없어요.</p>
+              <p className="text-sub text-[14px] py-2 lg:p-3">아직 선생님이 없어요.</p>
             )}
 
             {/* PC 세로 리스트 */}
@@ -283,8 +283,8 @@ export default function AskPage() {
           (teachers?.length ?? 0) > 0 && (
             <div className="rise d2 card p-10 lg:min-h-[62vh] grid place-items-center text-center">
               <div>
-                <p className="text-[16px] font-bold mb-1">선생님을 선택하세요</p>
-                <p className="text-sub text-[14px]">왼쪽 목록에서 과목 선생님을 고르면 바로 질문할 수 있어요.</p>
+                <p className="text-[16px] font-bold mb-1">선생님을 골라 주세요</p>
+                <p className="text-sub text-[14px]">목록에서 선생님을 고르면 바로 질문할 수 있어요.</p>
               </div>
             </div>
           )

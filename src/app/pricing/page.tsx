@@ -86,7 +86,7 @@ export default function PricingPage() {
         <div id="inquiry" className="rise d4 mt-12 w-full card p-7">
           <h2 className="text-[18px] font-extrabold">도입 문의</h2>
           <p className="mt-1.5 text-[14px] text-sub">
-            남겨주시면 하루 안에 연락드려요. 결제는 계좌이체로 진행됩니다.
+            남겨주시면 하루 안에 연락드려요. 결제는 계좌이체로 진행돼요.
           </p>
           {sent ? (
             <p className="animate-pop mt-6 rounded-[14px] bg-[var(--blue-weak)] px-5 py-4 text-[14px] font-bold text-blue">
@@ -98,7 +98,7 @@ export default function PricingPage() {
                 <input name="name" required maxLength={50} placeholder="이름" className="field" />
                 <input name="contact" required maxLength={100} placeholder="연락처 (전화·이메일)" className="field" />
               </div>
-              <input name="academySlug" maxLength={50} placeholder="학원 주소 slug (있다면)" className="field" />
+              <input name="academySlug" maxLength={50} placeholder="학원 주소 (있다면)" className="field" />
               <textarea name="message" maxLength={1000} rows={3} placeholder="궁금한 점 (선택)" className="field resize-none" />
               {err && <p className="text-[13px] font-bold text-[var(--red)]">{err}</p>}
               <button type="submit" disabled={busy} className="btn btn-primary py-3.5 text-[15px]">

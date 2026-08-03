@@ -91,7 +91,7 @@ function AuthForm() {
   return (
     <div className="animate-pop flex flex-col gap-3 max-w-sm mx-auto mt-10">
       <h1 className="rise d1 text-[26px] font-extrabold">강사 {mode === "login" ? "로그인" : "가입"}</h1>
-      <p className="rise d2 text-sub text-[14px] mb-3">계정으로 나만의 AI 튜터를 관리해요.</p>
+      <p className="rise d2 text-sub text-[14px] mb-3">내 자료로 답하는 AI 튜터를 만들고 관리해요.</p>
       <input className="field" placeholder="이메일" value={email} onChange={(e) => setEmail(e.target.value)} />
       <input className="field" type="password" placeholder="비밀번호" value={pw} onChange={(e) => setPw(e.target.value)} />
       {mode === "signup" && (
@@ -163,7 +163,7 @@ function Dashboard({ session }: { session: Session }) {
   }
 
   async function removeCourse(id: string) {
-    if (!confirm("강좌를 삭제할까요? 소속 자료는 공용으로 전환돼요.")) return;
+    if (!confirm("강좌를 삭제할까요? 담겨 있던 자료는 공용으로 바뀌어요.")) return;
     const r = await fetch(`/api/courses?id=${id}`, {
       method: "DELETE",
       headers: { Authorization: `Bearer ${token}` },
@@ -171,7 +171,7 @@ function Dashboard({ session }: { session: Session }) {
     if (r.ok) {
       if (courseSel === id) setCourseSel("");
       loadDocs();
-    } else setMsg("강좌 삭제 실패");
+    } else setMsg("강좌를 삭제하지 못했어요 — 다시 시도해 주세요.");
   }
 
   useEffect(() => {
@@ -206,7 +206,7 @@ function Dashboard({ session }: { session: Session }) {
     if (!r.ok) setMsg(d.error || "저장 실패");
     else {
       setSavedProfile(true);
-      setMsg("프로필 저장됨");
+      setMsg("프로필을 저장했어요");
     }
   }
 
@@ -215,7 +215,7 @@ function Dashboard({ session }: { session: Session }) {
 
   async function saveEdit() {
     if (!editId || !editText.trim()) return;
-    setMsg("수정 중… (재청킹·재임베딩)");
+    setMsg("수정 중… 자료를 다시 정리하고 있어요.");
     const r = await fetch("/api/documents", {
       method: "PATCH",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
@@ -224,7 +224,7 @@ function Dashboard({ session }: { session: Session }) {
     const d = await r.json();
     if (!r.ok) setMsg(d.error || "수정 실패");
     else {
-      setMsg(`수정됨 (${d.chunks}청크)`);
+      setMsg("수정했어요");
       setEditId(null);
       loadDocs();
     }
@@ -237,11 +237,11 @@ function Dashboard({ session }: { session: Session }) {
       headers: { Authorization: `Bearer ${token}` },
     });
     if (r.ok) loadDocs();
-    else setMsg("삭제 실패");
+    else setMsg("삭제하지 못했어요 — 다시 시도해 주세요.");
   }
 
   async function uploadPdf(file: File) {
-    setMsg("PDF 처리 중…");
+    setMsg("PDF 읽는 중…");
     const fd = new FormData();
     fd.append("file", file);
     fd.append("kind", "problem");
@@ -254,7 +254,7 @@ function Dashboard({ session }: { session: Session }) {
     const d = await r.json();
     if (!r.ok) setMsg(d.error || "업로드 실패");
     else {
-      setMsg(`PDF 등록됨: ${d.chars}자 → ${d.chunks}청크`);
+      setMsg(`PDF를 등록했어요 (${d.chars}자)`);
       loadDocs();
     }
   }
@@ -271,7 +271,7 @@ function Dashboard({ session }: { session: Session }) {
     if (!r.ok) setMsg(d.error || "실패");
     else {
       setContent("");
-      setMsg(`추가됨 (${d.chunks}청크)`);
+      setMsg("자료를 추가했어요");
       loadDocs();
     }
   }
@@ -313,7 +313,7 @@ function Dashboard({ session }: { session: Session }) {
             onChange={(e) => setIsPublic(e.target.checked)}
             className="w-4 h-4 accent-[var(--blue)]"
           />
-          공개 강사 목록에 노출
+          강사 목록에 내 프로필 공개
           <span className="text-sub text-[12px]">(끄면 초대받은 학생만 나를 볼 수 있어요)</span>
         </label>
         <button onClick={saveProfile} className="btn btn-primary py-3 self-start px-6">
@@ -397,7 +397,7 @@ function Dashboard({ session }: { session: Session }) {
             value={courseSel}
             onChange={(e) => setCourseSel(e.target.value)}
           >
-            <option value="">공용 (모든 강좌에서 검색됨)</option>
+            <option value="">공용 (모든 강좌에서 함께 써요)</option>
             {courses.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.title}
