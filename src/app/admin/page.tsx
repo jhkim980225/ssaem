@@ -15,8 +15,11 @@ type AdminData = {
     is_public: boolean;
     documents: number;
     students: { id: string; name: string }[];
+    up: number;
+    down: number;
   }[];
   stats: { teachers: number; students: number; recentQuestions: number };
+  insights?: { days: number; daily: { date: string; count: number }[] };
   invite: { url: string; qrSvg: string };
 };
 
@@ -112,6 +115,21 @@ function Dashboard({ session }: { session: Session }) {
       .catch(() => setErr("불러오기 실패"));
   }, [session]);
 
+  async function togglePublic(teacherId: string) {
+    const r = await fetch("/api/admin", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+      body: JSON.stringify({ teacherId }),
+    });
+    const d = await r.json();
+    if (r.ok)
+      setData((prev) =>
+        prev
+          ? { ...prev, teachers: prev.teachers.map((t) => (t.id === teacherId ? { ...t, is_public: d.is_public } : t)) }
+          : prev
+      );
+  }
+
   if (err)
     return (
       <div className="card p-8 text-center max-w-sm mx-auto mt-10">
@@ -169,6 +187,38 @@ function Dashboard({ session }: { session: Session }) {
         ))}
       </div>
 
+      {/* 학원 인사이트 — 일별 질문 추이 (14일) */}
+      {(data.insights?.daily.some((d) => d.count > 0) ?? false) && (
+        <section className="rise d2 card p-5">
+          <div className="flex items-baseline justify-between mb-3">
+            <h2 className="font-bold text-[15px]">일별 질문 수 (최근 {data.insights!.days}일)</h2>
+            <span className="text-sub text-[12px]">
+              최대 {Math.max(...data.insights!.daily.map((d) => d.count))}건
+            </span>
+          </div>
+          <div className="flex items-end gap-[2px] h-24" role="img" aria-label="일별 질문 수 막대 그래프">
+            {data.insights!.daily.map((d) => {
+              const max = Math.max(...data.insights!.daily.map((x) => x.count), 1);
+              return (
+                <div key={d.date} className="group relative flex-1 h-full flex flex-col justify-end items-center">
+                  <span className="pointer-events-none absolute -top-6 hidden group-hover:block text-[11px] whitespace-nowrap rounded-md px-1.5 py-0.5 border border-line card z-10">
+                    {d.date.slice(5).replace("-", "/")} · {d.count}건
+                  </span>
+                  <div
+                    className="w-full max-w-[22px] rounded-t-[4px]"
+                    style={{ background: "var(--blue)", height: `${(d.count / max) * 100}%`, minHeight: d.count > 0 ? 3 : 0 }}
+                  />
+                </div>
+              );
+            })}
+          </div>
+          <div className="flex justify-between mt-1 text-sub text-[11px]">
+            <span>{data.insights!.daily[0]?.date.slice(5).replace("-", "/")}</span>
+            <span>{data.insights!.daily.at(-1)?.date.slice(5).replace("-", "/")}</span>
+          </div>
+        </section>
+      )}
+
       {/* 강사 초대 */}
       <section className="rise d2 card p-5 lg:p-6 flex flex-col gap-3">
         <h2 className="font-bold text-[17px]">강사 초대</h2>
@@ -222,9 +272,23 @@ function Dashboard({ session }: { session: Session }) {
                   </p>
                   <p className="text-[12px] text-sub truncate">{t.subject ?? "과목 미설정"}</p>
                 </div>
-                <span className="text-[12px] text-sub shrink-0">
+                <span className="text-[12px] text-sub shrink-0 text-right">
                   자료 {t.documents} · 학생 {t.students.length}
+                  {(t.up > 0 || t.down > 0) && (
+                    <>
+                      <br />
+                      도움됨 {t.up} · 아쉬움{" "}
+                      <span style={t.down > 0 ? { color: "var(--red)", fontWeight: 700 } : undefined}>{t.down}</span>
+                    </>
+                  )}
                 </span>
+                <button
+                  onClick={() => togglePublic(t.id)}
+                  className="chip !py-1 !px-2.5 !text-[12px] shrink-0"
+                  title={t.is_public ? "학생 목록에서 숨기기" : "학생 목록에 공개하기"}
+                >
+                  {t.is_public ? "숨기기" : "공개하기"}
+                </button>
               </div>
               {t.students.length > 0 && (
                 <details className="mt-2 pl-[52px]">
@@ -234,7 +298,7 @@ function Dashboard({ session }: { session: Session }) {
                   <div className="mt-1.5 flex flex-wrap gap-1.5">
                     {t.students.map((s) => (
                       <span key={s.id} className="chip !py-1 !px-2.5 !text-[12px] !cursor-default">
-                        {avatarEmoji(s.name)} {s.name}
+                        {s.name}
                       </span>
                     ))}
                   </div>

@@ -165,7 +165,8 @@ export default function ChatPanel({
   const [q, setQ] = useState("");
   const [loading, setLoading] = useState(false);
   const [conversationId, setConversationId] = useState<string | null>(initialConversationId ?? null);
-  const [rated, setRated] = useState<number | null>(null); // 마지막 답변에 준 평가 (5=👍, 1=👎)
+  const [rated, setRated] = useState<number | null>(null); // 마지막 답변에 준 평가 (5=도움됨, 1=아쉬움)
+  const [related, setRelated] = useState<string[]>([]); // 유사 질문 추천 (답변 완료 후 로드)
   const [streaming, setStreaming] = useState(false);
   const scroller = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
@@ -180,6 +181,7 @@ export default function ChatPanel({
     const question = (preset ?? q).trim();
     if (!question || loading || streaming || !teacherId) return;
     setQ("");
+    setRelated([]);
     setMsgs((m) => [...m, { role: "user", text: question }]);
     setLoading(true);
     scrollDown();
@@ -240,6 +242,11 @@ export default function ChatPanel({
       setLoading(false);
       setStreaming(false);
       scrollDown();
+      // 유사 질문 추천 — 실패해도 무시 (추천은 있으면 좋은 것)
+      fetch(`/api/related?teacher=${teacherId}&q=${encodeURIComponent(question)}`)
+        .then((r) => r.json())
+        .then((d) => setRelated(d.related ?? []))
+        .catch(() => {});
     }
   }
 
@@ -307,6 +314,17 @@ export default function ChatPanel({
                   ) : (
                     <span className="text-sub text-[12px]">평가 감사해요</span>
                   )}
+                </div>
+              )}
+              {/* 유사 질문 추천 (클라썸 도트 패턴) — 마지막 답변에만 */}
+              {i === lastTutorIdx && !loading && !streaming && related.length > 0 && (
+                <div className="self-start flex flex-wrap items-center gap-1.5 pl-11 mt-1 animate-pop">
+                  <span className="text-sub text-[12px]">이런 질문도 있어요:</span>
+                  {related.map((rq) => (
+                    <button key={rq} onClick={() => send(rq)} className="chip !py-1 !px-2.5 !text-[12px]">
+                      {rq.length > 40 ? rq.slice(0, 40) + "…" : rq}
+                    </button>
+                  ))}
                 </div>
               )}
             </div>
