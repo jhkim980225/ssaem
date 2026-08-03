@@ -29,6 +29,12 @@ export default function RootLayout({
           as="style"
           href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css"
         />
+        {/* 저장된 테마를 페인트 전에 적용 (FOUC 방지). 미저장 시 시스템 설정 따름 */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `try{var t=localStorage.getItem('theme');if(t==='dark'||t==='light')document.documentElement.dataset.theme=t}catch(e){}`,
+          }}
+        />
       </head>
       {/* suppressHydrationWarning: 브라우저 확장(광고차단 등)이 body에 속성 주입 시 hydration 경고 방지 */}
       <body className="min-h-full flex flex-col" suppressHydrationWarning>

@@ -57,6 +57,33 @@
   }
 }
 
+/* 시스템 다크여도 사용자가 라이트 선택 시 강제 (맨 위 :root 라이트 값 복제 — 값 바꿀 땐 같이) */
+:root[data-theme="light"] {
+  --bg: #ffffff;
+  --surface: #ffffff;
+  --text: #16171d;
+  --text-2: #34363f;
+  --sub: #9094a0;
+  --sub-2: #6e7280;
+  --border: #ececf1;
+  --fill: #f3f4f7;
+  --fill-2: #f8f9fb;
+  --blue: #3d6bf4;
+  --blue-press: #2c55d8;
+  --blue-weak: #eef2fe;
+  --red: #f04452;
+  --red-weak: #fdeced;
+  --border-strong: #d9dce3;
+  --ghost-hover: #e0e8fd;
+  --gray-hover: #e9eaef;
+  --thumb: #d9dce3;
+  --skel-a: #eff0f4;
+  --skel-b: #f8f9fb;
+  --shadow-card: 0 1px 2px rgba(22, 23, 29, 0.03), 0 4px 14px rgba(22, 23, 29, 0.04);
+  --shadow-lift: 0 2px 6px rgba(22, 23, 29, 0.05), 0 12px 28px rgba(22, 23, 29, 0.08);
+  color-scheme: light;
+}
+
 /* 위 미디어쿼리 블록의 복제 — 값 바꿀 땐 둘 다 */
 :root[data-theme="dark"] {
   --bg: #101116;

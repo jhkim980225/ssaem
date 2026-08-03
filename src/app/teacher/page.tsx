@@ -543,6 +543,9 @@ function Dashboard({ session }: { session: Session }) {
       <Link href="/teacher/history" className="rise d4 btn btn-gray py-4 text-center">
         학생 질문 이력 →
       </Link>
+      <Link href="/teacher/students" className="rise d4 btn btn-gray py-4 text-center">
+        학생별 리포트 →
+      </Link>
       <Link href="/ask" className="rise d4 btn btn-ghost py-4 text-center">
         학생 화면으로 보기 →
       </Link>

@@ -29,6 +29,30 @@ export default function SiteHeader() {
         </Link>
 
         <nav className="flex items-center gap-1">
+          <button
+            onClick={() => {
+              const cur =
+                document.documentElement.dataset.theme ||
+                (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+              const next = cur === "dark" ? "light" : "dark";
+              document.documentElement.dataset.theme = next;
+              try {
+                localStorage.setItem("theme", next);
+              } catch {}
+            }}
+            aria-label="테마 전환"
+            title="라이트/다크 전환"
+            className="grid place-items-center w-8 h-8 rounded-full text-sub hover:text-text hover:bg-[var(--fill)] transition-colors"
+          >
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden>
+              <path
+                d="M12 3a9 9 0 1 0 9 9c0-.46-.04-.92-.1-1.36a5.5 5.5 0 0 1-7.54-7.54C12.92 3.04 12.46 3 12 3Z"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </button>
           {NAV.map((n) => {
             const active = pathname === n.href || pathname.startsWith(n.href + "/");
             return (
