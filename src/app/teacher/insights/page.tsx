@@ -134,7 +134,7 @@ export default function InsightsPage() {
           <section className="rise d3 card p-5 flex flex-col gap-2">
             <h2 className="font-bold text-[15px]">아쉬웠던 답변</h2>
             {data.lowRated.length === 0 ? (
-              <p className="text-sub text-[14px] py-3 text-center">낮은 평가를 받은 답변이 없어요 👏</p>
+              <p className="text-sub text-[14px] py-3 text-center">낮은 평가를 받은 답변이 없어요</p>
             ) : (
               data.lowRated.map((r, i) => (
                 <div key={i} className="rounded-[14px] border border-line p-3" style={{ background: "var(--fill-2)" }}>
@@ -152,7 +152,7 @@ export default function InsightsPage() {
               근거 자료 없이 답했거나 관련도가 낮았어요 — 이 주제 자료를 추가해 보세요.
             </p>
             {data.weak.length === 0 ? (
-              <p className="text-sub text-[14px] py-3 text-center">자료 공백이 발견되지 않았어요 👏</p>
+              <p className="text-sub text-[14px] py-3 text-center">자료 공백이 발견되지 않았어요</p>
             ) : (
               data.weak.map((w, i) => (
                 <div key={i} className="rounded-[14px] border border-line p-3 flex justify-between gap-2" style={{ background: "var(--fill-2)" }}>

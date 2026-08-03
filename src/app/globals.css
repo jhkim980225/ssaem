@@ -28,7 +28,8 @@
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-/* 다크모드 — 시스템 설정 따라감. 모든 색은 변수만 갈아끼움 */
+/* 다크모드 — 시스템 설정 따라감. 모든 색은 변수만 갈아끼움
+   아래 [data-theme="dark"] 블록과 값 동기 유지 (테스트·수동 토글용 복제) */
 @media (prefers-color-scheme: dark) {
   :root {
     --bg: #101116;
@@ -54,6 +55,33 @@
     --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.3), 0 6px 20px rgba(0, 0, 0, 0.3);
     --shadow-lift: 0 4px 10px rgba(0, 0, 0, 0.4), 0 16px 36px rgba(0, 0, 0, 0.45);
   }
+}
+
+/* 위 미디어쿼리 블록의 복제 — 값 바꿀 땐 둘 다 */
+:root[data-theme="dark"] {
+  --bg: #101116;
+  --surface: #17181f;
+  --text: #e8e9ee;
+  --text-2: #c9cdd6;
+  --sub: #8d92a0;
+  --sub-2: #a5aab7;
+  --border: #262833;
+  --fill: #23242e;
+  --fill-2: #1d1e27;
+  --blue: #5b82f7;
+  --blue-press: #4069e8;
+  --blue-weak: rgba(91, 130, 247, 0.16);
+  --red: #f2606c;
+  --red-weak: rgba(240, 68, 82, 0.16);
+  --border-strong: #3a3a45;
+  --ghost-hover: rgba(69, 147, 252, 0.26);
+  --gray-hover: #2e2e38;
+  --thumb: #3a3a44;
+  --skel-a: #26262e;
+  --skel-b: #2e2e37;
+  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.3), 0 6px 20px rgba(0, 0, 0, 0.3);
+  --shadow-lift: 0 4px 10px rgba(0, 0, 0, 0.4), 0 16px 36px rgba(0, 0, 0, 0.45);
+  color-scheme: dark;
 }
 
 @theme inline {
