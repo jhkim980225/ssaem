@@ -98,6 +98,11 @@ function AuthForm() {
       <button onClick={() => setMode(mode === "signup" ? "login" : "signup")} className="text-sub text-[14px] mt-1">
         {mode === "signup" ? "이미 계정이 있나요? 로그인" : "학원이 없나요? 개설하기"}
       </button>
+      {mode !== "signup" && (
+        <Link href="/reset" className="text-sub text-[13px] text-center">
+          비밀번호를 잊으셨나요?
+        </Link>
+      )}
       {msg && <p className="text-[13px] text-blue mt-1">{msg}</p>}
     </div>
   );

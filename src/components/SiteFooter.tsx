@@ -28,6 +28,7 @@ export default function SiteFooter() {
               <p className="text-[12px] font-bold text-sub mb-3">학원</p>
               <ul className="flex flex-col gap-2 text-[13px]">
                 <li><Link href="/admin" className="hover:text-blue transition-colors">학원장</Link></li>
+                <li><Link href="/pricing" className="hover:text-blue transition-colors">요금제</Link></li>
               </ul>
             </div>
             <div>
@@ -43,7 +44,13 @@ export default function SiteFooter() {
 
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pt-6 border-t border-line">
           <p className="text-[12px] text-sub">© {new Date().getFullYear()} 학원 AI 튜터</p>
-          <p className="text-[12px] text-sub">전산회계 2급 · 1급 · 전산세무 2급 지원</p>
+          <div className="flex items-center gap-3 text-[12px] text-sub">
+            <Link href="/legal/terms" className="hover:text-blue transition-colors">이용약관</Link>
+            <span>·</span>
+            <Link href="/legal/privacy" className="hover:text-blue transition-colors">개인정보처리방침</Link>
+            <span className="hidden sm:inline">·</span>
+            <span className="hidden sm:inline">전산회계 2급 · 1급 · 전산세무 2급 지원</span>
+          </div>
         </div>
       </div>
     </footer>

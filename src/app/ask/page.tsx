@@ -575,6 +575,11 @@ function StudentAuth({ session, role }: { session: Session | null; role: string 
       <button className="text-sub text-[12px]" onClick={() => setMode(mode === "login" ? "signup" : "login")}>
         {mode === "login" ? "계정이 없나요? 가입" : "이미 있나요? 로그인"}
       </button>
+      {mode === "login" && (
+        <a href="/reset" className="text-sub text-[12px] text-center">
+          비밀번호를 잊으셨나요?
+        </a>
+      )}
       <button className="text-sub text-[12px]" onClick={() => setOpen(false)}>
         닫기
       </button>
