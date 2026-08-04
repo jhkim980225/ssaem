@@ -58,8 +58,13 @@ export async function POST(req: Request) {
   } else if (!name) {
     return NextResponse.json({ error: "이름을 입력하세요" }, { status: 400 });
   }
-  if (role === "admin" && !academyName)
-    return NextResponse.json({ error: "학원 이름을 입력하세요" }, { status: 400 });
+  if (role === "admin") {
+    if (!academyName) return NextResponse.json({ error: "학원 이름을 입력하세요" }, { status: 400 });
+    // 학원 개설도 초대코드로 게이트 — 공개 배포에서 누구나 학원을 만드는 것 차단
+    const required = process.env.INVITE_CODE;
+    if (required && inviteCode !== required)
+      return NextResponse.json({ error: "학원 개설 코드가 올바르지 않아요" }, { status: 403 });
+  }
 
   const { data, error } = await db.auth.admin.createUser({
     email,

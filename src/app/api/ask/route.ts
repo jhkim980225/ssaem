@@ -42,6 +42,21 @@ export async function POST(req: Request) {
   // 로그인 학생이면 대화에 연결 (익명도 허용 — 토큰 없으면 NULL)
   const studentId = await userFromRequest(req);
 
+  // 이어가기 대화 소유권 검증 — 남의 conversationId로 메시지 주입·이력 열람 차단.
+  // 익명 대화(student_id NULL)는 UUID 자체가 자격 토큰이라 허용.
+  if (conversationId) {
+    const { data: conv } = await db
+      .from("conversations")
+      .select("student_id, teacher_id")
+      .eq("id", conversationId)
+      .maybeSingle();
+    const mine =
+      !!conv &&
+      conv.teacher_id === teacherId &&
+      (conv.student_id === null || conv.student_id === studentId);
+    if (!mine) conversationId = null; // 남의 대화면 무시하고 새 대화로 시작
+  }
+
   // 강사 조회 + 청크 검색(질문 임베딩 포함) + 대화 맥락 — 서로 독립이라 병렬
   const [{ data: teacher }, hits, priorRes] = await Promise.all([
     db

@@ -41,7 +41,11 @@ export async function GET(req: Request) {
     if (hit) hit.count++;
     else clusters.push({ text: text.slice(0, 90), count: 1 });
   }
-  const questions = clusters.sort((a, b) => b.count - a.count).slice(0, 5);
+  // 2회 이상 반복된 주제만 노출 — 1회성 질문엔 개인 사정이 섞일 수 있어 공개 대상에서 제외
+  const questions = clusters
+    .filter((c) => c.count >= 2)
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 5);
 
   // 강사 이름 붙이기 (전체 모드에서만 의미 있음)
   const ids = [...perTeacher.keys()];

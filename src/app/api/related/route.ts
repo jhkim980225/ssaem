@@ -26,13 +26,20 @@ export async function GET(req: Request) {
     .order("created_at", { ascending: false })
     .limit(200);
 
-  const seen = new Set<string>([q]);
-  const related = ((data ?? []) as { content: string }[])
-    .map((m) => ({ text: m.content.trim().slice(0, 120), s: score(q, m.content) }))
-    .filter((m) => m.s >= MIN_SCORE && m.text.length >= 4 && !seen.has(m.text) && seen.add(m.text))
-    .sort((a, b) => b.s - a.s)
+  // 2회 이상 반복된 질문만 추천 — 1회성 질문(개인 사정 포함 가능)은 남에게 노출하지 않음
+  const clusters: { text: string; count: number }[] = [];
+  for (const m of (data ?? []) as { content: string }[]) {
+    const text = m.content.trim();
+    if (text.length < 4) continue;
+    const hit = clusters.find((c) => score(text, c.text) >= MIN_SCORE);
+    if (hit) hit.count++;
+    else clusters.push({ text: text.slice(0, 120), count: 1 });
+  }
+  const related = clusters
+    .filter((c) => c.count >= 2 && c.text !== q && score(q, c.text) >= MIN_SCORE)
+    .sort((a, b) => b.count - a.count)
     .slice(0, 3)
-    .map((m) => m.text);
+    .map((c) => c.text);
 
   return NextResponse.json({ related });
 }

@@ -22,10 +22,13 @@ export function rateLimit(key: string, limit: number, windowMs: number): boolean
   return true;
 }
 
+// 클라이언트 IP. x-forwarded-for의 "첫" 항목은 클라가 위조 가능(헤더에 직접 넣으면 앞에 붙음).
+// Vercel은 신뢰 가능한 x-vercel-forwarded-for / x-real-ip를 프록시에서 덮어써 준다 — 그걸 우선.
+// 폴백으로 XFF를 쓸 땐 프록시가 마지막에 append하므로 "마지막" 항목을 쓴다.
 export function clientIp(req: Request): string {
-  return (
-    req.headers.get("x-forwarded-for")?.split(",")[0].trim() ||
-    req.headers.get("x-real-ip") ||
-    "unknown"
-  );
+  const trusted = req.headers.get("x-vercel-forwarded-for") || req.headers.get("x-real-ip");
+  if (trusted) return trusted.split(",").pop()!.trim();
+  const xff = req.headers.get("x-forwarded-for");
+  if (xff) return xff.split(",").pop()!.trim();
+  return "unknown";
 }
