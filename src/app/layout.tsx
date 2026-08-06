@@ -6,6 +6,8 @@ import SiteFooter from "@/components/SiteFooter";
 export const metadata: Metadata = {
   title: "학원 AI 튜터",
   description: "우리 선생님 자료로 답해주는 AI 튜터",
+  // iOS 홈 화면 실행 시 브라우저 UI 없이 앱처럼 (매니페스트만으론 iOS가 안 따름)
+  appleWebApp: { capable: true, title: "AI 튜터", statusBarStyle: "default" },
 };
 
 export const viewport: Viewport = {
