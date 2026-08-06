@@ -172,6 +172,7 @@ function Dashboard({ session }: { session: Session }) {
 
   const [editId, setEditId] = useState<string | null>(null);
   const [editText, setEditText] = useState("");
+  const [quizBusy, setQuizBusy] = useState<string | null>(null); // 문제 생성 중인 documentId
 
   async function saveEdit() {
     if (!editId || !editText.trim()) return;
@@ -188,6 +189,20 @@ function Dashboard({ session }: { session: Session }) {
       setEditId(null);
       loadDocs();
     }
+  }
+
+  // 자료 하나로 객관식 문제 생성. LLM 호출이라 수 초 걸림 — 버튼에 진행 표시.
+  async function makeQuiz(documentId: string) {
+    setQuizBusy(documentId);
+    setMsg("자료를 문제로 정리하고 있어요…");
+    const r = await fetch("/api/quiz/generate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ documentId, count: 5 }),
+    });
+    const d = await r.json().catch(() => null);
+    setQuizBusy(null);
+    setMsg(r.ok ? `문제 ${d.created}개를 만들었어요` : d?.error || "문제를 만들지 못했어요");
   }
 
   async function removeDoc(id: string) {
@@ -423,6 +438,13 @@ function Dashboard({ session }: { session: Session }) {
                   <p className="text-sub text-[13px] break-words">{d.preview}</p>
                 </div>
                 <div className="shrink-0 flex flex-col gap-2 items-end">
+                  <button
+                    onClick={() => makeQuiz(d.id)}
+                    disabled={quizBusy === d.id}
+                    className="text-[13px] text-blue disabled:opacity-50"
+                  >
+                    {quizBusy === d.id ? "만드는 중…" : "문제 만들기"}
+                  </button>
                   {d.source === "text" && (
                     <button
                       onClick={() => { setEditId(d.id); setEditText(d.raw); }}

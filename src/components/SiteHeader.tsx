@@ -5,6 +5,7 @@ import { SHOW_PRICING } from "@/lib/flags";
 
 const NAV = [
   { href: "/ask", label: "질문하기" },
+  { href: "/quiz", label: "문제풀이" },
   { href: "/teacher", label: "강사 공간" },
   { href: "/admin", label: "학원장" },
   ...(SHOW_PRICING ? ([{ href: "/pricing", label: "요금제" }] as const) : []),

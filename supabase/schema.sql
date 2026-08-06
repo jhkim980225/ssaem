@@ -162,6 +162,65 @@ alter table plan_inquiries enable row level security;
 -- 정책 없음 = anon/authenticated 접근 전면 차단 (service_role만)
 
 -- ─────────────────────────────────────────────
+-- 문제풀이 / 오답노트
+-- ─────────────────────────────────────────────
+-- 강사가 올린 자료(documents)를 LLM이 객관식으로 정리해 저장.
+-- 자료가 지워지면 그 자료로 만든 문제도 함께 사라진다(cascade).
+create table if not exists quiz_questions (
+  id uuid primary key default gen_random_uuid(),
+  teacher_id uuid not null references profiles(id) on delete cascade,
+  document_id uuid references documents(id) on delete cascade,
+  course_id uuid references courses(id) on delete set null,
+  question text not null,
+  choices jsonb not null,              -- ["보기1","보기2","보기3","보기4"]
+  answer int not null check (answer between 0 and 3),
+  explanation text,
+  created_at timestamptz default now()
+);
+create index if not exists quiz_questions_teacher_idx on quiz_questions(teacher_id, created_at desc);
+create index if not exists quiz_questions_document_idx on quiz_questions(document_id);
+
+-- 학생 풀이 기록. 오답노트 = correct=false인 최신 시도.
+create table if not exists quiz_attempts (
+  id uuid primary key default gen_random_uuid(),
+  question_id uuid not null references quiz_questions(id) on delete cascade,
+  student_id uuid not null references profiles(id) on delete cascade,
+  chosen int not null check (chosen between 0 and 3),
+  correct boolean not null,
+  created_at timestamptz default now()
+);
+create index if not exists quiz_attempts_student_idx on quiz_attempts(student_id, created_at desc);
+create index if not exists quiz_attempts_question_idx on quiz_attempts(question_id);
+
+alter table quiz_questions enable row level security;
+alter table quiz_attempts  enable row level security;
+
+-- 문제: 같은 학원 사람은 읽기, 출제 강사만 쓰기
+drop policy if exists quiz_questions_read on quiz_questions;
+create policy quiz_questions_read on quiz_questions for select
+  using (exists (
+    select 1 from profiles p where p.id = quiz_questions.teacher_id and p.academy_id = current_academy()
+  ));
+
+drop policy if exists quiz_questions_owner_write on quiz_questions;
+create policy quiz_questions_owner_write on quiz_questions for all
+  using (teacher_id = auth.uid()) with check (teacher_id = auth.uid());
+
+-- 풀이 기록: 본인 것 + 출제 강사
+drop policy if exists quiz_attempts_party on quiz_attempts;
+create policy quiz_attempts_party on quiz_attempts for select
+  using (
+    student_id = auth.uid()
+    or exists (
+      select 1 from quiz_questions q where q.id = question_id and q.teacher_id = auth.uid()
+    )
+  );
+
+drop policy if exists quiz_attempts_self_write on quiz_attempts;
+create policy quiz_attempts_self_write on quiz_attempts for all
+  using (student_id = auth.uid()) with check (student_id = auth.uid());
+
+-- ─────────────────────────────────────────────
 -- 헬퍼: 현재 사용자의 학원
 -- ─────────────────────────────────────────────
 create or replace function current_academy() returns uuid

@@ -251,7 +251,12 @@ export default function AskPage() {
           {/* 내 질문 이력 (로그인 학생) */}
           {session && role === "student" && convs.length > 0 && (
             <div className="lg-card lg:p-3">
-              <p className="text-sub text-[12px] font-bold px-1 pb-1">내 질문 이력</p>
+              <div className="flex items-center justify-between px-1 pb-1">
+                <p className="text-sub text-[12px] font-bold">내 질문 이력</p>
+                <Link href="/my/history" className="text-sub text-[12px] hover:text-blue transition-colors">
+                  전체 보기
+                </Link>
+              </div>
               <div className="flex lg:flex-col gap-1 overflow-x-auto lg:overflow-y-auto lg:max-h-[28vh] pb-1 lg:pb-0">
                 {convs.map((c) => (
                   <button

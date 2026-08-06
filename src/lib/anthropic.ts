@@ -15,6 +15,17 @@ export function llmModel() {
   return process.env.ANTHROPIC_API_KEY ? MODEL : GEMINI_MODEL;
 }
 
+// 스트리밍 없이 전체 텍스트 한 번에. 구조화 출력(JSON) 용도 — 폴백 체인은 generateStream과 공유.
+export async function generateText(
+  system: string,
+  messages: ChatMsg[],
+  maxTokens = 2000
+): Promise<string> {
+  let out = "";
+  for await (const delta of generateStream(system, messages, maxTokens)) out += delta;
+  return out;
+}
+
 // 답변 스트리밍. ANTHROPIC_API_KEY 우선, 없으면 GEMINI_API_KEY(무료 티어) 폴백.
 // 텍스트 델타를 yield하는 async generator.
 export async function* generateStream(

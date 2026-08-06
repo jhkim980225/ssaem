@@ -23,6 +23,9 @@ export default function SiteFooter() {
               <p className="text-[12px] font-bold text-sub mb-3">학생</p>
               <ul className="flex flex-col gap-2 text-[13px]">
                 <li><Link href="/ask" className="hover:text-blue transition-colors">질문하기</Link></li>
+                <li><Link href="/quiz" className="hover:text-blue transition-colors">문제풀이</Link></li>
+                <li><Link href="/quiz/notes" className="hover:text-blue transition-colors">오답노트</Link></li>
+                <li><Link href="/my/history" className="hover:text-blue transition-colors">내 대화내역</Link></li>
               </ul>
             </div>
             <div>
