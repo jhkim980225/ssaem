@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { SHOW_PRICING } from "@/lib/flags";
 
 export default function SiteFooter() {
   return (
@@ -28,7 +29,9 @@ export default function SiteFooter() {
               <p className="text-[12px] font-bold text-sub mb-3">학원</p>
               <ul className="flex flex-col gap-2 text-[13px]">
                 <li><Link href="/admin" className="hover:text-blue transition-colors">학원장</Link></li>
-                <li><Link href="/pricing" className="hover:text-blue transition-colors">요금제</Link></li>
+                {SHOW_PRICING && (
+                  <li><Link href="/pricing" className="hover:text-blue transition-colors">요금제</Link></li>
+                )}
               </ul>
             </div>
             <div>

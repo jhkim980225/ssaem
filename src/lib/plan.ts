@@ -40,7 +40,7 @@ export async function docLimitError(db: Db, teacherId: string): Promise<string |
     .select("id", { count: "exact", head: true })
     .eq("teacher_id", teacherId);
   if ((count ?? 0) >= FREE_LIMITS.docsPerTeacher)
-    return `무료 플랜은 자료 ${FREE_LIMITS.docsPerTeacher}건까지예요. Pro 도입은 요금제 페이지에서 문의해 주세요.`;
+    return `무료 플랜은 자료 ${FREE_LIMITS.docsPerTeacher}건까지예요. 더 올리려면 원장님께 문의해 주세요.`;
   return null;
 }
 

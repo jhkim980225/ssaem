@@ -38,7 +38,7 @@ export async function POST(req: Request) {
     const { plan } = await planForTeacher(serviceClient(), uid);
     if (plan !== "pro")
       return NextResponse.json(
-        { error: "스캔 PDF(OCR)는 Pro 플랜 전용이에요. 텍스트 PDF로 올리거나 요금제 페이지에서 문의해 주세요." },
+        { error: "스캔 PDF는 아직 지원하지 않아요. 텍스트가 들어 있는 PDF로 올려 주세요." },
         { status: 403 }
       );
     try {

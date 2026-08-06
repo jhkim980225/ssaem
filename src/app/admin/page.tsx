@@ -4,6 +4,7 @@ import Link from "next/link";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
 import { avatarEmoji } from "@/lib/avatar";
+import { SHOW_PRICING } from "@/lib/flags";
 
 type AdminData = {
   admin: { name: string };
@@ -163,8 +164,10 @@ function Dashboard({ session }: { session: Session }) {
             {data.academy.name}
             {data.academy.plan === "pro" ? (
               <span className="chip chip-on !cursor-default !px-2.5 !py-0.5 !text-[11px]">Pro</span>
-            ) : (
+            ) : SHOW_PRICING ? (
               <a href="/pricing" className="chip !px-2.5 !py-0.5 !text-[11px]">무료 · Pro 보기</a>
+            ) : (
+              <span className="chip !cursor-default !px-2.5 !py-0.5 !text-[11px]">무료</span>
             )}
           </h1>
           <p className="text-sub text-[13px]">
