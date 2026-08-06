@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
 import ChatPanel from "@/components/ChatPanel";
@@ -57,61 +58,15 @@ export default function TeacherPage() {
   );
 }
 
+// 로그인 폼은 /login으로 일원화 — 인증 UI가 두 벌로 갈라지지 않게
 function AuthForm() {
-  const [email, setEmail] = useState("");
-  const [pw, setPw] = useState("");
-  const [invite, setInvite] = useState("");
-  const [mode, setMode] = useState<"login" | "signup">("login");
-  const [msg, setMsg] = useState("");
-
-  async function submit() {
-    setMsg("");
-    if (mode === "login") {
-      const { error } = await supabase.auth.signInWithPassword({ email, password: pw });
-      if (error) setMsg(error.message);
-      return;
-    }
-    // 가입: 초대코드 검증 서버 라우트 → 성공 시 바로 로그인
-    // /teacher?academy=<slug> 로 왔으면 그 학원 소속으로 가입
-    const academySlug = new URLSearchParams(window.location.search).get("academy");
-    const r = await fetch("/api/signup", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password: pw, inviteCode: invite, academySlug }),
-    });
-    const d = await r.json();
-    if (!r.ok) {
-      setMsg(d.error || "가입 실패");
-      return;
-    }
-    const { error } = await supabase.auth.signInWithPassword({ email, password: pw });
-    if (error) setMsg(error.message);
-  }
-
+  const router = useRouter();
+  useEffect(() => {
+    router.replace("/login?role=teacher");
+  }, [router]);
   return (
-    <div className="animate-pop flex flex-col gap-3 max-w-sm mx-auto mt-10">
-      <h1 className="rise d1 text-[26px] font-extrabold">강사 {mode === "login" ? "로그인" : "가입"}</h1>
-      <p className="rise d2 text-sub text-[14px] mb-3">내 자료로 답하는 AI 튜터를 만들고 관리해요.</p>
-      <input className="field" placeholder="이메일" value={email} onChange={(e) => setEmail(e.target.value)} />
-      <input className="field" type="password" placeholder="비밀번호" value={pw} onChange={(e) => setPw(e.target.value)} />
-      {mode === "signup" && (
-        <input className="field" placeholder="초대코드" value={invite} onChange={(e) => setInvite(e.target.value)} />
-      )}
-      <button onClick={submit} className="btn btn-primary py-4 mt-1">
-        {mode === "login" ? "로그인" : "가입하기"}
-      </button>
-      <button
-        onClick={() => setMode(mode === "login" ? "signup" : "login")}
-        className="text-sub text-[14px] mt-1"
-      >
-        {mode === "login" ? "계정이 없나요? 가입하기" : "이미 계정이 있나요? 로그인"}
-      </button>
-      {mode === "login" && (
-        <Link href="/reset" className="text-sub text-[13px] text-center">
-          비밀번호를 잊으셨나요?
-        </Link>
-      )}
-      {msg && <p className="text-[13px] text-blue mt-1">{msg}</p>}
+    <div className="grid place-items-center py-20">
+      <div className="skel w-12 h-12 !rounded-full" />
     </div>
   );
 }

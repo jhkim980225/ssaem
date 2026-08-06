@@ -3,6 +3,7 @@ import { serviceClient } from "@/lib/supabase";
 import { resolveAcademy } from "@/lib/academy";
 import { rateLimit, clientIp } from "@/lib/ratelimit";
 import { verifyInviteCode } from "@/lib/invite";
+import { toEmail, isValidId, enrollToAcademyTeachers } from "@/lib/account";
 
 // 가입. email_confirm: true로 메일 인증 생략.
 // - admin(원장): 학원 이름으로 새 학원 개설 + admin 프로필 즉시 생성
@@ -15,7 +16,11 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "가입 시도가 너무 잦아요. 잠시 후 다시" }, { status: 429 });
 
   const body = await req.json().catch(() => null);
-  const email = (body?.email ?? "").toString().trim();
+  // 아이디 또는 이메일 — 아이디면 내부 이메일로 매핑 (@ 없으면 아이디로 취급)
+  const rawId = (body?.email ?? body?.id ?? "").toString().trim();
+  if (rawId && !rawId.includes("@") && !isValidId(rawId))
+    return NextResponse.json({ error: "아이디는 영문·숫자 2~30자로 지어 주세요" }, { status: 400 });
+  const email = rawId ? toEmail(rawId) : "";
   const password = (body?.password ?? "").toString();
   const inviteCode = (body?.inviteCode ?? "").toString().trim();
   const teacherInviteCode = (body?.teacherInviteCode ?? "").toString().trim();
@@ -110,6 +115,8 @@ export async function POST(req: Request) {
       .from("profiles")
       .upsert({ id: uid, academy_id: academyId, role: "student", name });
     if (perr) return NextResponse.json({ error: perr.message }, { status: 500 });
+    // 학원 강사들에게 자동 수강 연결 — 가입 직후 빈 강사 목록을 보지 않게
+    await enrollToAcademyTeachers(db, uid, academyId);
   }
 
   return NextResponse.json({ ok: true, userId: uid });

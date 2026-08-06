@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
 import ChatPanel, { type Msg } from "@/components/ChatPanel";
@@ -513,19 +514,13 @@ export default function AskPage() {
 }
 
 // 학생 로그인/가입. 로그인 없이도 질문 가능 — 로그인하면 이력이 계정에 저장됨.
+// 학생 로그인/가입은 /login으로 일원화. 로그인 없이도 질문 가능하므로 여기선 링크만.
 function StudentAuth({ session, role }: { session: Session | null; role: string | null }) {
-  const [open, setOpen] = useState(false);
-  const [mode, setMode] = useState<"login" | "signup">("login");
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [pw, setPw] = useState("");
-  const [msg, setMsg] = useState("");
-
   if (session) {
     return (
       <div className="flex items-center gap-2 text-[13px]">
         <span className="font-bold truncate max-w-[180px]">
-          {role === "teacher" ? "강사 계정" : session.user.email}
+          {role === "teacher" ? "강사 계정" : session.user.email?.replace(/@ssaem\.kr$/, "")}
         </span>
         <button className="text-sub text-[12px]" onClick={() => supabase.auth.signOut()}>
           로그아웃
@@ -533,57 +528,9 @@ function StudentAuth({ session, role }: { session: Session | null; role: string 
       </div>
     );
   }
-
-  if (!open) {
-    return (
-      <button className="btn btn-gray px-5 py-3 text-[14px]" onClick={() => setOpen(true)}>
-        학생 로그인
-      </button>
-    );
-  }
-
-  async function submit() {
-    setMsg("");
-    if (mode === "signup") {
-      const r = await fetch("/api/signup", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ role: "student", name, email, password: pw }),
-      });
-      const d = await r.json();
-      if (!r.ok) {
-        setMsg(d.error || "가입하지 못했어요");
-        return;
-      }
-    }
-    const { error } = await supabase.auth.signInWithPassword({ email, password: pw });
-    if (error) setMsg(error.message);
-    else setOpen(false);
-  }
-
   return (
-    <div className="card p-3 flex flex-col gap-2 w-[220px] shrink-0 animate-pop">
-      <p className="text-[13px] font-bold">학생 {mode === "login" ? "로그인" : "가입"}</p>
-      {mode === "signup" && (
-        <input className="field !py-2 text-[13px]" placeholder="이름" value={name} onChange={(e) => setName(e.target.value)} />
-      )}
-      <input className="field !py-2 text-[13px]" placeholder="이메일" value={email} onChange={(e) => setEmail(e.target.value)} />
-      <input className="field !py-2 text-[13px]" type="password" placeholder="비밀번호" value={pw} onChange={(e) => setPw(e.target.value)} />
-      <button className="btn btn-primary !py-2 text-[13px]" onClick={submit}>
-        {mode === "login" ? "로그인" : "가입하기"}
-      </button>
-      <button className="text-sub text-[12px]" onClick={() => setMode(mode === "login" ? "signup" : "login")}>
-        {mode === "login" ? "계정이 없나요? 가입" : "이미 있나요? 로그인"}
-      </button>
-      {mode === "login" && (
-        <a href="/reset" className="text-sub text-[12px] text-center">
-          비밀번호를 잊으셨나요?
-        </a>
-      )}
-      <button className="text-sub text-[12px]" onClick={() => setOpen(false)}>
-        닫기
-      </button>
-      {msg && <p className="text-[12px] text-blue">{msg}</p>}
-    </div>
+    <Link href="/login?role=student" className="btn btn-gray px-5 py-3 text-[14px]">
+      학생 로그인
+    </Link>
   );
 }

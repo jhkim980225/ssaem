@@ -46,11 +46,11 @@ export default async function Home() {
             </p>
 
             <div className="rise d3 mt-9 flex flex-col sm:flex-row gap-3 justify-center lg:justify-start">
-              <Link href="/teacher" className="btn btn-primary px-7 py-4 text-[15px] text-center">
+              <Link href="/login?role=teacher" className="btn btn-primary px-7 py-4 text-[15px] text-center">
                 강사로 시작하기
               </Link>
-              <Link href="/ask" className="btn btn-ghost px-7 py-4 text-[15px] text-center">
-                학생으로 질문하기
+              <Link href="/login?role=student" className="btn btn-ghost px-7 py-4 text-[15px] text-center">
+                학생으로 시작하기
               </Link>
             </div>
 
