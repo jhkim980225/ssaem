@@ -33,41 +33,45 @@ export default function PricingPage() {
     <main className="flex-1 px-5 py-12">
       <div className="mx-auto w-full max-w-2xl flex flex-col items-center">
         <h1 className="rise text-[28px] lg:text-[36px] font-extrabold tracking-tight text-center">
-          학원 하나, 플랜 하나
+          우리 학원 전용 AI 조교
         </h1>
         <p className="rise d1 mt-3 text-[15px] text-sub text-center leading-relaxed">
-          무료로 시작하고, 학원 전체에 쓸 때 Pro로 전환하세요.
+          자료 등록부터 운영까지 저희가 맡습니다.
+          <br className="hidden sm:block" /> 원장님은 결과만 확인하세요.
         </p>
 
-        {/* 플랜 카드 */}
+        {/* 요금 — 구독료가 아니라 도입·운영 서비스로 제시한다.
+            학원관리 프로그램(월 1~1.5만원)과 비교되면 지는 싸움이라, 조교 인건비와 비교되게 놓는다. */}
         <div className="rise d2 mt-10 w-full grid gap-4 sm:grid-cols-2">
           <div className="card p-7 flex flex-col">
-            <p className="text-[15px] font-bold">무료</p>
+            <p className="text-[15px] font-bold">체험</p>
             <p className="mt-3 text-[32px] font-extrabold tracking-tight">
-              0원<span className="text-[15px] font-bold text-sub"> /월</span>
+              0원<span className="text-[15px] font-bold text-sub"> /2~4주</span>
             </p>
             <ul className="mt-5 flex flex-col gap-2.5 text-[14px] text-sub-2">
-              <li>강사당 자료 {FREE_LIMITS.docsPerTeacher}건</li>
-              <li>학원당 질문 일 {FREE_LIMITS.questionsPerDay}건</li>
-              <li>텍스트·텍스트 PDF 등록</li>
-              <li>질문 이력·인사이트</li>
+              <li>강사 자료 {FREE_LIMITS.docsPerTeacher}건까지 직접 등록</li>
+              <li>학생 질문 하루 {FREE_LIMITS.questionsPerDay}건</li>
+              <li>질문 이력·인사이트 확인</li>
+              <li>성과 리포트 1회 제공</li>
             </ul>
-            <p className="mt-auto pt-6 text-[13px] text-sub">지금 이대로 — 결제 없이 체험</p>
+            <p className="mt-auto pt-6 text-[13px] text-sub">먼저 써보고 결정하세요</p>
           </div>
 
           <div className="card p-7 flex flex-col border-2 !border-[var(--blue)]">
             <div className="flex items-center justify-between">
-              <p className="text-[15px] font-bold text-blue">Pro</p>
-              <span className="chip chip-on !cursor-default !px-3 !py-1 !text-[12px]">학원 단위</span>
+              <p className="text-[15px] font-bold text-blue">학원 도입</p>
+              <span className="chip chip-on !cursor-default !px-3 !py-1 !text-[12px]">전담 운영</span>
             </div>
             <p className="mt-3 text-[32px] font-extrabold tracking-tight">
-              99,000원<span className="text-[15px] font-bold text-sub"> /월</span>
+              500,000원<span className="text-[15px] font-bold text-sub"> /월</span>
             </p>
             <ul className="mt-5 flex flex-col gap-2.5 text-[14px] text-sub-2">
-              <li>강사·자료·질문 무제한</li>
-              <li>스캔 PDF OCR 등록</li>
-              <li>원장 대시보드·강사별 통계</li>
-              <li>도입·운영 지원 (카카오톡/전화)</li>
+              <li><b>교재·기출 자료 등록 대행</b> — 파일만 주시면 저희가 넣어요</li>
+              <li>강사별 과목·말투 세팅, 강좌 분류</li>
+              <li>강사·자료·질문 무제한, 스캔 PDF 인식</li>
+              <li>문제풀이·오답노트, 학생별 리포트</li>
+              <li>전담 지원 (카카오톡 당일 응대)</li>
+              <li>월간 성과 리포트</li>
             </ul>
             <a href="#inquiry" className="btn btn-primary mt-6 py-3.5 text-center text-[15px]">
               도입 문의하기
@@ -77,9 +81,9 @@ export default function PricingPage() {
 
         {/* 환산 근거 — 배지·별점 대신 숫자. 포지셔닝: 관리 도구가 아니라 강사 시간 절약 */}
         <p className="rise d3 mt-6 text-[13px] text-sub text-center leading-relaxed">
-          반복 질문 응대 하루 1시간이면 강사 인건비 월 수십만 원.
+          학원 조교 한 명 인건비는 월 100~150만 원.
           <br />
-          Pro는 질문 3,000건 기준 1건당 33원에 그 시간을 돌려드려요.
+          반복 질문 응대와 자료 정리를 대신 맡아 그 절반 값으로 끝냅니다.
         </p>
 
         {/* 도입 문의 */}

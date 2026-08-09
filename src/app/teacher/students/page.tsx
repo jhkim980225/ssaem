@@ -23,6 +23,10 @@ export default function StudentsPage() {
   const role = useRole(session);
   const [days, setDays] = useState(14);
   const [students, setStudents] = useState<Student[] | null>(null);
+  // 초기화 결과는 한 번만 내려오므로(저장 안 함) 화면에 띄워두고 강사가 학생에게 전달한다
+  const [issued, setIssued] = useState<{ id: string; loginId: string; password: string } | null>(null);
+  const [pwErr, setPwErr] = useState("");
+  const [busy, setBusy] = useState<string | null>(null);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -42,6 +46,24 @@ export default function StudentsPage() {
       .catch(() => setStudents([]));
   }, [session]);
 
+  async function resetPw(studentId: string, name: string) {
+    if (!session) return;
+    if (!confirm(`${name} 학생의 비밀번호를 임시 비밀번호로 바꿀까요?
+지금 쓰던 비밀번호는 즉시 못 쓰게 돼요.`)) return;
+    setBusy(studentId);
+    setPwErr("");
+    setIssued(null);
+    const r = await fetch("/api/students/reset-password", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+      body: JSON.stringify({ studentId }),
+    });
+    const d = await r.json().catch(() => null);
+    setBusy(null);
+    if (!r.ok) return setPwErr(d?.error ?? "초기화하지 못했어요.");
+    setIssued({ id: studentId, loginId: d.loginId, password: d.password });
+  }
+
   if (!ready) return <RoleLoading />;
 
   if (!session) return <NeedLogin as="teacher" />;
@@ -57,6 +79,12 @@ export default function StudentsPage() {
         <h1 className="text-[24px] lg:text-[28px] font-extrabold">학생별 리포트</h1>
         <p className="text-sub text-[14px]">최근 {days}일, 학생마다 얼마나 묻고 어디서 막혔는지예요.</p>
       </div>
+
+      {pwErr && (
+        <p className="text-[13px] font-bold" style={{ color: "var(--red)" }}>
+          {pwErr}
+        </p>
+      )}
 
       {students === null && (
         <div className="flex flex-col gap-2">
@@ -95,6 +123,33 @@ export default function StudentsPage() {
                 )}
               </div>
             </div>
+
+            <div className="mt-3 flex items-center justify-end">
+              <button
+                onClick={() => resetPw(s.id, s.name)}
+                disabled={busy === s.id}
+                className="chip !py-1 !px-2.5 !text-[12px] disabled:opacity-50"
+              >
+                {busy === s.id ? "바꾸는 중…" : "비밀번호 초기화"}
+              </button>
+            </div>
+
+            {issued?.id === s.id && (
+              <div
+                className="animate-pop mt-3 rounded-[14px] p-4 text-[13px] leading-relaxed"
+                style={{ background: "var(--blue-weak)" }}
+              >
+                <p className="font-extrabold text-blue mb-1.5">임시 비밀번호를 학생에게 알려주세요</p>
+                <p style={{ color: "var(--sub-2)" }}>
+                  아이디 <b className="tabular-nums">{issued.loginId}</b>
+                  <br />
+                  임시 비밀번호 <b className="tabular-nums">{issued.password}</b>
+                </p>
+                <p className="mt-2 text-sub text-[12px]">
+                  이 화면을 벗어나면 다시 볼 수 없어요. 학생이 로그인한 뒤 비밀번호를 바꾸도록 안내해 주세요.
+                </p>
+              </div>
+            )}
           </div>
         ))}
       </div>
