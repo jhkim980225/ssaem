@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
 import { serviceClient } from "@/lib/supabase";
-import { teacherFromRequest } from "@/lib/auth";
+import { requireRole } from "@/lib/auth";
 
 // 내 자료 등록/제거 기록 (감사 로그)
 export async function GET(req: Request) {
-  const uid = await teacherFromRequest(req);
-  if (!uid) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  const gate = await requireRole(req, "teacher");
+  if ("res" in gate) return gate.res;
+  const uid = gate.uid;
 
   const raw = Number(new URL(req.url).searchParams.get("limit") ?? 30);
   const limit = Number.isFinite(raw) ? raw : 30;

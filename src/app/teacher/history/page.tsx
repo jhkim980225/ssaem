@@ -3,6 +3,8 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
+import { useRole } from "@/lib/role";
+import { RoleLoading, WrongRole, NeedLogin } from "@/components/RoleGuard";
 
 type Conv = { id: string; title: string | null; created_at: string; messages: number; needs_review?: boolean };
 type Msg = {
@@ -16,6 +18,7 @@ type Msg = {
 export default function HistoryPage() {
   const [session, setSession] = useState<Session | null>(null);
   const [ready, setReady] = useState(false);
+  const role = useRole(session);
   const [convs, setConvs] = useState<Conv[] | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
   const [msgs, setMsgs] = useState<Record<string, Msg[]>>({});
@@ -51,24 +54,11 @@ export default function HistoryPage() {
     }
   }
 
-  if (!ready)
-    return (
-      <main className="flex-1 grid place-items-center">
-        <div className="skel w-12 h-12 !rounded-full" />
-      </main>
-    );
+  if (!ready) return <RoleLoading />;
 
-  if (!session)
-    return (
-      <main className="flex-1 grid place-items-center px-5">
-        <div className="text-center">
-          <p className="text-sub mb-4">로그인이 필요해요.</p>
-          <Link href="/teacher" className="btn btn-primary py-3 px-6 inline-block">
-            강사 로그인
-          </Link>
-        </div>
-      </main>
-    );
+  if (!session) return <NeedLogin as="teacher" />;
+  if (role === undefined) return <RoleLoading />;
+  if (role !== "teacher") return <WrongRole need="teacher" role={role} />;
 
   return (
     <main className="flex-1 w-full max-w-lg lg:max-w-3xl mx-auto px-5 py-8 flex flex-col gap-4">

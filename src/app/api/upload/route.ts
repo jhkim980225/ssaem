@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { extractText, getDocumentProxy } from "unpdf";
-import { teacherFromRequest } from "@/lib/auth";
+import { requireRole } from "@/lib/auth";
 import { saveDocument, ownCourseOrNull } from "@/lib/documents";
 import { ocrPdf } from "@/lib/ocr";
 import { serviceClient } from "@/lib/supabase";
@@ -10,8 +10,9 @@ export const runtime = "nodejs";
 
 // PDF 업로드 → 텍스트 추출 → 원본 저장 + 청킹 + 임베딩.
 export async function POST(req: Request) {
-  const uid = await teacherFromRequest(req);
-  if (!uid) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  const gate = await requireRole(req, "teacher");
+  if ("res" in gate) return gate.res;
+  const uid = gate.uid;
 
   const form = await req.formData().catch(() => null);
   const file = form?.get("file");

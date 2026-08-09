@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { serviceClient } from "@/lib/supabase";
-import { userFromRequest } from "@/lib/auth";
+import { requireRole } from "@/lib/auth";
 
 // 강좌 관리.
 // GET ?teacher=<id> → 공개용: 그 강사의 강좌 목록 (학생 필터 칩)
@@ -21,8 +21,9 @@ export async function GET(req: Request) {
     return NextResponse.json({ courses: data ?? [] });
   }
 
-  const uid = await userFromRequest(req);
-  if (!uid) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  const gate = await requireRole(req, "teacher");
+  if ("res" in gate) return gate.res;
+  const uid = gate.uid;
   const { data, error } = await db
     .from("courses")
     .select("id, title, created_at, documents(count)")
@@ -41,8 +42,9 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  const uid = await userFromRequest(req);
-  if (!uid) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  const gate = await requireRole(req, "teacher");
+  if ("res" in gate) return gate.res;
+  const uid = gate.uid;
 
   const body = await req.json().catch(() => null);
   const title = (body?.title ?? "").toString().trim().slice(0, 100);
@@ -63,8 +65,9 @@ export async function POST(req: Request) {
 }
 
 export async function DELETE(req: Request) {
-  const uid = await userFromRequest(req);
-  if (!uid) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  const gate = await requireRole(req, "teacher");
+  if ("res" in gate) return gate.res;
+  const uid = gate.uid;
   const id = new URL(req.url).searchParams.get("id");
   if (!id) return NextResponse.json({ error: "id required" }, { status: 400 });
 

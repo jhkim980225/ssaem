@@ -3,6 +3,8 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
+import { useRole } from "@/lib/role";
+import { RoleLoading, WrongRole, NeedLogin } from "@/components/RoleGuard";
 
 type Insights = {
   days: number;
@@ -15,6 +17,7 @@ type Insights = {
 export default function InsightsPage() {
   const [session, setSession] = useState<Session | null>(null);
   const [ready, setReady] = useState(false);
+  const role = useRole(session);
   const [data, setData] = useState<Insights | null>(null);
   const [err, setErr] = useState("");
 
@@ -33,24 +36,11 @@ export default function InsightsPage() {
       .catch(() => setErr("불러오기 실패"));
   }, [session]);
 
-  if (!ready)
-    return (
-      <main className="flex-1 grid place-items-center">
-        <div className="skel w-12 h-12 !rounded-full" />
-      </main>
-    );
+  if (!ready) return <RoleLoading />;
 
-  if (!session)
-    return (
-      <main className="flex-1 grid place-items-center px-5">
-        <div className="text-center">
-          <p className="text-sub mb-4">로그인이 필요해요.</p>
-          <Link href="/teacher" className="btn btn-primary py-3 px-6 inline-block">
-            강사 로그인
-          </Link>
-        </div>
-      </main>
-    );
+  if (!session) return <NeedLogin as="teacher" />;
+  if (role === undefined) return <RoleLoading />;
+  if (role !== "teacher") return <WrongRole need="teacher" role={role} />;
 
   const max = Math.max(1, ...(data?.daily.map((d) => d.count) ?? [1]));
 

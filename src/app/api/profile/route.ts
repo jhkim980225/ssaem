@@ -19,6 +19,7 @@ export async function GET(req: Request) {
   const tp = Array.isArray(data.teacher_profiles) ? data.teacher_profiles[0] : data.teacher_profiles;
   return NextResponse.json({
     profile: {
+      role: data.role, // 클라이언트 라우팅이 실제 역할을 알아야 함
       name: data.name,
       subject: tp?.subject ?? "",
       is_public: tp?.is_public ?? true,
@@ -40,10 +41,14 @@ export async function POST(req: Request) {
   const isPublic = body?.is_public === undefined ? true : Boolean(body.is_public);
 
   const db = serviceClient();
-  // 원장 계정이 강사 프로필 API로 role 강등되는 것 방지
+  // 이 라우트는 profiles.role을 'teacher'로 upsert한다 → 아무나 부르면 스스로 강사가 된다.
+  // 허용: 이미 강사이거나, 프로필이 아직 없는 상태(강사 가입 직후 첫 저장)뿐.
   const { data: existing } = await db.from("profiles").select("role").eq("id", uid).maybeSingle();
-  if (existing?.role === "admin")
-    return NextResponse.json({ error: "원장 계정은 /admin에서 관리하세요" }, { status: 403 });
+  if (existing && existing.role !== "teacher")
+    return NextResponse.json(
+      { error: existing.role === "admin" ? "원장 계정은 /admin에서 관리하세요" : "강사 계정만 쓸 수 있어요" },
+      { status: 403 }
+    );
 
   // 가입 시 초대/학원 링크 정보가 user_metadata에 있음 → 그 학원 소속 (id 우선, 다음 slug)
   const { data: au } = await db.auth.admin.getUserById(uid);

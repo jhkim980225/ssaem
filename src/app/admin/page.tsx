@@ -5,6 +5,8 @@ import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
 import { avatarEmoji } from "@/lib/avatar";
 import { SHOW_PRICING } from "@/lib/flags";
+import { useRole } from "@/lib/role";
+import { RoleLoading, WrongRole } from "@/components/RoleGuard";
 
 type AdminData = {
   admin: { name: string };
@@ -27,6 +29,7 @@ type AdminData = {
 export default function AdminPage() {
   const [session, setSession] = useState<Session | null>(null);
   const [ready, setReady] = useState(false);
+  const role = useRole(session);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -37,16 +40,21 @@ export default function AdminPage() {
     return () => sub.subscription.unsubscribe();
   }, []);
 
-  if (!ready)
+  if (!ready) return <RoleLoading />;
+
+  if (!session)
     return (
-      <main className="flex-1 grid place-items-center">
-        <div className="skel w-12 h-12 !rounded-full" />
+      <main className="flex-1 w-full mx-auto px-5 py-8 max-w-lg">
+        <AuthForm />
       </main>
     );
 
+  if (role === undefined) return <RoleLoading />;
+  if (role !== "admin") return <WrongRole need="admin" role={role} />;
+
   return (
-    <main className={`flex-1 w-full mx-auto px-5 lg:px-8 py-8 ${session ? "max-w-lg lg:max-w-[1280px]" : "max-w-lg"}`}>
-      {session ? <Dashboard session={session} /> : <AuthForm />}
+    <main className="flex-1 w-full mx-auto px-5 lg:px-8 py-8 max-w-lg lg:max-w-[1280px]">
+      <Dashboard session={session} />
     </main>
   );
 }

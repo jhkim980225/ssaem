@@ -1,14 +1,15 @@
 import { NextResponse } from "next/server";
 import { serviceClient } from "@/lib/supabase";
-import { userFromRequest } from "@/lib/auth";
+import { requireRole } from "@/lib/auth";
 
 const DAYS = 14;
 
 // 학생별 리포트 (강사용): 최근 14일 학생별 질문 수·아쉬움 수·마지막 질문.
 // 익명 대화(student_id NULL)는 집계 제외 — 학생 리포트 목적이므로.
 export async function GET(req: Request) {
-  const uid = await userFromRequest(req);
-  if (!uid) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  const gate = await requireRole(req, "teacher");
+  if ("res" in gate) return gate.res;
+  const uid = gate.uid;
 
   const db = serviceClient();
   const since = new Date(Date.now() - DAYS * 86_400_000).toISOString();

@@ -4,8 +4,18 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { toEmail } from "@/lib/account";
+import { homeFor, type Role as RealRole } from "@/lib/role";
 
 type Role = "teacher" | "student";
+
+// 서버가 아는 실제 역할 조회 (가입 직후 프로필이 없으면 null)
+async function fetchRole(token: string): Promise<RealRole> {
+  const r = await fetch("/api/profile", { headers: { Authorization: `Bearer ${token}` } }).catch(
+    () => null
+  );
+  const d = await r?.json().catch(() => null);
+  return (d?.profile?.role as RealRole) ?? null;
+}
 
 export default function LoginPage() {
   return (
@@ -28,15 +38,13 @@ function LoginInner() {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
 
-  // 이미 로그인돼 있으면 각자 화면으로
+  // 이미 로그인돼 있으면 "실제" 역할에 맞는 화면으로 (탭 선택값이 아니라 서버 profiles 기준)
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      if (data.session) router.replace(role === "teacher" ? "/teacher" : "/ask");
+    supabase.auth.getSession().then(async ({ data }) => {
+      if (!data.session) return;
+      router.replace(homeFor(await fetchRole(data.session.access_token)));
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const home = role === "teacher" ? "/teacher" : "/ask";
+  }, [router]);
 
   async function submit() {
     setErr("");
@@ -64,7 +72,7 @@ function LoginInner() {
       }
     }
 
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data: signed, error } = await supabase.auth.signInWithPassword({
       email: toEmail(id),
       password: pw,
     });
@@ -73,7 +81,8 @@ function LoginInner() {
       setErr(mode === "login" ? "아이디나 비밀번호가 맞지 않아요." : error.message);
       return;
     }
-    router.replace(home);
+    // 착지 화면은 서버가 아는 실제 역할로 결정. 학생이 강사 탭으로 로그인해도 /teacher로 안 감.
+    router.replace(homeFor(await fetchRole(signed.session!.access_token)));
   }
 
   return (

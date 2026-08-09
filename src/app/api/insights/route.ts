@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { serviceClient } from "@/lib/supabase";
-import { userFromRequest } from "@/lib/auth";
+import { requireRole } from "@/lib/auth";
 
 const DAYS = 14;
 const PREVIEW = 80;
@@ -8,8 +8,9 @@ const PREVIEW = 80;
 // 강사 인사이트: 질문 추이 · 평가 · 자료 공백(근거 약한 답변).
 // ponytail: 최근 1000개 메시지 JS 집계 — 학원 규모에선 충분, 느려지면 SQL 집계 RPC로.
 export async function GET(req: Request) {
-  const uid = await userFromRequest(req);
-  if (!uid) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  const gate = await requireRole(req, "teacher");
+  if ("res" in gate) return gate.res;
+  const uid = gate.uid;
 
   const db = serviceClient();
   const since = new Date(Date.now() - DAYS * 86_400_000).toISOString();

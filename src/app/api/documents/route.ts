@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { serviceClient } from "@/lib/supabase";
-import { teacherFromRequest } from "@/lib/auth";
+import { requireRole } from "@/lib/auth";
 import { saveDocument, updateDocument, logDocumentEvent, ownCourseOrNull } from "@/lib/documents";
 import { docLimitError } from "@/lib/plan";
 
@@ -8,8 +8,9 @@ const MAX_CONTENT = 200_000; // 임베딩 비용·메모리 방어
 
 // 내 문서 목록 (청크 수 포함)
 export async function GET(req: Request) {
-  const uid = await teacherFromRequest(req);
-  if (!uid) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  const gate = await requireRole(req, "teacher");
+  if ("res" in gate) return gate.res;
+  const uid = gate.uid;
   const db = serviceClient();
   const { data, error } = await db
     .from("documents")
@@ -37,8 +38,9 @@ export async function GET(req: Request) {
 
 // 텍스트 자료 등록
 export async function POST(req: Request) {
-  const uid = await teacherFromRequest(req);
-  if (!uid) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  const gate = await requireRole(req, "teacher");
+  if ("res" in gate) return gate.res;
+  const uid = gate.uid;
 
   const body = await req.json().catch(() => null);
   const content = (body?.content ?? "").toString().trim();
@@ -60,8 +62,9 @@ export async function POST(req: Request) {
 
 // 텍스트 자료 수정 (원문 교체 → 재청킹·재임베딩)
 export async function PATCH(req: Request) {
-  const uid = await teacherFromRequest(req);
-  if (!uid) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  const gate = await requireRole(req, "teacher");
+  if ("res" in gate) return gate.res;
+  const uid = gate.uid;
 
   const body = await req.json().catch(() => null);
   const id = (body?.id ?? "").toString();
@@ -81,8 +84,9 @@ export async function PATCH(req: Request) {
 
 // 문서 삭제 (?id=...). chunks는 cascade.
 export async function DELETE(req: Request) {
-  const uid = await teacherFromRequest(req);
-  if (!uid) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  const gate = await requireRole(req, "teacher");
+  if ("res" in gate) return gate.res;
+  const uid = gate.uid;
   const id = new URL(req.url).searchParams.get("id");
   if (!id) return NextResponse.json({ error: "id required" }, { status: 400 });
   const db = serviceClient();

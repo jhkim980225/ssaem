@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { serviceClient } from "@/lib/supabase";
-import { teacherFromRequest } from "@/lib/auth";
+import { requireRole } from "@/lib/auth";
 import { generateQuestions } from "@/lib/quiz";
 import { hasLlmKey } from "@/lib/anthropic";
 import { rateLimit } from "@/lib/ratelimit";
@@ -10,8 +10,9 @@ export const maxDuration = 60; // LLM 출제는 기본 타임아웃 안에 안 �
 // 강사가 올린 자료 → LLM이 객관식 문제로 정리해 저장.
 // POST { documentId, count? }
 export async function POST(req: Request) {
-  const uid = await teacherFromRequest(req);
-  if (!uid) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  const gate = await requireRole(req, "teacher");
+  if ("res" in gate) return gate.res;
+  const uid = gate.uid;
   if (!hasLlmKey())
     return NextResponse.json({ error: "AI 키가 설정되지 않아 문제를 만들 수 없어요." }, { status: 503 });
   // 출제는 LLM 비용이 커서 강사당 분당 5회
@@ -68,8 +69,9 @@ export async function POST(req: Request) {
 
 // 강사가 자기 문제 목록 조회 (?documentId= 로 자료별)
 export async function GET(req: Request) {
-  const uid = await teacherFromRequest(req);
-  if (!uid) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  const gate = await requireRole(req, "teacher");
+  if ("res" in gate) return gate.res;
+  const uid = gate.uid;
 
   const documentId = new URL(req.url).searchParams.get("documentId");
   const db = serviceClient();
@@ -88,8 +90,9 @@ export async function GET(req: Request) {
 
 // 문제 삭제 (?id=) — LLM이 이상하게 만든 문제를 강사가 걷어낼 수 있게
 export async function DELETE(req: Request) {
-  const uid = await teacherFromRequest(req);
-  if (!uid) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  const gate = await requireRole(req, "teacher");
+  if ("res" in gate) return gate.res;
+  const uid = gate.uid;
   const id = new URL(req.url).searchParams.get("id");
   if (!id) return NextResponse.json({ error: "id required" }, { status: 400 });
 
