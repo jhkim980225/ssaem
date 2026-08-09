@@ -21,7 +21,11 @@ npm run lint       # eslint
 
 # 검증 스크립트 (외부 API 키 불필요)
 npx tsx scripts/test-chunk.ts           # 문서 청킹 검증
-npx tsx scripts/verify-instructors.ts   # 강사 10명 자료/검색/프롬프트 (20/20)
+npx tsx scripts/verify-instructors.ts   # 강사 자료/검색/프롬프트
+
+# E2E (서버 실행 중이어야 함). 인증·역할가드·질문답변·퀴즈·PWA 전 구간
+npx tsx scripts/e2e.ts
+E2E_BASE=https://<도메인> npx tsx scripts/e2e.ts   # 배포본 검사
 
 # 시드 (Supabase 셋업 후)
 npx tsx scripts/seed.ts                 # 강사 10명 생성. 로그인 <id>@a.test / 123456
@@ -56,8 +60,14 @@ npx tsx scripts/seed.ts                 # 강사 10명 생성. 로그인 <id>@a.
 
 ### 인증/DB 접근 패턴
 
-- 인증 API는 `userFromRequest()`(src/lib/auth.ts)로 Bearer 토큰 검증 — role 검사 없음, 소유권은 쿼리 eq 필터로 강제. 세션 쿠키 아님 — 클라이언트가 Supabase access_token을 헤더로 보냄.
-- 서버는 전부 `serviceClient()`(service role, RLS 우회) 사용. 학생 `/ask`는 익명 허용, 로그인 시 대화가 `student_id`에 연결.
+상세: `docs/인증-로직.md`
+
+- 세션 쿠키 아님 — 클라이언트가 Supabase access_token을 `Authorization: Bearer`로 보냄.
+- 서버는 전부 `serviceClient()`(service role, RLS 우회) 사용 → **접근 제어는 전부 앱 코드 책임**.
+- 역할이 걸린 라우트는 `requireRole(req, "teacher"|"admin")` 사용. `userFromRequest`/`teacherFromRequest`는 **역할 검사를 하지 않으니** 공개/공용 라우트에만 쓸 것.
+- 소유권은 역할과 별개로 쿼리 `eq("teacher_id", uid)` 필터로 강제.
+- 클라이언트 라우팅은 `useRole()`/`homeFor()`로 **서버의 profiles.role** 기준 결정 — 로그인 탭 선택값을 신뢰하지 말 것.
+- 학생 `/ask`는 익명 허용, 로그인 시 대화가 `student_id`에 연결.
 
 ### DB
 
