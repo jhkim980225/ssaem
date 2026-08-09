@@ -22,6 +22,7 @@ export default function HistoryPage() {
   const [convs, setConvs] = useState<Conv[] | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
   const [msgs, setMsgs] = useState<Record<string, Msg[]>>({});
+  const [msgErr, setMsgErr] = useState<Record<string, string>>({});
   const [onlyFlagged, setOnlyFlagged] = useState(false); // 미해결(👎) 큐 필터
 
   useEffect(() => {
@@ -45,13 +46,14 @@ export default function HistoryPage() {
       return;
     }
     setOpenId(id);
-    if (!msgs[id] && session) {
-      const r = await fetch(`/api/conversations?id=${id}`, {
-        headers: { Authorization: `Bearer ${session.access_token}` },
-      });
-      const d = await r.json();
-      if (r.ok) setMsgs((m) => ({ ...m, [id]: d.messages ?? [] }));
-    }
+    if (msgs[id] || !session) return;
+    const r = await fetch(`/api/conversations?id=${id}`, {
+      headers: { Authorization: `Bearer ${session.access_token}` },
+    });
+    const d = await r.json().catch(() => null);
+    // 실패를 남기지 않으면 스켈레톤이 영영 안 걷힌다. 다시 열면 재시도.
+    setMsgErr((e) => ({ ...e, [id]: r.ok ? "" : d?.error ?? "대화를 불러오지 못했어요." }));
+    if (r.ok) setMsgs((m) => ({ ...m, [id]: d?.messages ?? [] }));
   }
 
   if (!ready) return <RoleLoading />;
@@ -122,7 +124,12 @@ export default function HistoryPage() {
             </button>
             {openId === c.id && (
               <div className="px-4 lg:px-5 pb-4 flex flex-col gap-2 border-t border-line pt-3">
-                {!msgs[c.id] && <div className="skel h-10" />}
+                {!msgs[c.id] && !msgErr[c.id] && <div className="skel h-10" />}
+                {msgErr[c.id] && (
+                  <p className="text-[13px] font-bold" style={{ color: "var(--red)" }}>
+                    {msgErr[c.id]}
+                  </p>
+                )}
                 {msgs[c.id]?.map((m) =>
                   m.role === "user" ? (
                     <div key={m.id} className="self-end max-w-[85%] px-4 py-2.5 text-[14px] leading-relaxed whitespace-pre-wrap bg-blue text-white rounded-[16px] rounded-br-[5px]">

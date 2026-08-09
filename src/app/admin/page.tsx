@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
+import { toEmail } from "@/lib/account";
 import { avatarEmoji } from "@/lib/avatar";
 import { SHOW_PRICING } from "@/lib/flags";
 import { useRole } from "@/lib/role";
@@ -65,6 +66,7 @@ function AuthForm() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [pw, setPw] = useState("");
+  const [inviteCode, setInviteCode] = useState("");
   const [msg, setMsg] = useState("");
 
   async function submit() {
@@ -73,7 +75,7 @@ function AuthForm() {
       const r = await fetch("/api/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ role: "admin", academyName, name, email, password: pw }),
+        body: JSON.stringify({ role: "admin", academyName, name, email, password: pw, inviteCode }),
       });
       const d = await r.json();
       if (!r.ok) {
@@ -81,7 +83,8 @@ function AuthForm() {
         return;
       }
     }
-    const { error } = await supabase.auth.signInWithPassword({ email, password: pw });
+    // 가입은 아이디를 내부 이메일로 매핑해 저장하므로 로그인도 같은 매핑을 거쳐야 한다
+    const { error } = await supabase.auth.signInWithPassword({ email: toEmail(email), password: pw });
     if (error) setMsg(error.message);
   }
 
@@ -99,8 +102,12 @@ function AuthForm() {
           <input className="field" placeholder="원장 이름" value={name} onChange={(e) => setName(e.target.value)} />
         </>
       )}
-      <input className="field" placeholder="이메일" value={email} onChange={(e) => setEmail(e.target.value)} />
+      <input className="field" placeholder="아이디 (이메일도 가능)" value={email} onChange={(e) => setEmail(e.target.value)} />
       <input className="field" type="password" placeholder="비밀번호 (8자 이상)" value={pw} onChange={(e) => setPw(e.target.value)} />
+      {mode === "signup" && (
+        // 서버가 role=admin 가입에 INVITE_CODE를 요구한다 — 없으면 403
+        <input className="field" placeholder="학원 개설 코드" value={inviteCode} onChange={(e) => setInviteCode(e.target.value)} />
+      )}
       <button onClick={submit} className="btn btn-primary py-4 mt-1">
         {mode === "signup" ? "학원 개설하기" : "로그인"}
       </button>
@@ -112,7 +119,8 @@ function AuthForm() {
           비밀번호를 잊으셨나요?
         </Link>
       )}
-      {msg && <p className="text-[13px] text-blue mt-1">{msg}</p>}
+      {/* msg는 실패에만 세팅된다 — 성공 톤(파랑)으로 보이면 안 됨 */}
+      {msg && <p className="text-[13px] mt-1" style={{ color: "var(--red)" }}>{msg}</p>}
     </div>
   );
 }
@@ -279,7 +287,8 @@ function Dashboard({ session }: { session: Session }) {
               className="rounded-[14px] border border-line p-3"
               style={{ background: "var(--fill-2)" }}
             >
-              <div className="flex items-center gap-3">
+              {/* 통계+버튼은 좁은 화면(375px)에서 아래 줄로 내려야 이름이 안 잘린다 */}
+              <div className="flex flex-wrap items-center gap-3">
                 <span className="avatar !w-10 !h-10 !text-[18px]">{avatarEmoji(t.name)}</span>
                 <div className="min-w-0 flex-1">
                   <p className="text-[14px] font-bold truncate">
@@ -288,23 +297,25 @@ function Dashboard({ session }: { session: Session }) {
                   </p>
                   <p className="text-[12px] text-sub truncate">{t.subject ?? "과목 미설정"}</p>
                 </div>
-                <span className="text-[12px] text-sub shrink-0 text-right">
-                  자료 {t.documents} · 학생 {t.students.length}
-                  {(t.up > 0 || t.down > 0) && (
-                    <>
-                      <br />
-                      도움됨 {t.up} · 아쉬움{" "}
-                      <span style={t.down > 0 ? { color: "var(--red)", fontWeight: 700 } : undefined}>{t.down}</span>
-                    </>
-                  )}
-                </span>
-                <button
-                  onClick={() => togglePublic(t.id)}
-                  className="chip !py-1 !px-2.5 !text-[12px] shrink-0"
-                  title={t.is_public ? "학생 목록에서 숨기기" : "학생 목록에 공개하기"}
-                >
-                  {t.is_public ? "숨기기" : "공개하기"}
-                </button>
+                <div className="flex items-center justify-between gap-3 w-full sm:w-auto">
+                  <span className="text-[12px] text-sub sm:text-right">
+                    자료 {t.documents} · 학생 {t.students.length}
+                    {(t.up > 0 || t.down > 0) && (
+                      <>
+                        <br />
+                        도움됨 {t.up} · 아쉬움{" "}
+                        <span style={t.down > 0 ? { color: "var(--red)", fontWeight: 700 } : undefined}>{t.down}</span>
+                      </>
+                    )}
+                  </span>
+                  <button
+                    onClick={() => togglePublic(t.id)}
+                    className="chip !py-1 !px-2.5 !text-[12px] shrink-0"
+                    title={t.is_public ? "학생 목록에서 숨기기" : "학생 목록에 공개하기"}
+                  >
+                    {t.is_public ? "숨기기" : "공개하기"}
+                  </button>
+                </div>
               </div>
               {t.students.length > 0 && (
                 <details className="mt-2 pl-[52px]">

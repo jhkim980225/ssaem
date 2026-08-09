@@ -144,10 +144,12 @@ export default function AskPage() {
     const r = await fetch(`/api/conversations?id=${c.id}`, {
       headers: { Authorization: `Bearer ${session.access_token}` },
     });
-    const d = await r.json();
-    if (!r.ok) return;
+    const d = await r.json().catch(() => null);
+    // 조용히 return하면 클릭이 무반응으로 보인다
+    if (!r.ok) return setErr(d?.error ?? "대화를 불러오지 못했어요. 다시 눌러 주세요.");
+    setErr("");
     type Row = { role: "user" | "assistant"; content: string };
-    const msgs: Msg[] = ((d.messages ?? []) as Row[]).map((m) => ({
+    const msgs: Msg[] = ((d?.messages ?? []) as Row[]).map((m) => ({
       role: m.role === "user" ? "user" : "tutor",
       text: m.content,
     }));

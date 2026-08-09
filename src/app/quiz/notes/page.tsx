@@ -11,6 +11,7 @@ type Note = {
   answer: number;
   explanation: string | null;
   chosen: number;
+  teacherId: string;
   teacher: string;
   at: string;
 };
@@ -58,6 +59,16 @@ export default function NotesPage() {
       </main>
     );
 
+  // 오답이 여러 선생님에 걸쳐 있으면 /quiz는 한 선생님씩만 낼 수 있어 선생님별로 나눈다.
+  // id로 묶으므로 동명이인도 안전하다.
+  const byTeacher = new Map<string, { name: string; n: number }>();
+  for (const x of data?.notes ?? []) {
+    const cur = byTeacher.get(x.teacherId) ?? { name: x.teacher, n: 0 };
+    cur.n++;
+    byTeacher.set(x.teacherId, cur);
+  }
+  const groups = [...byTeacher.entries()];
+
   return (
     <main className="flex-1 w-full max-w-2xl mx-auto px-5 py-8 flex flex-col gap-4">
       <div className="rise flex items-start justify-between gap-3">
@@ -94,10 +105,18 @@ export default function NotesPage() {
             ))}
           </div>
 
-          {data.notes.length > 0 && (
-            <Link href="/quiz?mode=wrong" className="rise d2 btn btn-primary py-4 text-center">
-              오답만 다시 풀기 ({data.notes.length}문제)
-            </Link>
+          {groups.length > 0 && (
+            <div className="rise d2 flex flex-col gap-2">
+              {groups.map(([tid, g]) => (
+                <Link
+                  key={tid}
+                  href={`/quiz?mode=wrong&teacher=${tid}`}
+                  className="btn btn-primary py-4 text-center"
+                >
+                  {groups.length > 1 ? `${g.name} ` : ""}오답만 다시 풀기 ({g.n}문제)
+                </Link>
+              ))}
+            </div>
           )}
 
           {data.notes.length === 0 && (

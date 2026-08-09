@@ -81,6 +81,8 @@ export async function GET(req: Request) {
         answer: q.answer,
         explanation: q.explanation,
         chosen: w.chosen,
+        // teacher_id도 준다 — 오답노트에서 "이 선생님 오답만 다시 풀기"로 넘길 때 필요
+        teacherId: q.teacher_id,
         teacher: nameOf.get(q.teacher_id) ?? "선생님",
         at: w.created_at,
       };

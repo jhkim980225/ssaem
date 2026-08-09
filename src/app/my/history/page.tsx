@@ -4,6 +4,8 @@ import Link from "next/link";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
 import { avatarEmoji } from "@/lib/avatar";
+import { useRole, homeFor } from "@/lib/role";
+import { RoleLoading, NeedLogin } from "@/components/RoleGuard";
 
 type Conv = {
   id: string;
@@ -19,9 +21,11 @@ type Msg = { id: string; role: "user" | "assistant"; content: string; created_at
 export default function MyHistoryPage() {
   const [session, setSession] = useState<Session | null>(null);
   const [ready, setReady] = useState(false);
+  const role = useRole(session);
   const [convs, setConvs] = useState<Conv[] | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
   const [msgs, setMsgs] = useState<Record<string, Msg[]>>({});
+  const [msgErr, setMsgErr] = useState<Record<string, string>>({});
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -41,30 +45,29 @@ export default function MyHistoryPage() {
   async function toggle(id: string) {
     if (openId === id) return setOpenId(null);
     setOpenId(id);
-    if (!msgs[id] && session) {
-      const r = await fetch(`/api/conversations?id=${id}`, {
-        headers: { Authorization: `Bearer ${session.access_token}` },
-      });
-      const d = await r.json();
-      if (r.ok) setMsgs((m) => ({ ...m, [id]: d.messages ?? [] }));
-    }
+    if (msgs[id] || !session) return;
+    const r = await fetch(`/api/conversations?id=${id}`, {
+      headers: { Authorization: `Bearer ${session.access_token}` },
+    });
+    const d = await r.json().catch(() => null);
+    // 실패를 남기지 않으면 스켈레톤이 영영 안 걷힌다. 다시 열면 재시도.
+    setMsgErr((e) => ({ ...e, [id]: r.ok ? "" : d?.error ?? "대화를 불러오지 못했어요." }));
+    if (r.ok) setMsgs((m) => ({ ...m, [id]: d?.messages ?? [] }));
   }
 
-  if (!ready)
-    return (
-      <main className="flex-1 grid place-items-center">
-        <div className="skel w-12 h-12 !rounded-full" />
-      </main>
-    );
+  if (!ready) return <RoleLoading />;
 
-  if (!session)
+  if (!session) return <NeedLogin as="student" message="대화내역은 계정에 저장돼요." />;
+  if (role === undefined) return <RoleLoading />;
+  // 강사 계정이면 /api/conversations가 "내가 받은 질문"을 주므로 여기서 막는다
+  if (role !== "student")
     return (
       <main className="flex-1 grid place-items-center px-5">
-        <div className="text-center">
-          <p className="text-[16px] font-bold mb-1">로그인이 필요해요</p>
-          <p className="text-sub text-[14px] mb-5">대화내역은 계정에 저장돼요.</p>
-          <Link href="/login?role=student" className="btn btn-primary py-3 px-6 inline-block">
-            학생 로그인
+        <div className="card p-8 text-center max-w-sm">
+          <p className="font-bold text-[16px] mb-1">학생 계정만 쓸 수 있어요</p>
+          <p className="text-sub text-[14px] mb-5">강사는 학생 질문 이력 화면에서 대화를 봐요.</p>
+          <Link href={homeFor(role)} className="btn btn-primary py-3">
+            내 화면으로 가기
           </Link>
         </div>
       </main>
@@ -139,7 +142,12 @@ export default function MyHistoryPage() {
 
             {openId === c.id && (
               <div className="px-4 lg:px-5 pb-4 flex flex-col gap-2 border-t border-line pt-3">
-                {!msgs[c.id] && <div className="skel h-10" />}
+                {!msgs[c.id] && !msgErr[c.id] && <div className="skel h-10" />}
+                {msgErr[c.id] && (
+                  <p className="text-[13px] font-bold" style={{ color: "var(--red)" }}>
+                    {msgErr[c.id]}
+                  </p>
+                )}
                 {msgs[c.id]?.map((m) =>
                   m.role === "user" ? (
                     <div

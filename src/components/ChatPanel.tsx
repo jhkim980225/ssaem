@@ -264,11 +264,20 @@ export default function ChatPanel({
   async function rate(rating: number) {
     if (!conversationId || rated !== null) return;
     setRated(rating);
-    fetch("/api/feedback", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ conversationId, rating }),
-    }).catch(() => {});
+    try {
+      // 로그인 학생 대화는 서버가 본인 확인 — 토큰 없으면 403이라 평가가 통째로 유실된다
+      const r = await fetch("/api/feedback", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ conversationId, rating }),
+      });
+      if (!r.ok) throw new Error();
+    } catch {
+      setRated(null); // 저장 안 됐는데 "평가 감사해요"를 띄우지 않는다 — 다시 누를 수 있게 되돌림
+    }
   }
 
   const lastTutorIdx = msgs.map((m) => m.role).lastIndexOf("tutor");

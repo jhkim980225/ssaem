@@ -76,13 +76,12 @@ export async function updateDocument(opts: {
 
   const { data: doc } = await db
     .from("documents")
-    .select("id, title, kind, source, chunks(count)")
+    .select("id, title, kind, source")
     .eq("id", opts.documentId)
     .eq("teacher_id", opts.teacherId)
     .maybeSingle();
   if (!doc) throw new Error("not found");
   if (doc.source !== "text") throw new Error("PDF 자료는 재업로드로 수정하세요");
-  const oldChunks = (doc.chunks as { count: number }[] | null)?.[0]?.count ?? 0;
 
   const title = opts.rawText.slice(0, 40);
   const { error: uerr } = await db
@@ -107,12 +106,10 @@ export async function updateDocument(opts: {
   const { error: cerr } = await db.from("chunks").insert(rows);
   if (cerr) throw cerr;
 
+  // 수정은 한 건으로 기록한다. 예전엔 deleted+created 쌍으로 남겨서
+  // 감사 로그가 "지웠다 새로 올렸다"로 왜곡됐다.
   await logDocumentEvent({
-    teacherId: opts.teacherId, documentId: opts.documentId, action: "deleted",
-    title: doc.title, kind: doc.kind, source: doc.source, chunks: oldChunks,
-  });
-  await logDocumentEvent({
-    teacherId: opts.teacherId, documentId: opts.documentId, action: "created",
+    teacherId: opts.teacherId, documentId: opts.documentId, action: "updated",
     title, kind: doc.kind, source: doc.source, chunks: rows.length,
   });
 
@@ -123,7 +120,7 @@ export async function updateDocument(opts: {
 export async function logDocumentEvent(e: {
   teacherId: string;
   documentId: string | null;
-  action: "created" | "deleted";
+  action: "created" | "updated" | "deleted";
   title?: string | null;
   kind?: string | null;
   source?: string | null;

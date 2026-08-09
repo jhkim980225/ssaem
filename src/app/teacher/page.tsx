@@ -23,7 +23,7 @@ type Course = { id: string; title: string; documents: number };
 
 type DocEvent = {
   id: string;
-  action: "created" | "deleted";
+  action: "created" | "updated" | "deleted";
   title: string | null;
   kind: string | null;
   source: string | null;
@@ -100,26 +100,39 @@ function Dashboard({ session }: { session: Session }) {
   const [copied, setCopied] = useState(false);
 
   const [content, setContent] = useState("");
-  const [docs, setDocs] = useState<Doc[]>([]);
+  const [docs, setDocs] = useState<Doc[] | null>(null); // null = 아직 로딩 중 (자료 0건과 구분)
+  const [docsErr, setDocsErr] = useState("");
   const [events, setEvents] = useState<DocEvent[]>([]);
   const [msg, setMsg] = useState("");
+  const [msgErr, setMsgErr] = useState(false); // 실패 메시지를 성공 톤(파랑)으로 안 띄우기 위해
+  const say = useCallback((text: string, err = false) => {
+    setMsg(text);
+    setMsgErr(err);
+  }, []);
 
   const [courses, setCourses] = useState<Course[]>([]);
   const [newCourse, setNewCourse] = useState("");
   const [courseSel, setCourseSel] = useState(""); // "" = 공용 (모든 강좌에서 검색됨)
 
   const loadDocs = useCallback(async () => {
-    const [dr, er, cr] = await Promise.all([
-      fetch("/api/documents", { headers: { Authorization: `Bearer ${token}` } }),
-      fetch("/api/documents/events", { headers: { Authorization: `Bearer ${token}` } }),
-      fetch("/api/courses", { headers: { Authorization: `Bearer ${token}` } }),
-    ]);
-    const d = await dr.json();
-    if (dr.ok) setDocs(d.documents ?? []);
-    const e = await er.json();
-    if (er.ok) setEvents(e.events ?? []);
-    const c = await cr.json();
-    if (cr.ok) setCourses(c.courses ?? []);
+    try {
+      const [dr, er, cr] = await Promise.all([
+        fetch("/api/documents", { headers: { Authorization: `Bearer ${token}` } }),
+        fetch("/api/documents/events", { headers: { Authorization: `Bearer ${token}` } }),
+        fetch("/api/courses", { headers: { Authorization: `Bearer ${token}` } }),
+      ]);
+      if (!dr.ok) throw new Error();
+      const d = await dr.json();
+      setDocs(d.documents ?? []);
+      setDocsErr("");
+      const e = await er.json();
+      if (er.ok) setEvents(e.events ?? []);
+      const c = await cr.json();
+      if (cr.ok) setCourses(c.courses ?? []);
+    } catch {
+      // docs는 그대로 둔다 — 실패를 "자료 없음"으로 오해하게 만들지 않기 위해
+      setDocsErr("자료 목록을 불러오지 못했어요 — 새로고침해 주세요.");
+    }
   }, [token]);
 
   async function addCourse() {
@@ -131,7 +144,7 @@ function Dashboard({ session }: { session: Session }) {
       body: JSON.stringify({ title }),
     });
     const d = await r.json();
-    if (!r.ok) setMsg(d.error || "강좌 생성 실패");
+    if (!r.ok) say(d.error || "강좌 생성 실패", true);
     else {
       setNewCourse("");
       loadDocs();
@@ -147,7 +160,7 @@ function Dashboard({ session }: { session: Session }) {
     if (r.ok) {
       if (courseSel === id) setCourseSel("");
       loadDocs();
-    } else setMsg("강좌를 삭제하지 못했어요 — 다시 시도해 주세요.");
+    } else say("강좌를 삭제하지 못했어요 — 다시 시도해 주세요.", true);
   }
 
   useEffect(() => {
@@ -172,17 +185,17 @@ function Dashboard({ session }: { session: Session }) {
   }, [token, loadDocs]);
 
   async function saveProfile() {
-    setMsg("");
+    say("");
     const r = await fetch("/api/profile", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
       body: JSON.stringify({ name, subject, tone_note: toneNote, is_public: isPublic }),
     });
     const d = await r.json();
-    if (!r.ok) setMsg(d.error || "저장 실패");
+    if (!r.ok) say(d.error || "저장 실패", true);
     else {
       setSavedProfile(true);
-      setMsg("프로필을 저장했어요");
+      say("프로필을 저장했어요");
     }
   }
 
@@ -192,16 +205,16 @@ function Dashboard({ session }: { session: Session }) {
 
   async function saveEdit() {
     if (!editId || !editText.trim()) return;
-    setMsg("수정 중… 자료를 다시 정리하고 있어요.");
+    say("수정 중… 자료를 다시 정리하고 있어요.");
     const r = await fetch("/api/documents", {
       method: "PATCH",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
       body: JSON.stringify({ id: editId, content: editText }),
     });
     const d = await r.json();
-    if (!r.ok) setMsg(d.error || "수정 실패");
+    if (!r.ok) say(d.error || "수정 실패", true);
     else {
-      setMsg("수정했어요");
+      say("수정했어요");
       setEditId(null);
       loadDocs();
     }
@@ -210,7 +223,7 @@ function Dashboard({ session }: { session: Session }) {
   // 자료 하나로 객관식 문제 생성. LLM 호출이라 수 초 걸림 — 버튼에 진행 표시.
   async function makeQuiz(documentId: string) {
     setQuizBusy(documentId);
-    setMsg("자료를 문제로 정리하고 있어요…");
+    say("자료를 문제로 정리하고 있어요…");
     const r = await fetch("/api/quiz/generate", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
@@ -218,7 +231,8 @@ function Dashboard({ session }: { session: Session }) {
     });
     const d = await r.json().catch(() => null);
     setQuizBusy(null);
-    setMsg(r.ok ? `문제 ${d.created}개를 만들었어요` : d?.error || "문제를 만들지 못했어요");
+    if (r.ok) say(`문제 ${d.created}개를 만들었어요`);
+    else say(d?.error || "문제를 만들지 못했어요", true);
   }
 
   async function removeDoc(id: string) {
@@ -228,11 +242,11 @@ function Dashboard({ session }: { session: Session }) {
       headers: { Authorization: `Bearer ${token}` },
     });
     if (r.ok) loadDocs();
-    else setMsg("삭제하지 못했어요 — 다시 시도해 주세요.");
+    else say("삭제하지 못했어요 — 다시 시도해 주세요.", true);
   }
 
   async function uploadPdf(file: File) {
-    setMsg("PDF 읽는 중…");
+    say("PDF 읽는 중…");
     const fd = new FormData();
     fd.append("file", file);
     fd.append("kind", "problem");
@@ -243,26 +257,26 @@ function Dashboard({ session }: { session: Session }) {
       body: fd,
     });
     const d = await r.json();
-    if (!r.ok) setMsg(d.error || "업로드 실패");
+    if (!r.ok) say(d.error || "업로드 실패", true);
     else {
-      setMsg(`PDF를 등록했어요 (${d.chars}자)`);
+      say(`PDF를 등록했어요 (${d.chars}자)`);
       loadDocs();
     }
   }
 
   async function addDoc() {
     if (!content.trim()) return;
-    setMsg("");
+    say("");
     const r = await fetch("/api/documents", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
       body: JSON.stringify({ kind: "problem", content, courseId: courseSel || null }),
     });
     const d = await r.json();
-    if (!r.ok) setMsg(d.error || "실패");
+    if (!r.ok) say(d.error || "실패", true);
     else {
       setContent("");
-      setMsg("자료를 추가했어요");
+      say("자료를 추가했어요");
       loadDocs();
     }
   }
@@ -420,9 +434,29 @@ function Dashboard({ session }: { session: Session }) {
             />
           </label>
         </div>
-        {msg && <p className="text-[13px] text-blue">{msg}</p>}
+        {msg && (
+          <p className={`text-[13px] ${msgErr ? "" : "text-blue"}`} style={msgErr ? { color: "var(--red)" } : undefined}>
+            {msg}
+          </p>
+        )}
 
-        {docs.length > 0 && (
+        {docsErr && <p className="text-[13px]" style={{ color: "var(--red)" }}>{docsErr}</p>}
+
+        {!docsErr && docs === null && (
+          <div className="flex flex-col gap-2 mt-1">
+            <div className="skel h-3.5 w-40" />
+            <div className="skel h-16 !rounded-[14px]" />
+            <div className="skel h-16 !rounded-[14px]" />
+          </div>
+        )}
+
+        {docs?.length === 0 && (
+          <p className="text-sub text-[13px] mt-1">
+            아직 등록된 자료가 없어요. 문제·풀이를 붙여넣거나 PDF를 올려보세요.
+          </p>
+        )}
+
+        {docs && docs.length > 0 && (
           <div className="flex flex-col gap-2 mt-1">
             <p className="text-sub text-[13px]">
               등록된 자료 {docs.length}개 · 청크 {docs.reduce((s, d) => s + d.chunks, 0)}개
@@ -430,8 +464,10 @@ function Dashboard({ session }: { session: Session }) {
             {docs.map((d) =>
               editId === d.id ? (
                 <div key={d.id} className="flex flex-col gap-2 rounded-[14px] border border-line p-3" style={{ background: "var(--fill-2)" }}>
+                  {/* 배경은 .field(--surface)에 맡긴다 — Tailwind dark:는 prefers-color-scheme,
+                      이 앱 테마는 data-theme이라 흰 배경을 강제하면 다크에서 흰 글자+흰 배경이 됨 */}
                   <textarea
-                    className="field min-h-32 resize-none !bg-white dark:!bg-transparent"
+                    className="field min-h-32 resize-none"
                     value={editText}
                     onChange={(e) => setEditText(e.target.value)}
                   />
@@ -496,7 +532,7 @@ function Dashboard({ session }: { session: Session }) {
                       : { background: "var(--red-weak)", color: "var(--red)", borderColor: "transparent" }
                   }
                 >
-                  {e.action === "created" ? "등록" : "제거"}
+                  {e.action === "created" ? "등록" : e.action === "updated" ? "수정" : "제거"}
                 </span>
                 <span className="truncate flex-1">{e.title || "제목 없음"}</span>
                 <span className="text-sub shrink-0 text-[11px]">
@@ -529,7 +565,8 @@ function Dashboard({ session }: { session: Session }) {
           등록한 자료로 어떻게 답하는지 바로 확인하세요.
         </p>
         {savedProfile ? (
-          <ChatPanel teacherId={uid} teacherName={name || "나"} compact />
+          /* token 없으면 자가 테스트가 익명 학생 질문으로 집계돼 인사이트를 오염시킴 */
+          <ChatPanel teacherId={uid} teacherName={name || "나"} compact token={token} />
         ) : (
           <p className="text-sub text-[14px] py-6 text-center">프로필을 먼저 저장하면 테스트할 수 있어요.</p>
         )}

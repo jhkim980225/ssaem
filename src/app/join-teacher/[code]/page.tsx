@@ -2,6 +2,7 @@
 import { use, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { toEmail } from "@/lib/account";
 
 // 원장의 강사 초대 링크: 코드 검증 → 강사 가입(이름·과목) → 프로필 생성 → 대시보드로.
 export default function JoinTeacherPage({ params }: { params: Promise<{ code: string }> }) {
@@ -39,7 +40,8 @@ export default function JoinTeacherPage({ params }: { params: Promise<{ code: st
         setMsg(d.error || "가입 실패");
         return;
       }
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password: pw });
+      // 가입은 아이디를 내부 이메일로 매핑해 저장하므로 로그인도 같은 매핑을 거쳐야 한다
+      const { data, error } = await supabase.auth.signInWithPassword({ email: toEmail(email), password: pw });
       if (error || !data.session) {
         setMsg(error?.message ?? "로그인 실패");
         return;
@@ -87,7 +89,7 @@ export default function JoinTeacherPage({ params }: { params: Promise<{ code: st
           <div className="rise card p-6 flex flex-col gap-3">
             <input className="field" placeholder="이름 (학생에게 표시)" value={name} onChange={(e) => setName(e.target.value)} />
             <input className="field" placeholder="과목 (예: 전산회계 2급)" value={subject} onChange={(e) => setSubject(e.target.value)} />
-            <input className="field" placeholder="이메일" value={email} onChange={(e) => setEmail(e.target.value)} />
+            <input className="field" placeholder="아이디 (이메일도 가능)" value={email} onChange={(e) => setEmail(e.target.value)} />
             <input
               className="field"
               type="password"
@@ -101,7 +103,8 @@ export default function JoinTeacherPage({ params }: { params: Promise<{ code: st
             <button onClick={submit} disabled={busy || !name || !email || pw.length < 8} className="btn btn-primary py-3.5">
               {busy ? "가입 중…" : "강사로 합류하기"}
             </button>
-            {msg && <p className="text-[13px] text-blue">{msg}</p>}
+            {/* msg는 실패에만 세팅된다 — 성공 톤(파랑)으로 보이면 안 됨 */}
+            {msg && <p className="text-[13px]" style={{ color: "var(--red)" }}>{msg}</p>}
           </div>
         </>
       )}

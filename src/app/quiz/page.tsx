@@ -24,8 +24,10 @@ function QuizInner() {
   const mode = params.get("mode") === "wrong" ? "wrong" : "all";
 
   const [session, setSession] = useState<Session | null>(null);
+  const [sessionReady, setSessionReady] = useState(false);
   const [teachers, setTeachers] = useState<Teacher[] | null>(null);
-  const [teacherId, setTeacherId] = useState("");
+  // 오답노트에서 넘어올 때 선생님이 실려온다 — 없으면 목록 첫 번째
+  const [teacherId, setTeacherId] = useState(params.get("teacher") ?? "");
   const [courses, setCourses] = useState<Course[]>([]);
   const [courseId, setCourseId] = useState("");
 
@@ -36,15 +38,23 @@ function QuizInner() {
   const [score, setScore] = useState({ right: 0, done: 0 });
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+  const [needLogin, setNeedLogin] = useState(false);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => setSession(data.session));
+    supabase.auth.getSession().then(({ data }) => {
+      setSession(data.session);
+      setSessionReady(true);
+    });
     const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => setSession(s));
     return () => sub.subscription.unsubscribe();
   }, []);
 
+  // 세션 확정 후 로드 — 토큰을 보내야 초대받은 비공개 강사도 목록에 들어온다
   useEffect(() => {
-    fetch("/api/teachers")
+    if (!sessionReady) return;
+    fetch("/api/teachers", {
+      headers: session ? { Authorization: `Bearer ${session.access_token}` } : {},
+    })
       .then((r) => r.json())
       .then((d) => {
         const list: Teacher[] = d.teachers ?? [];
@@ -52,7 +62,8 @@ function QuizInner() {
         setTeacherId((cur) => cur || list[0]?.id || "");
       })
       .catch(() => setTeachers([]));
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionReady, session?.access_token]);
 
   useEffect(() => {
     if (!teacherId) return;
@@ -75,6 +86,7 @@ function QuizInner() {
     setPicked(null);
     setGraded(null);
     setScore({ right: 0, done: 0 });
+    setNeedLogin(Boolean(d?.needLogin));
     if (!r.ok) {
       setErr(d?.error ?? "문제를 불러오지 못했어요.");
       setQs([]);
@@ -180,7 +192,18 @@ function QuizInner() {
 
       {qs === null && <div className="skel h-52 !rounded-[20px]" />}
 
-      {qs?.length === 0 && !err && (
+      {/* 비로그인 오답모드 — 서버가 빈 목록 + needLogin을 주므로 안내로 받는다 */}
+      {needLogin && (
+        <div className="rise d2 card p-10 text-center">
+          <p className="text-[15px] font-bold mb-1">로그인하면 오답노트를 쓸 수 있어요</p>
+          <p className="text-sub text-[13px] mb-5">틀린 문제가 계정에 저장돼서 다시 풀 수 있어요.</p>
+          <Link href="/login?role=student" className="btn btn-primary py-3 px-6 inline-block">
+            학생 로그인
+          </Link>
+        </div>
+      )}
+
+      {qs?.length === 0 && !err && !needLogin && (
         <div className="rise d2 card p-10 text-center">
           <p className="text-[15px] font-bold mb-1">
             {mode === "wrong" ? "틀린 문제가 없어요" : "아직 만들어진 문제가 없어요"}

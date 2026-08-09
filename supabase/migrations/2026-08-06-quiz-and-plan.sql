@@ -76,6 +76,14 @@ alter table plan_inquiries enable row level security;
 -- 정책 없음 = anon/authenticated 전면 차단 (service_role만 접근)
 
 -- ─────────────────────────────────────────────
+-- ③ 자료 수정 이벤트
+-- ─────────────────────────────────────────────
+-- 예전엔 수정을 deleted+created 쌍으로 기록해 감사 로그가 왜곡됐다 → 'updated' 추가.
+alter table document_events drop constraint if exists document_events_action_check;
+alter table document_events add constraint document_events_action_check
+  check (action in ('created', 'updated', 'deleted'));
+
+-- ─────────────────────────────────────────────
 -- 확인
 -- ─────────────────────────────────────────────
 select 'quiz_questions' t, count(*) from quiz_questions

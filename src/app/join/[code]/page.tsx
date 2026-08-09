@@ -3,6 +3,7 @@ import { use, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
+import { toEmail } from "@/lib/account";
 import { avatarEmoji } from "@/lib/avatar";
 
 type Teacher = { id: string; name: string; subject: string | null };
@@ -63,7 +64,8 @@ export default function JoinPage({ params }: { params: Promise<{ code: string }>
         return;
       }
     }
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password: pw });
+    // 가입은 아이디를 내부 이메일로 매핑해 저장하므로 로그인도 같은 매핑을 거쳐야 한다
+    const { data, error } = await supabase.auth.signInWithPassword({ email: toEmail(email), password: pw });
     if (error || !data.session) {
       setMsg(error?.message ?? "로그인 실패");
       return;
@@ -115,7 +117,8 @@ export default function JoinPage({ params }: { params: Promise<{ code: string }>
               <button className="text-sub text-[13px]" onClick={() => supabase.auth.signOut()}>
                 다른 계정 사용
               </button>
-              {msg && <p className="text-[13px] text-blue">{msg}</p>}
+              {/* msg는 실패에만 세팅된다 — 성공 톤(파랑)으로 보이면 안 됨 */}
+              {msg && <p className="text-[13px]" style={{ color: "var(--red)" }}>{msg}</p>}
             </div>
           ) : (
             <div className="rise card p-6 flex flex-col gap-3">
@@ -125,7 +128,7 @@ export default function JoinPage({ params }: { params: Promise<{ code: string }>
               {mode === "signup" && (
                 <input className="field" placeholder="이름" value={name} onChange={(e) => setName(e.target.value)} />
               )}
-              <input className="field" placeholder="이메일" value={email} onChange={(e) => setEmail(e.target.value)} />
+              <input className="field" placeholder="아이디 (이메일도 가능)" value={email} onChange={(e) => setEmail(e.target.value)} />
               <input
                 className="field"
                 type="password"
@@ -145,7 +148,7 @@ export default function JoinPage({ params }: { params: Promise<{ code: string }>
               >
                 {mode === "signup" ? "이미 계정이 있나요? 로그인" : "계정이 없나요? 가입"}
               </button>
-              {msg && <p className="text-[13px] text-blue">{msg}</p>}
+              {msg && <p className="text-[13px]" style={{ color: "var(--red)" }}>{msg}</p>}
             </div>
           )}
         </>

@@ -90,7 +90,7 @@ create table if not exists document_events (
   id uuid primary key default gen_random_uuid(),
   teacher_id uuid not null references profiles(id) on delete cascade,
   document_id uuid references documents(id) on delete set null,  -- 삭제 후 NULL
-  action text not null check (action in ('created', 'deleted')),
+  action text not null check (action in ('created', 'updated', 'deleted')),
   title text,
   kind text,
   source text,

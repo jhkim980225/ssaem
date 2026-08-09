@@ -75,23 +75,21 @@ export async function GET(req: Request) {
   }
 
   // 강사 카드 메타: 자료 수·대화 수 (숨고/김과외 프로필 카드 패턴 — 데이터량 = 품질 신호)
+  // 강사별 자료·대화 수. 전 행을 받아 JS로 세면 데이터가 늘수록 그대로 커지므로
+  // head+count로 개수만 받는다 (강사 수만큼 쿼리지만 학원 규모에선 한 자릿수).
   const ids = teachers.map((t) => t.id);
   const meta = new Map<string, { docs: number; convs: number }>();
   if (ids.length) {
-    const [{ data: docs }, { data: convs }] = await Promise.all([
-      db.from("documents").select("teacher_id").in("teacher_id", ids),
-      db.from("conversations").select("teacher_id").in("teacher_id", ids),
-    ]);
-    for (const r of docs ?? []) {
-      const m = meta.get(r.teacher_id) ?? { docs: 0, convs: 0 };
-      m.docs++;
-      meta.set(r.teacher_id, m);
-    }
-    for (const r of convs ?? []) {
-      const m = meta.get(r.teacher_id) ?? { docs: 0, convs: 0 };
-      m.convs++;
-      meta.set(r.teacher_id, m);
-    }
+    const counted = await Promise.all(
+      ids.map(async (id) => {
+        const [{ count: docs }, { count: convs }] = await Promise.all([
+          db.from("documents").select("id", { count: "exact", head: true }).eq("teacher_id", id),
+          db.from("conversations").select("id", { count: "exact", head: true }).eq("teacher_id", id),
+        ]);
+        return { id, docs: docs ?? 0, convs: convs ?? 0 };
+      })
+    );
+    for (const c of counted) meta.set(c.id, { docs: c.docs, convs: c.convs });
   }
   const withMeta = teachers.map((t) => ({
     ...t,
