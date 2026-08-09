@@ -1,9 +1,9 @@
 import QRCode from "qrcode";
 import { headers } from "next/headers";
-import InstallButton from "./InstallButton";
+import InstallGuide from "./InstallGuide";
 
 // 설치 안내 — 원장/강사가 이 화면을 띄워두면 학생이 QR 찍고 홈 화면에 추가.
-// 스토어 등록 없이 PWA로 설치 (iOS는 수동 추가, Android는 설치 배너).
+// 스토어 등록 없이 PWA로 설치. 단계 안내는 기기별로 달라서 클라이언트(InstallGuide)가 감지해 보여준다.
 export default async function InstallPage() {
   const h = await headers();
   const host = h.get("x-forwarded-host") ?? h.get("host") ?? "localhost:3000";
@@ -11,26 +11,6 @@ export default async function InstallPage() {
   const url = `${proto}://${host}/ask`;
   const qrSvg = await QRCode.toString(url, { type: "svg", margin: 1, width: 260 });
 
-  const STEPS = [
-    {
-      os: "아이폰 (Safari)",
-      items: [
-        "QR을 찍어 사이트가 열리면 아래 공유 버튼을 누르세요.",
-        "목록에서 '홈 화면에 추가'를 고르세요.",
-        "오른쪽 위 '추가'를 누르면 끝이에요.",
-      ],
-      note: "사파리에서만 추가할 수 있어요. 크롬으로 열렸다면 주소를 사파리에 붙여넣어 주세요.",
-    },
-    {
-      os: "안드로이드 (크롬)",
-      items: [
-        "QR을 찍어 사이트가 열리면 '앱 설치' 안내가 뜹니다.",
-        "안 뜨면 오른쪽 위 점 세 개를 누르세요.",
-        "'앱 설치' 또는 '홈 화면에 추가'를 고르면 끝이에요.",
-      ],
-      note: "설치하면 주소창 없이 앱처럼 열려요.",
-    },
-  ];
 
   return (
     <main className="flex-1 w-full max-w-3xl mx-auto px-5 py-12">
@@ -48,25 +28,7 @@ export default async function InstallPage() {
           <p className="mt-3 text-[12px] text-sub break-all text-center">{url}</p>
         </div>
 
-        <div className="flex flex-col gap-4">
-          <InstallButton />
-          {STEPS.map((s) => (
-            <section key={s.os} className="card p-5">
-              <h2 className="text-[15px] font-extrabold">{s.os}</h2>
-              <ol className="mt-2.5 flex flex-col gap-1.5">
-                {s.items.map((t, i) => (
-                  <li key={t} className="flex gap-2.5 text-[14px] leading-relaxed" style={{ color: "var(--sub-2)" }}>
-                    <span className="shrink-0 grid place-items-center w-5 h-5 rounded-full bg-blue text-white text-[11px] font-extrabold mt-0.5">
-                      {i + 1}
-                    </span>
-                    {t}
-                  </li>
-                ))}
-              </ol>
-              <p className="mt-3 text-[12px] text-sub leading-relaxed">{s.note}</p>
-            </section>
-          ))}
-        </div>
+        <InstallGuide url={url} />
       </div>
     </main>
   );
