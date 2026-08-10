@@ -1,10 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import type { Session } from "@supabase/supabase-js";
-import { supabase } from "@/lib/supabase";
-import { useRole } from "@/lib/role";
-import { RoleLoading, WrongRole, NeedLogin } from "@/components/RoleGuard";
+import { useGate } from "@/components/RoleGuard";
 
 type Conv = { id: string; title: string | null; created_at: string; messages: number; needs_review?: boolean };
 type Msg = {
@@ -16,21 +13,12 @@ type Msg = {
 };
 
 export default function HistoryPage() {
-  const [session, setSession] = useState<Session | null>(null);
-  const [ready, setReady] = useState(false);
-  const role = useRole(session);
+  const { session, gate } = useGate("teacher");
   const [convs, setConvs] = useState<Conv[] | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
   const [msgs, setMsgs] = useState<Record<string, Msg[]>>({});
   const [msgErr, setMsgErr] = useState<Record<string, string>>({});
   const [onlyFlagged, setOnlyFlagged] = useState(false); // 미해결(👎) 큐 필터
-
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session);
-      setReady(true);
-    });
-  }, []);
 
   useEffect(() => {
     if (!session) return;
@@ -56,11 +44,7 @@ export default function HistoryPage() {
     if (r.ok) setMsgs((m) => ({ ...m, [id]: d?.messages ?? [] }));
   }
 
-  if (!ready) return <RoleLoading />;
-
-  if (!session) return <NeedLogin as="teacher" />;
-  if (role === undefined) return <RoleLoading />;
-  if (role !== "teacher") return <WrongRole need="teacher" role={role} />;
+  if (gate) return gate;
 
   return (
     <main className="flex-1 w-full max-w-lg lg:max-w-3xl mx-auto px-5 py-8 flex flex-col gap-4">

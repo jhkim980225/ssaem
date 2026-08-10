@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
+import { useGate } from "@/components/RoleGuard";
 import ChatPanel, { type Msg } from "@/components/ChatPanel";
 import { avatarEmoji } from "@/lib/avatar";
 
@@ -40,29 +41,22 @@ export default function AskPage() {
   const [err, setErr] = useState("");
   const [popular, setPopular] = useState<Popular | null>(null);
 
-  const [session, setSession] = useState<Session | null>(null);
-  const [sessionReady, setSessionReady] = useState(false);
+  // 질문은 로그인 계정에서만 — 익명 질문은 이력이 안 남고 남용 방어도 IP뿐이라 닫았다
+  const { session, gate } = useGate("any", {
+    loginMessage: "질문하려면 로그인해 주세요. 대화는 계정에 저장돼요.",
+  });
   const [role, setRole] = useState<"student" | "teacher" | null>(null);
   const [convs, setConvs] = useState<Conv[]>([]);
 
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session);
-      setSessionReady(true);
-    });
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => setSession(s));
-    return () => sub.subscription.unsubscribe();
-  }, []);
-
   // 강사 목록 — 세션 확정 후 로드 (로그인 학생은 초대된 비공개 강사 포함)
   useEffect(() => {
-    if (!sessionReady) return;
+    if (!session) return;
     // 멀티테넌트: /ask?academy=<slug> 로 학원 한정 (미지정 시 전체)
     const params = new URLSearchParams(window.location.search);
     const academy = params.get("academy");
     const preselect = params.get("teacher"); // 초대 링크 경유 시 자동 선택
     fetch(`/api/teachers${academy ? `?academy=${encodeURIComponent(academy)}` : ""}`, {
-      headers: session ? { Authorization: `Bearer ${session.access_token}` } : {},
+      headers: { Authorization: `Bearer ${session.access_token}` },
     })
       .then((r) => r.json())
       .then((d) => {
@@ -77,17 +71,19 @@ export default function AskPage() {
         setErr("선생님 목록을 불러오지 못했어요. 새로고침해 주세요.");
         setTeachers([]);
       });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sessionReady, session?.access_token]);
+  }, [session]);
 
   // 요즘 많이 묻는 질문 · 강사별 비중 (선택 강사 있으면 그 강사 기준)
   useEffect(() => {
     const t = chat?.teacherId;
-    fetch(`/api/popular${t ? `?teacher=${t}` : ""}`)
+    if (!session) return;
+    fetch(`/api/popular${t ? `?teacher=${t}` : ""}`, {
+      headers: { Authorization: `Bearer ${session.access_token}` },
+    })
       .then((r) => r.json())
       .then((d) => setPopular({ questions: d.questions ?? [], byTeacher: d.byTeacher ?? [] }))
       .catch(() => setPopular({ questions: [], byTeacher: [] }));
-  }, [chat?.teacherId]);
+  }, [chat?.teacherId, session]);
 
   // 로그인 시 내 이력 로드 (강사 계정이면 숨김 — /teacher/history 사용)
   useEffect(() => {
@@ -106,12 +102,14 @@ export default function AskPage() {
   // 강사 선택 시 그 강사의 강좌 목록 로드
   useEffect(() => {
     const tid = chat?.teacherId;
-    if (!tid) return;
-    fetch(`/api/courses?teacher=${tid}`)
+    if (!tid || !session) return;
+    fetch(`/api/courses?teacher=${tid}`, {
+      headers: { Authorization: `Bearer ${session.access_token}` },
+    })
       .then((r) => r.json())
       .then((d) => setCourseData({ teacherId: tid, courses: d.courses ?? [] }))
       .catch(() => setCourseData({ teacherId: tid, courses: [] }));
-  }, [chat?.teacherId]);
+  }, [chat?.teacherId, session]);
 
   const courses = courseData && courseData.teacherId === chat?.teacherId ? courseData.courses : [];
 
@@ -155,6 +153,8 @@ export default function AskPage() {
     }));
     setChat({ teacherId: c.teacher_id, teacherName: c.teacher_name ?? "선생님", convId: c.id, msgs });
   }
+
+  if (gate) return gate;
 
   return (
     <main className="flex-1 w-full max-w-[1600px] mx-auto px-5 lg:px-8 py-5 lg:py-7">

@@ -1,11 +1,8 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import type { Session } from "@supabase/supabase-js";
-import { supabase } from "@/lib/supabase";
 import { avatarEmoji } from "@/lib/avatar";
-import { useRole, homeFor } from "@/lib/role";
-import { RoleLoading, NeedLogin } from "@/components/RoleGuard";
+import { useGate } from "@/components/RoleGuard";
 
 type Conv = {
   id: string;
@@ -19,20 +16,11 @@ type Msg = { id: string; role: "user" | "assistant"; content: string; created_at
 
 // 학생 대화내역 — /ask 좌측 목록은 좁아서, 전체를 펼쳐 보는 전용 화면.
 export default function MyHistoryPage() {
-  const [session, setSession] = useState<Session | null>(null);
-  const [ready, setReady] = useState(false);
-  const role = useRole(session);
+  const { session, gate } = useGate("student", { loginMessage: "대화내역은 계정에 저장돼요." });
   const [convs, setConvs] = useState<Conv[] | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
   const [msgs, setMsgs] = useState<Record<string, Msg[]>>({});
   const [msgErr, setMsgErr] = useState<Record<string, string>>({});
-
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session);
-      setReady(true);
-    });
-  }, []);
 
   useEffect(() => {
     if (!session) return;
@@ -55,23 +43,7 @@ export default function MyHistoryPage() {
     if (r.ok) setMsgs((m) => ({ ...m, [id]: d?.messages ?? [] }));
   }
 
-  if (!ready) return <RoleLoading />;
-
-  if (!session) return <NeedLogin as="student" message="대화내역은 계정에 저장돼요." />;
-  if (role === undefined) return <RoleLoading />;
-  // 강사 계정이면 /api/conversations가 "내가 받은 질문"을 주므로 여기서 막는다
-  if (role !== "student")
-    return (
-      <main className="flex-1 grid place-items-center px-5">
-        <div className="card p-8 text-center max-w-sm">
-          <p className="font-bold text-[16px] mb-1">학생 계정만 쓸 수 있어요</p>
-          <p className="text-sub text-[14px] mb-5">강사는 학생 질문 이력 화면에서 대화를 봐요.</p>
-          <Link href={homeFor(role)} className="btn btn-primary py-3">
-            내 화면으로 가기
-          </Link>
-        </div>
-      </main>
-    );
+  if (gate) return gate;
 
   const totalMsgs = (convs ?? []).reduce((s, c) => s + c.messages, 0);
 

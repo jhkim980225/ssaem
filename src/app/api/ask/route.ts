@@ -3,7 +3,7 @@ import { serviceClient } from "@/lib/supabase";
 import { retrieve } from "@/lib/retrieve";
 import { generateStream, llmModel, hasLlmKey } from "@/lib/anthropic";
 import { buildTutorSystem } from "@/lib/prompt";
-import { userFromRequest } from "@/lib/auth";
+import { requireUser } from "@/lib/auth";
 import { rateLimit, clientIp } from "@/lib/ratelimit";
 import { askLimitError } from "@/lib/plan";
 
@@ -11,7 +11,12 @@ const HISTORY_LIMIT = 10; // 직전 메시지 N개만 맥락으로 (토큰 방�
 const MAX_QUESTION = 2000; // 임베딩·LLM 토큰 폭탄 방어
 
 export async function POST(req: Request) {
-  // 공개 엔드포인트 — IP당 분당 20회 (LLM 비용 방어)
+  // 로그인 필수 — 익명 질문은 이력이 안 남고 남용 방어가 IP뿐이라 닫았다
+  const gate = await requireUser(req);
+  if ("res" in gate) return gate.res;
+  const studentId = gate.uid;
+
+  // IP당 분당 20회 (LLM 비용 방어)
   if (!rateLimit(`ask:${clientIp(req)}`, 20, 60_000))
     return NextResponse.json(
       { error: "질문이 너무 잦아요. 잠시 후 다시 시도해 주세요." },
@@ -39,21 +44,14 @@ export async function POST(req: Request) {
   const limitMsg = await askLimitError(db, teacherId);
   if (limitMsg) return NextResponse.json({ error: limitMsg }, { status: 403 });
 
-  // 로그인 학생이면 대화에 연결 (익명도 허용 — 토큰 없으면 NULL)
-  const studentId = await userFromRequest(req);
-
   // 이어가기 대화 소유권 검증 — 남의 conversationId로 메시지 주입·이력 열람 차단.
-  // 익명 대화(student_id NULL)는 UUID 자체가 자격 토큰이라 허용.
   if (conversationId) {
     const { data: conv } = await db
       .from("conversations")
       .select("student_id, teacher_id")
       .eq("id", conversationId)
       .maybeSingle();
-    const mine =
-      !!conv &&
-      conv.teacher_id === teacherId &&
-      (conv.student_id === null || conv.student_id === studentId);
+    const mine = !!conv && conv.teacher_id === teacherId && conv.student_id === studentId;
     if (!mine) conversationId = null; // 남의 대화면 무시하고 새 대화로 시작
   }
 

@@ -1,12 +1,14 @@
 import { NextResponse } from "next/server";
 import { serviceClient } from "@/lib/supabase";
-import { userFromRequest } from "@/lib/auth";
+import { requireUser } from "@/lib/auth";
 import { rateLimit, clientIp } from "@/lib/ratelimit";
 
 // 채점. 정답 판정은 서버에서만 — 클라이언트는 정답을 모른다.
 // POST { questionId, chosen }
 // 로그인 학생이면 기록을 남겨 오답노트에 쌓고, 비로그인이면 채점만 해준다.
 export async function POST(req: Request) {
+  const g = await requireUser(req);
+  if ("res" in g) return g.res;
   if (!rateLimit(`attempt:${clientIp(req)}`, 120, 60_000))
     return NextResponse.json({ error: "too many requests" }, { status: 429 });
 
@@ -27,7 +29,7 @@ export async function POST(req: Request) {
   const correct = chosen === q.answer;
 
   // 로그인 학생만 기록 (오답노트용). 실패해도 채점 결과는 돌려준다.
-  const uid = await userFromRequest(req);
+  const uid = g.uid;
   if (uid) {
     const { error } = await db
       .from("quiz_attempts")
@@ -40,8 +42,9 @@ export async function POST(req: Request) {
 
 // 오답노트 요약 (학생 본인)
 export async function GET(req: Request) {
-  const uid = await userFromRequest(req);
-  if (!uid) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  const g = await requireUser(req);
+  if ("res" in g) return g.res;
+  const uid = g.uid;
 
   const db = serviceClient();
   const { data } = await db

@@ -1,10 +1,12 @@
 import { NextResponse } from "next/server";
 import { serviceClient } from "@/lib/supabase";
-import { userFromRequest } from "@/lib/auth";
+import { userFromRequest, requireUser } from "@/lib/auth";
 
 // 강사 목록. 기본은 공개(is_public) 강사만, ?academy=<slug>로 학원 한정.
 // 로그인 학생이 Bearer로 호출하면 수강 연결(enrollments)된 비공개 강사도 포함 — 초대 기반 권한.
 export async function GET(req: Request) {
+  const g = await requireUser(req);
+  if ("res" in g) return g.res;
   const slug = new URL(req.url).searchParams.get("academy");
   const db = serviceClient();
 

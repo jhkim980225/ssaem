@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { serviceClient } from "@/lib/supabase";
 import { score } from "@/lib/lexical";
+import { requireUser } from "@/lib/auth";
 
 const SAMPLE = 400; // 최근 질문 표본
 const CLUSTER_MIN = 10; // 이 점수 이상이면 같은 주제로 묶음 (lexical.ts 스케일 기준)
@@ -8,6 +9,8 @@ const CLUSTER_MIN = 10; // 이 점수 이상이면 같은 주제로 묶음 (lexi
 // 요즘 많이 묻는 질문 + 강사별 질문 비중.
 // 임베딩 없는 messages라 lexical 그리디 클러스터링으로 주제 묶음.
 export async function GET(req: Request) {
+  const g = await requireUser(req);
+  if ("res" in g) return g.res;
   const raw = (new URL(req.url).searchParams.get("teacher") ?? "").trim();
   const teacherId = /^[0-9a-f-]{36}$/i.test(raw) ? raw : null;
 

@@ -127,9 +127,12 @@ async function main() {
   ok("원장 → /api/admin 200", (await status("/api/admin", { headers: bearer(adminTok) })) === 200);
   ok("학생 → /api/conversations 200", (await status("/api/conversations", { headers: bearer(studentTok) })) === 200);
 
-  // ── 3. 공개 엔드포인트
-  section("공개 엔드포인트");
-  const teachers = await json("/api/teachers");
+  // ── 3. 학생 공용 엔드포인트 (전부 로그인 필수)
+  section("학생 공용 엔드포인트");
+  for (const p of ["/api/teachers", "/api/popular", "/api/quiz?teacher=x"]) {
+    ok(`비로그인 → ${p} 401`, (await status(p)) === 401);
+  }
+  const teachers = await json("/api/teachers", { headers: bearer(studentTok) });
   ok("강사 목록 200", teachers.status === 200 && Array.isArray(teachers.body?.teachers));
   const t0 = teachers.body?.teachers?.[0];
   ok("강사 최소 1명", Boolean(t0), t0 ? `${t0.name} 자료 ${t0.docs}` : "");
@@ -137,9 +140,12 @@ async function main() {
     console.log("\n강사가 없어 이후 검증 불가");
     process.exit(1);
   }
-  ok("강좌 공개 조회 200", (await status(`/api/courses?teacher=${t0.id}`)) === 200);
-  ok("인기 질문 200", (await status("/api/popular")) === 200);
-  const pop = await json("/api/popular");
+  ok(
+    "강좌 조회 200",
+    (await status(`/api/courses?teacher=${t0.id}`, { headers: bearer(studentTok) })) === 200
+  );
+  ok("인기 질문 200", (await status("/api/popular", { headers: bearer(studentTok) })) === 200);
+  const pop = await json("/api/popular", { headers: bearer(studentTok) });
   ok(
     "인기 질문은 2회 이상만 노출",
     (pop.body?.questions ?? []).every((q: { count: number }) => q.count >= 2)
@@ -175,6 +181,14 @@ async function main() {
     body: JSON.stringify({ teacherId: t0.id, question: q }),
   });
   ok("질문 200", askRes.status === 200, `status=${askRes.status}`);
+  ok(
+    "비로그인 질문 401",
+    (await status("/api/ask", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ teacherId: t0.id, question: "[E2E] 비로그인" }),
+    })) === 401
+  );
   const convId = askRes.headers.get("X-Conversation-Id");
   const sourcesHeader = askRes.headers.get("X-Sources");
   const answer = await askRes.text();
@@ -189,9 +203,10 @@ async function main() {
     // 이력 기록은 스트림 종료 "후" 비동기라 메시지 개수로 판정하면 흔들린다.
     // 주입하려던 문구가 그 대화에 실제로 들어갔는지로 본다 — 타이밍과 무관.
     const MARK = "[E2E] 주입 시도 " + Date.now();
+    // 비인증은 이제 401이라 아예 못 들어온다. 남의 계정(강사 토큰)으로 주입을 시도한다.
     const inject = await fetch(`${BASE}/api/ask`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" }, // 비인증
+      headers: { ...bearer(teacherTok), "Content-Type": "application/json" },
       body: JSON.stringify({ teacherId: t0.id, question: MARK, conversationId: convId }),
     });
     const injectedConv = inject.headers.get("X-Conversation-Id");
@@ -213,10 +228,18 @@ async function main() {
   // 피드백 소유권
   if (convId) {
     ok(
-      "비인증 피드백 차단",
+      "비로그인 피드백 401",
       (await status("/api/feedback", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ conversationId: convId, rating: 1 }),
+      })) === 401
+    );
+    ok(
+      "남의 대화 피드백 403",
+      (await status("/api/feedback", {
+        method: "POST",
+        headers: { ...bearer(teacherTok), "Content-Type": "application/json" },
         body: JSON.stringify({ conversationId: convId, rating: 1 }),
       })) === 403
     );
@@ -253,7 +276,7 @@ async function main() {
   if (!hasQuiz) {
     skip("퀴즈 전 구간", "quiz_questions/quiz_attempts 테이블 없음 — 마이그레이션 미실행");
   } else {
-    const list = await json(`/api/quiz?teacher=${t0.id}`);
+    const list = await json(`/api/quiz?teacher=${t0.id}`, { headers: bearer(studentTok) });
     ok("문제 목록 200", list.status === 200);
     const first = list.body?.questions?.[0];
     ok(
@@ -275,7 +298,10 @@ async function main() {
     } else {
       skip("채점·오답노트", "생성된 문제가 없음 (강사가 '문제 만들기' 미실행)");
     }
-    ok("문제 목록에 teacher 필수", (await status("/api/quiz")) === 400);
+    ok(
+      "문제 목록에 teacher 필수",
+      (await status("/api/quiz", { headers: bearer(studentTok) })) === 400
+    );
   }
 
   // ── 8. 요금제 문의

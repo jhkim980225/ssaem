@@ -1,8 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import type { Session } from "@supabase/supabase-js";
-import { supabase } from "@/lib/supabase";
+import { useGate } from "@/components/RoleGuard";
 
 type Note = {
   id: string;
@@ -19,17 +18,9 @@ type Data = { totals: { attempted: number; wrong: number; correct: number }; not
 
 // 오답노트 — 마지막 시도가 오답인 문제만. 다시 풀어 맞히면 목록에서 빠진다.
 export default function NotesPage() {
-  const [session, setSession] = useState<Session | null>(null);
-  const [ready, setReady] = useState(false);
+  const { session, gate } = useGate("any", { loginMessage: "오답노트는 계정에 저장돼요." });
   const [data, setData] = useState<Data | null>(null);
   const [open, setOpen] = useState<string | null>(null);
-
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session);
-      setReady(true);
-    });
-  }, []);
 
   useEffect(() => {
     if (!session) return;
@@ -39,25 +30,7 @@ export default function NotesPage() {
       .catch(() => setData({ totals: { attempted: 0, wrong: 0, correct: 0 }, notes: [] }));
   }, [session]);
 
-  if (!ready)
-    return (
-      <main className="flex-1 grid place-items-center">
-        <div className="skel w-12 h-12 !rounded-full" />
-      </main>
-    );
-
-  if (!session)
-    return (
-      <main className="flex-1 grid place-items-center px-5">
-        <div className="text-center">
-          <p className="text-[16px] font-bold mb-1">로그인이 필요해요</p>
-          <p className="text-sub text-[14px] mb-5">오답노트는 계정에 저장돼요.</p>
-          <Link href="/login?role=student" className="btn btn-primary py-3 px-6 inline-block">
-            학생 로그인
-          </Link>
-        </div>
-      </main>
-    );
+  if (gate) return gate;
 
   // 오답이 여러 선생님에 걸쳐 있으면 /quiz는 한 선생님씩만 낼 수 있어 선생님별로 나눈다.
   // id로 묶으므로 동명이인도 안전하다.

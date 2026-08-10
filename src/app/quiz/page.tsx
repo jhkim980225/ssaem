@@ -2,8 +2,7 @@
 import { Suspense, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import type { Session } from "@supabase/supabase-js";
-import { supabase } from "@/lib/supabase";
+import { useGate } from "@/components/RoleGuard";
 import { avatarEmoji } from "@/lib/avatar";
 
 type Teacher = { id: string; name: string; subject: string | null };
@@ -23,8 +22,6 @@ function QuizInner() {
   const params = useSearchParams();
   const mode = params.get("mode") === "wrong" ? "wrong" : "all";
 
-  const [session, setSession] = useState<Session | null>(null);
-  const [sessionReady, setSessionReady] = useState(false);
   const [teachers, setTeachers] = useState<Teacher[] | null>(null);
   // 오답노트에서 넘어올 때 선생님이 실려온다 — 없으면 목록 첫 번째
   const [teacherId, setTeacherId] = useState(params.get("teacher") ?? "");
@@ -40,20 +37,14 @@ function QuizInner() {
   const [err, setErr] = useState("");
   const [needLogin, setNeedLogin] = useState(false);
 
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session);
-      setSessionReady(true);
-    });
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => setSession(s));
-    return () => sub.subscription.unsubscribe();
-  }, []);
+  // 문제풀이도 로그인 계정에서만 — 채점 기록이 남아야 오답노트가 의미가 있다
+  const { session, gate } = useGate("any", { loginMessage: "문제풀이 기록은 계정에 저장돼요." });
 
   // 세션 확정 후 로드 — 토큰을 보내야 초대받은 비공개 강사도 목록에 들어온다
   useEffect(() => {
-    if (!sessionReady) return;
+    if (!session) return;
     fetch("/api/teachers", {
-      headers: session ? { Authorization: `Bearer ${session.access_token}` } : {},
+      headers: { Authorization: `Bearer ${session.access_token}` },
     })
       .then((r) => r.json())
       .then((d) => {
@@ -62,16 +53,17 @@ function QuizInner() {
         setTeacherId((cur) => cur || list[0]?.id || "");
       })
       .catch(() => setTeachers([]));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sessionReady, session?.access_token]);
+  }, [session]);
 
   useEffect(() => {
-    if (!teacherId) return;
-    fetch(`/api/courses?teacher=${teacherId}`)
+    if (!teacherId || !session) return;
+    fetch(`/api/courses?teacher=${teacherId}`, {
+      headers: { Authorization: `Bearer ${session.access_token}` },
+    })
       .then((r) => r.json())
       .then((d) => setCourses(d.courses ?? []))
       .catch(() => setCourses([]));
-  }, [teacherId]);
+  }, [teacherId, session]);
 
   // 상태 초기화를 await 뒤로 모았다 — 이펙트 본문에서 동기 setState를 하면
   // 렌더가 연쇄로 돌아 react-hooks/set-state-in-effect에 걸린다.
@@ -128,6 +120,8 @@ function QuizInner() {
 
   const q = qs?.[idx];
   const finished = qs !== null && qs.length > 0 && idx >= qs.length;
+
+  if (gate) return gate;
 
   return (
     <main className="flex-1 w-full max-w-2xl mx-auto px-5 py-8 flex flex-col gap-4">

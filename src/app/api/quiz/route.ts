@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { serviceClient } from "@/lib/supabase";
-import { userFromRequest } from "@/lib/auth";
+import { requireUser } from "@/lib/auth";
 
 const LIMIT = 10; // 한 세션 문항 수
 
@@ -8,6 +8,8 @@ const LIMIT = 10; // 한 세션 문항 수
 // GET ?teacher=<uuid>&course=<uuid>&mode=all|wrong
 //   mode=wrong → 오답노트(내가 마지막에 틀린 문제만). 정답은 내려보내지 않는다.
 export async function GET(req: Request) {
+  const g = await requireUser(req);
+  if ("res" in g) return g.res;
   const url = new URL(req.url);
   const teacherId = (url.searchParams.get("teacher") ?? "").trim();
   const courseId = (url.searchParams.get("course") ?? "").trim();
@@ -16,7 +18,7 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "teacher required" }, { status: 400 });
 
   const db = serviceClient();
-  const uid = await userFromRequest(req);
+  const uid = g.uid;
 
   let q = db
     .from("quiz_questions")

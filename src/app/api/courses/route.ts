@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { serviceClient } from "@/lib/supabase";
-import { requireRole } from "@/lib/auth";
+import { requireRole, requireUser } from "@/lib/auth";
 
 // 강좌 관리.
 // GET ?teacher=<id> → 공개용: 그 강사의 강좌 목록 (학생 필터 칩)
@@ -12,6 +12,8 @@ export async function GET(req: Request) {
   const teacherParam = new URL(req.url).searchParams.get("teacher");
 
   if (teacherParam) {
+    const g = await requireUser(req);
+    if ("res" in g) return g.res;
     const { data, error } = await db
       .from("courses")
       .select("id, title")

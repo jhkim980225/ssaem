@@ -2,8 +2,7 @@
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useRole } from "@/lib/role";
-import { RoleLoading, WrongRole } from "@/components/RoleGuard";
+import { useGate } from "@/components/RoleGuard";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
 import ChatPanel from "@/components/ChatPanel";
@@ -32,44 +31,20 @@ type DocEvent = {
 };
 
 export default function TeacherPage() {
-  const [session, setSession] = useState<Session | null>(null);
-  const [ready, setReady] = useState(false);
-  const role = useRole(session);
-
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session);
-      setReady(true);
-    });
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => setSession(s));
-    return () => sub.subscription.unsubscribe();
-  }, []);
-
-  if (!ready)
-    return (
-      <main className="flex-1 grid place-items-center">
-        <div className="flex flex-col items-center gap-3">
-          <div className="skel w-12 h-12 !rounded-full" />
-          <div className="skel h-3.5 w-24" />
-        </div>
-      </main>
-    );
-
-  if (!session)
-    return (
+  // allowNoProfile: 강사 가입 직후(프로필 저장 전)엔 role이 없다 — 대시보드에서 프로필을 만들어야 하므로 통과
+  const { session, gate } = useGate("teacher", {
+    allowNoProfile: true,
+    loginRender: (
       <main className="flex-1 w-full mx-auto px-5 py-8 max-w-lg">
         <AuthForm />
       </main>
-    );
-
-  // 역할 확인 전엔 대시보드를 그리지 않는다 (학생에게 강사 UI가 잠깐이라도 보이면 안 됨)
-  if (role === undefined) return <RoleLoading />;
-  // role=null은 강사 가입 직후(프로필 저장 전) — 대시보드에서 프로필을 만들어야 하므로 통과
-  if (role !== "teacher" && role !== null) return <WrongRole need="teacher" role={role} />;
+    ),
+  });
+  if (gate) return gate;
 
   return (
     <main className="flex-1 w-full mx-auto px-5 lg:px-8 py-8 max-w-lg lg:max-w-[1600px]">
-      <Dashboard session={session} />
+      <Dashboard session={session!} />
     </main>
   );
 }

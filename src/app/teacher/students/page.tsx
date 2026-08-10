@@ -1,10 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import type { Session } from "@supabase/supabase-js";
-import { supabase } from "@/lib/supabase";
-import { useRole } from "@/lib/role";
-import { RoleLoading, WrongRole, NeedLogin } from "@/components/RoleGuard";
+import { useGate } from "@/components/RoleGuard";
 import { avatarEmoji } from "@/lib/avatar";
 
 type Student = {
@@ -18,22 +15,13 @@ type Student = {
 
 // 학생별 리포트 (Khanmigo 교사 리포트 패턴) — 누가 얼마나 묻는지, 어디서 막히는지.
 export default function StudentsPage() {
-  const [session, setSession] = useState<Session | null>(null);
-  const [ready, setReady] = useState(false);
-  const role = useRole(session);
+  const { session, gate } = useGate("teacher");
   const [days, setDays] = useState(14);
   const [students, setStudents] = useState<Student[] | null>(null);
   // 초기화 결과는 한 번만 내려오므로(저장 안 함) 화면에 띄워두고 강사가 학생에게 전달한다
   const [issued, setIssued] = useState<{ id: string; loginId: string; password: string } | null>(null);
   const [pwErr, setPwErr] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
-
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session);
-      setReady(true);
-    });
-  }, []);
 
   useEffect(() => {
     if (!session) return;
@@ -64,11 +52,7 @@ export default function StudentsPage() {
     setIssued({ id: studentId, loginId: d.loginId, password: d.password });
   }
 
-  if (!ready) return <RoleLoading />;
-
-  if (!session) return <NeedLogin as="teacher" />;
-  if (role === undefined) return <RoleLoading />;
-  if (role !== "teacher") return <WrongRole need="teacher" role={role} />;
+  if (gate) return gate;
 
   return (
     <main className="flex-1 w-full max-w-lg lg:max-w-3xl mx-auto px-5 py-8 flex flex-col gap-4">

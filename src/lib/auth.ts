@@ -33,6 +33,18 @@ export async function userWithRole(
   return { uid, role: (data?.role as Role | undefined) ?? null };
 }
 
+// 로그인만 요구 (역할 무관). 학생·강사·원장 누구나 쓰는 라우트용.
+//
+//   const g = await requireUser(req);
+//   if ("res" in g) return g.res;
+//
+export async function requireUser(req: Request): Promise<{ uid: string } | { res: NextResponse }> {
+  const uid = await userFromRequest(req);
+  if (!uid)
+    return { res: NextResponse.json({ error: "로그인이 필요해요.", needLogin: true }, { status: 401 }) };
+  return { uid };
+}
+
 const DENY: Record<Role, string> = {
   teacher: "강사 계정만 쓸 수 있어요",
   admin: "원장 계정만 쓸 수 있어요",

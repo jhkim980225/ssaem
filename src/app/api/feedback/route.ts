@@ -1,12 +1,14 @@
 import { NextResponse } from "next/server";
 import { serviceClient } from "@/lib/supabase";
-import { userFromRequest } from "@/lib/auth";
+import { requireUser } from "@/lib/auth";
 import { rateLimit, clientIp } from "@/lib/ratelimit";
 
 // 답변 피드백. 익명 학생도 가능 — 익명 대화는 conversationId(uuid)가 자격 토큰.
 // 로그인 학생 대화는 본인만 평가 가능 (남의 평점 덮어쓰기 차단).
 // 클라이언트는 message id를 모름(스트리밍) → 해당 대화의 마지막 assistant 메시지에 기록.
 export async function POST(req: Request) {
+  const g = await requireUser(req);
+  if ("res" in g) return g.res;
   if (!rateLimit(`feedback:${clientIp(req)}`, 30, 60_000))
     return NextResponse.json({ error: "too many requests" }, { status: 429 });
 
@@ -27,7 +29,7 @@ export async function POST(req: Request) {
     .maybeSingle();
   if (!conv) return NextResponse.json({ error: "not found" }, { status: 404 });
   if (conv.student_id !== null) {
-    const uid = await userFromRequest(req);
+    const uid = g.uid;
     if (uid !== conv.student_id)
       return NextResponse.json({ error: "forbidden" }, { status: 403 });
   }

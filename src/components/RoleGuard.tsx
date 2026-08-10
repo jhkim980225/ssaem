@@ -1,13 +1,58 @@
 "use client";
+import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
+import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
-import { homeFor, type Role } from "@/lib/role";
+import { useRole, homeFor, type Role } from "@/lib/role";
 
 const LABEL: Record<"teacher" | "admin" | "student", string> = {
   teacher: "강사",
   admin: "학원장",
   student: "학생",
 };
+
+// 보호 페이지 공통 게이트. 페이지마다 세션 구독 + 4줄짜리 가드를 복붙하던 걸 한곳으로 모았다
+// (그 복붙이 갈라지면서 학생에게 강사 화면이 잠깐 보이는 버그가 났다).
+//
+//   const { session, gate } = useGate("teacher");
+//   if (gate) return gate;   // 여기서 아래는 항상 권한이 확정된 상태
+//
+// need="any" = 로그인만 필요(역할 무관). allowNoProfile = 강사 가입 직후(프로필 저장 전) 허용.
+export function useGate(
+  need: "teacher" | "admin" | "student" | "any",
+  opts: {
+    allowNoProfile?: boolean;
+    loginAs?: "teacher" | "student";
+    loginMessage?: string;
+    /** 비로그인일 때 기본 안내 대신 그릴 것 (원장 가입 폼처럼 그 페이지에만 있는 진입로) */
+    loginRender?: ReactNode;
+  } = {}
+): { session: Session | null; role: Role | undefined; gate: ReactNode | null } {
+  const [session, setSession] = useState<Session | null>(null);
+  const [ready, setReady] = useState(false);
+  const role = useRole(session);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      setSession(data.session);
+      setReady(true);
+    });
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => setSession(s));
+    return () => sub.subscription.unsubscribe();
+  }, []);
+
+  const loginAs = opts.loginAs ?? (need === "teacher" || need === "admin" ? "teacher" : "student");
+
+  let gate: ReactNode | null = null;
+  if (!ready) gate = <RoleLoading />;
+  else if (!session)
+    gate = opts.loginRender ?? <NeedLogin as={loginAs} message={opts.loginMessage} />;
+  else if (role === undefined) gate = <RoleLoading />; // 역할 확정 전엔 아무것도 그리지 않는다
+  else if (need !== "any" && role !== need && !(role === null && opts.allowNoProfile))
+    gate = <WrongRole need={need} role={role} />;
+
+  return { session, role, gate };
+}
 
 // 역할 조회 중 표시할 자리
 export function RoleLoading() {
@@ -19,7 +64,7 @@ export function RoleLoading() {
 }
 
 // 로그인은 했지만 역할이 안 맞을 때. API도 403이라 화면은 안내만 담당.
-export function WrongRole({ need, role }: { need: "teacher" | "admin"; role: Role }) {
+export function WrongRole({ need, role }: { need: "teacher" | "admin" | "student"; role: Role }) {
   return (
     <main className="flex-1 grid place-items-center px-5">
       <div className="card p-8 text-center max-w-sm">

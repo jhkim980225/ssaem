@@ -1,10 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import type { Session } from "@supabase/supabase-js";
-import { supabase } from "@/lib/supabase";
-import { useRole } from "@/lib/role";
-import { RoleLoading, WrongRole, NeedLogin } from "@/components/RoleGuard";
+import { useGate } from "@/components/RoleGuard";
 
 type Insights = {
   days: number;
@@ -15,18 +12,9 @@ type Insights = {
 };
 
 export default function InsightsPage() {
-  const [session, setSession] = useState<Session | null>(null);
-  const [ready, setReady] = useState(false);
-  const role = useRole(session);
+  const { session, gate } = useGate("teacher");
   const [data, setData] = useState<Insights | null>(null);
   const [err, setErr] = useState("");
-
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session);
-      setReady(true);
-    });
-  }, []);
 
   useEffect(() => {
     if (!session) return;
@@ -36,11 +24,7 @@ export default function InsightsPage() {
       .catch(() => setErr("불러오기 실패"));
   }, [session]);
 
-  if (!ready) return <RoleLoading />;
-
-  if (!session) return <NeedLogin as="teacher" />;
-  if (role === undefined) return <RoleLoading />;
-  if (role !== "teacher") return <WrongRole need="teacher" role={role} />;
+  if (gate) return gate;
 
   const max = Math.max(1, ...(data?.daily.map((d) => d.count) ?? [1]));
 

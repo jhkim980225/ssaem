@@ -2,12 +2,15 @@ import { NextResponse } from "next/server";
 import { serviceClient } from "@/lib/supabase";
 import { score } from "@/lib/lexical";
 import { rateLimit, clientIp } from "@/lib/ratelimit";
+import { requireUser } from "@/lib/auth";
 
 const MIN_SCORE = 6; // 이 미만이면 관련 없다고 보고 미노출 (빈 추천이 오답 추천보다 낫다)
 
 // 유사 질문 추천: 같은 강사에게 온 과거 질문 중 비슷한 것 (클라썸 도트 패턴).
 // 임베딩 없는 messages라 lexical 랭킹 재활용 — 공개 데이터(질문 텍스트만) 반환.
 export async function GET(req: Request) {
+  const g = await requireUser(req);
+  if ("res" in g) return g.res;
   if (!rateLimit(`related:${clientIp(req)}`, 30, 60_000))
     return NextResponse.json({ related: [] });
 

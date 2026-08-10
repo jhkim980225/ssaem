@@ -254,7 +254,9 @@ export default function ChatPanel({
       setStreaming(false);
       scrollDown();
       // 유사 질문 추천 — 실패해도 무시 (추천은 있으면 좋은 것)
-      fetch(`/api/related?teacher=${teacherId}&q=${encodeURIComponent(question)}`)
+      fetch(`/api/related?teacher=${teacherId}&q=${encodeURIComponent(question)}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      })
         .then((r) => r.json())
         .then((d) => setRelated(d.related ?? []))
         .catch(() => {});

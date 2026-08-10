@@ -6,8 +6,7 @@ import { supabase } from "@/lib/supabase";
 import { toEmail } from "@/lib/account";
 import { avatarEmoji } from "@/lib/avatar";
 import { SHOW_PRICING } from "@/lib/flags";
-import { useRole } from "@/lib/role";
-import { RoleLoading, WrongRole } from "@/components/RoleGuard";
+import { useGate } from "@/components/RoleGuard";
 
 type AdminData = {
   admin: { name: string };
@@ -28,34 +27,19 @@ type AdminData = {
 };
 
 export default function AdminPage() {
-  const [session, setSession] = useState<Session | null>(null);
-  const [ready, setReady] = useState(false);
-  const role = useRole(session);
-
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session);
-      setReady(true);
-    });
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => setSession(s));
-    return () => sub.subscription.unsubscribe();
-  }, []);
-
-  if (!ready) return <RoleLoading />;
-
-  if (!session)
-    return (
+  // 원장 가입(=학원 개설) 폼이 이 페이지에만 있어서 비로그인 화면을 직접 넘긴다
+  const { session, gate } = useGate("admin", {
+    loginRender: (
       <main className="flex-1 w-full mx-auto px-5 py-8 max-w-lg">
         <AuthForm />
       </main>
-    );
-
-  if (role === undefined) return <RoleLoading />;
-  if (role !== "admin") return <WrongRole need="admin" role={role} />;
+    ),
+  });
+  if (gate) return gate;
 
   return (
     <main className="flex-1 w-full mx-auto px-5 lg:px-8 py-8 max-w-lg lg:max-w-[1280px]">
-      <Dashboard session={session} />
+      <Dashboard session={session!} />
     </main>
   );
 }
