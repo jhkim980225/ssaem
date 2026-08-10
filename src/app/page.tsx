@@ -34,11 +34,8 @@ export default async function Home() {
         {/* 히어로 — 좌 텍스트 / 우 채팅 미리보기. 넓은 화면에서도 텍스트 줄 길이는 제한 */}
         <div className="grid gap-12 lg:grid-cols-[minmax(0,620px)_minmax(0,460px)] lg:gap-16 items-center lg:justify-center xl:justify-between">
           <div className="text-center lg:text-left">
-            <p className="rise text-[13px] font-bold text-blue tracking-wide">학원 전용 AI 튜터</p>
-            <h1 className="rise d1 mt-3 text-[34px] lg:text-[52px] leading-[1.2] font-extrabold tracking-tight">
-              우리 선생님 자료로
-              <br />
-              답해주는 AI
+            <h1 className="rise text-[34px] lg:text-[52px] leading-[1.2] font-extrabold tracking-tight">
+              마스터 전산회계 학원
             </h1>
             <p className="rise d2 mt-5 text-[15px] lg:text-[17px] text-sub leading-relaxed">
               강사가 문제와 풀이를 올리면, 학생은 그 자료를 근거로
