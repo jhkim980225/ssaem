@@ -395,7 +395,7 @@ async function main() {
   // ── 9. PWA
   section("PWA");
   const man = await json("/manifest.webmanifest");
-  ok("매니페스트 200", man.status === 200 && man.body?.start_url === "/ask");
+  ok("매니페스트 200", man.status === 200 && man.body?.start_url === "/");
   ok("아이콘 192 PNG", (await status("/pwa-icon/192")) === 200);
   ok("아이콘 512 PNG", (await status("/pwa-icon/512")) === 200);
   ok("애플 아이콘", (await status("/apple-icon")) === 200);

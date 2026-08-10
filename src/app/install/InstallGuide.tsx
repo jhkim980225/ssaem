@@ -24,6 +24,7 @@ const GUIDES: Record<Exclude<Platform, "unknown">, { title: string; steps: strin
   "ios-safari": {
     title: "아이폰 · 3단계면 끝나요",
     steps: [
+      "아래 '앱 화면 열기'를 먼저 누르세요. (이 안내 화면에서 추가하면 앱이 매번 안내 화면으로 열려요)",
       "화면 아래 가운데 공유 버튼(⬆︎이 든 네모)을 누르세요.",
       "목록을 조금 내려 '홈 화면에 추가'를 누르세요.",
       "오른쪽 위 '추가'를 누르면 홈 화면에 아이콘이 생겨요.",
@@ -56,7 +57,7 @@ const GUIDES: Record<Exclude<Platform, "unknown">, { title: string; steps: strin
   },
 };
 
-export default function InstallGuide({ url }: { url: string }) {
+export default function InstallGuide({ url, appUrl }: { url: string; appUrl: string }) {
   // 서버 렌더에는 navigator가 없다 → 서버 스냅샷은 "unknown", 클라이언트에서 정정된다.
   // useSyncExternalStore를 쓰면 이펙트에서 setState 하지 않아도 되고 하이드레이션 불일치도 없다.
   const platform = useSyncExternalStore(
@@ -88,6 +89,12 @@ export default function InstallGuide({ url }: { url: string }) {
           ))}
         </ol>
         {g.note && <p className="mt-3 text-[12px] text-sub leading-relaxed">{g.note}</p>}
+
+        {platform === "ios-safari" && (
+          <a href={appUrl} className="btn btn-primary py-3 px-5 mt-4 text-[14px] inline-block text-center">
+            앱 화면 열기
+          </a>
+        )}
 
         {(platform === "ios-other" || platform === "ios-safari") && (
           <button

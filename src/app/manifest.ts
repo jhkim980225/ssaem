@@ -7,8 +7,9 @@ export default function manifest(): MetadataRoute.Manifest {
     name: "마스터 전산회계 학원",
     short_name: "마스터 전산회계",
     description: "선생님이 올린 자료를 근거로 답하는 학원 전용 AI 튜터",
-    // 학생이 설치 후 열면 바로 질문 화면
-    start_url: "/ask",
+    // 앱 시작은 "/" — 로그인 여부·역할을 보고 알아서 보낸다.
+    // /ask로 박아두면 비로그인 상태로 앱을 열었을 때 로그인 벽이 첫 화면이 된다.
+    start_url: "/",
     scope: "/",
     display: "standalone",
     orientation: "portrait",
