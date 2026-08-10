@@ -21,14 +21,11 @@ export default function SiteHeader() {
     >
       <div className="mx-auto w-full max-w-[1600px] px-5 lg:px-8 h-[60px] flex items-center justify-between gap-3">
         <Link href="/" className="flex items-center gap-2 shrink-0 group">
-          <span className="grid place-items-center w-8 h-8 rounded-[10px] bg-blue text-white text-[12px] font-extrabold transition-transform group-hover:rotate-[-8deg]">
-            AI
+          <span className="grid place-items-center w-8 h-8 rounded-[10px] bg-blue text-white text-[13px] font-extrabold transition-transform group-hover:rotate-[-8deg]">
+            마
           </span>
-          <span className="flex flex-col leading-none">
-            <span className="text-[14px] sm:text-[15px] font-extrabold tracking-tight whitespace-nowrap">
-              학원 AI 튜터
-            </span>
-            <span className="text-[10px] text-sub mt-0.5 hidden sm:block">우리 선생님 자료로 답하는 AI</span>
+          <span className="text-[14px] sm:text-[15px] font-extrabold tracking-tight whitespace-nowrap">
+            마스터 전산회계 학원
           </span>
         </Link>
 

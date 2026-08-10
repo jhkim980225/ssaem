@@ -4,10 +4,10 @@ import SiteHeader from "@/components/SiteHeader";
 import SiteFooter from "@/components/SiteFooter";
 
 export const metadata: Metadata = {
-  title: "학원 AI 튜터",
-  description: "우리 선생님 자료로 답해주는 AI 튜터",
+  title: "마스터 전산회계 학원",
+  description: "선생님이 올린 문제·풀이를 근거로 답하는 학원 전용 AI 튜터",
   // iOS 홈 화면 실행 시 브라우저 UI 없이 앱처럼 (매니페스트만으론 iOS가 안 따름)
-  appleWebApp: { capable: true, title: "AI 튜터", statusBarStyle: "default" },
+  appleWebApp: { capable: true, title: "마스터 전산회계", statusBarStyle: "default" },
 };
 
 export const viewport: Viewport = {

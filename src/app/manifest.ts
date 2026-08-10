@@ -4,8 +4,8 @@ import type { MetadataRoute } from "next";
 export default function manifest(): MetadataRoute.Manifest {
   return {
     id: "/",
-    name: "학원 AI 튜터",
-    short_name: "AI 튜터",
+    name: "마스터 전산회계 학원",
+    short_name: "마스터 전산회계",
     description: "선생님이 올린 자료를 근거로 답하는 학원 전용 AI 튜터",
     // 학생이 설치 후 열면 바로 질문 화면
     start_url: "/ask",

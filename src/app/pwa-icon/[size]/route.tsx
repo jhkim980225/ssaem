@@ -29,7 +29,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ size: s
           letterSpacing: -size * 0.02,
         }}
       >
-        AI
+        마
       </div>
     ),
     { width: size, height: size }

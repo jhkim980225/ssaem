@@ -9,8 +9,8 @@ export default function SiteFooter() {
         <div className="flex flex-col sm:flex-row sm:justify-between gap-8">
           <div className="max-w-xs">
             <p className="flex items-center gap-2 font-extrabold text-[15px]">
-              <span className="grid place-items-center w-7 h-7 rounded-[9px] bg-blue text-white text-[11px] font-extrabold">AI</span>
-              학원 AI 튜터
+              <span className="grid place-items-center w-7 h-7 rounded-[9px] bg-blue text-white text-[12px] font-extrabold">마</span>
+              마스터 전산회계 학원
             </p>
             <p className="mt-3 text-[13px] text-sub leading-relaxed">
               선생님이 올린 문제·풀이를 근거로
@@ -52,7 +52,7 @@ export default function SiteFooter() {
 
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pt-6 border-t border-line">
           {/* 배포본이 실제로 갱신됐는지 눈으로 확인하는 용도 — package.json version을 올릴 것 */}
-          <p className="text-[12px] text-sub">© {new Date().getFullYear()} 학원 AI 튜터 · v{version}</p>
+          <p className="text-[12px] text-sub">© {new Date().getFullYear()} 마스터 전산회계 학원 · v{version}</p>
           <div className="flex items-center gap-3 text-[12px] text-sub">
             <Link href="/legal/terms" className="hover:text-blue transition-colors">이용약관</Link>
             <span>·</span>
