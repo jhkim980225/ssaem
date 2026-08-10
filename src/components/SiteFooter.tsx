@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { SHOW_PRICING } from "@/lib/flags";
+import { version } from "../../package.json";
 
 export default function SiteFooter() {
   return (
@@ -50,7 +51,8 @@ export default function SiteFooter() {
         </div>
 
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pt-6 border-t border-line">
-          <p className="text-[12px] text-sub">© {new Date().getFullYear()} 학원 AI 튜터</p>
+          {/* 배포본이 실제로 갱신됐는지 눈으로 확인하는 용도 — package.json version을 올릴 것 */}
+          <p className="text-[12px] text-sub">© {new Date().getFullYear()} 학원 AI 튜터 · v{version}</p>
           <div className="flex items-center gap-3 text-[12px] text-sub">
             <Link href="/legal/terms" className="hover:text-blue transition-colors">이용약관</Link>
             <span>·</span>

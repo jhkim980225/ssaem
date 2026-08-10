@@ -28,11 +28,17 @@ export async function POST(req: Request) {
   // 소유권 — 남의 자료로 출제 못 하게
   const { data: doc } = await db
     .from("documents")
-    .select("id, title, raw_text, course_id")
+    .select("id, kind, title, raw_text, course_id")
     .eq("id", documentId)
     .eq("teacher_id", uid)
     .maybeSingle();
   if (!doc) return NextResponse.json({ error: "not found" }, { status: 404 });
+  // 말투 자료(kind='style')는 "AI가 어떻게 답해야 하는가"라 출제하면 학생에게 무의미한 문제가 나온다
+  if (doc.kind === "style")
+    return NextResponse.json(
+      { error: "말투 자료로는 문제를 만들 수 없어요. 문제·풀이 자료를 골라주세요." },
+      { status: 400 }
+    );
 
   let made;
   try {

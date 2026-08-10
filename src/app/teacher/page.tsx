@@ -481,7 +481,7 @@ function Dashboard({ session }: { session: Session }) {
                 <div className="text-[14px] min-w-0">
                   <div className="flex items-center gap-1.5 mb-1 flex-wrap">
                     <span className="chip !py-0.5 !px-2 !text-[11px]">
-                      문제
+                      {d.kind === "style" ? "말투" : "문제"}
                     </span>
                     {d.source === "pdf" && <span className="chip !py-0.5 !px-2 !text-[11px]">PDF</span>}
                     <span className="text-sub text-[11px]">청크 {d.chunks}개</span>
@@ -490,13 +490,16 @@ function Dashboard({ session }: { session: Session }) {
                   <p className="text-sub text-[13px] break-words">{d.preview}</p>
                 </div>
                 <div className="shrink-0 flex flex-col gap-2 items-end">
-                  <button
-                    onClick={() => makeQuiz(d.id)}
-                    disabled={quizBusy === d.id}
-                    className="text-[13px] text-blue disabled:opacity-50"
-                  >
-                    {quizBusy === d.id ? "만드는 중…" : "문제 만들기"}
-                  </button>
+                  {/* 말투 자료는 "AI가 어떻게 답할지" 지시문이라 출제 대상이 아니다 (서버도 400으로 막음) */}
+                  {d.kind !== "style" && (
+                    <button
+                      onClick={() => makeQuiz(d.id)}
+                      disabled={quizBusy === d.id}
+                      className="text-[13px] text-blue disabled:opacity-50"
+                    >
+                      {quizBusy === d.id ? "만드는 중…" : "문제 만들기"}
+                    </button>
+                  )}
                   {d.source === "text" && (
                     <button
                       onClick={() => { setEditId(d.id); setEditText(d.raw); }}
