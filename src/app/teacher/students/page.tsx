@@ -15,7 +15,7 @@ type Student = {
 
 // 학생별 리포트 (Khanmigo 교사 리포트 패턴) — 누가 얼마나 묻는지, 어디서 막히는지.
 export default function StudentsPage() {
-  const { session, gate } = useGate("teacher");
+  const { session, gate, allowed } = useGate("teacher");
   const [days, setDays] = useState(14);
   const [students, setStudents] = useState<Student[] | null>(null);
   // 초기화 결과는 한 번만 내려오므로(저장 안 함) 화면에 띄워두고 강사가 학생에게 전달한다
@@ -24,7 +24,7 @@ export default function StudentsPage() {
   const [busy, setBusy] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!session) return;
+    if (!allowed || !session) return;
     fetch("/api/students", { headers: { Authorization: `Bearer ${session.access_token}` } })
       .then((r) => r.json())
       .then((d) => {
@@ -32,10 +32,10 @@ export default function StudentsPage() {
         setStudents(d.students ?? []);
       })
       .catch(() => setStudents([]));
-  }, [session]);
+  }, [allowed, session]);
 
   async function resetPw(studentId: string, name: string) {
-    if (!session) return;
+    if (!allowed || !session) return;
     if (!confirm(`${name} 학생의 비밀번호를 임시 비밀번호로 바꿀까요?
 지금 쓰던 비밀번호는 즉시 못 쓰게 돼요.`)) return;
     setBusy(studentId);

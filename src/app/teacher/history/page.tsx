@@ -13,7 +13,7 @@ type Msg = {
 };
 
 export default function HistoryPage() {
-  const { session, gate } = useGate("teacher");
+  const { session, gate, allowed } = useGate("teacher");
   const [convs, setConvs] = useState<Conv[] | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
   const [msgs, setMsgs] = useState<Record<string, Msg[]>>({});
@@ -21,12 +21,12 @@ export default function HistoryPage() {
   const [onlyFlagged, setOnlyFlagged] = useState(false); // 미해결(👎) 큐 필터
 
   useEffect(() => {
-    if (!session) return;
+    if (!allowed || !session) return;
     fetch("/api/conversations", { headers: { Authorization: `Bearer ${session.access_token}` } })
       .then((r) => r.json())
       .then((d) => setConvs(d.conversations ?? []))
       .catch(() => setConvs([]));
-  }, [session]);
+  }, [allowed, session]);
 
   async function toggle(id: string) {
     if (openId === id) {

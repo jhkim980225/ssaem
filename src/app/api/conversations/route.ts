@@ -87,5 +87,6 @@ export async function GET(req: Request) {
       needs_review: flagged.has(c.id),
     }))
     .filter((c) => c.messages > 0); // 중간 이탈로 빈 대화는 숨김
-  return NextResponse.json({ conversations, role: asStudent ? "student" : "teacher" });
+  // 실제 role 그대로 — 3개를 2개로 접으면 /ask가 원장에게 "강사 계정"이라고 표시한다
+  return NextResponse.json({ conversations, role: me?.role ?? null });
 }

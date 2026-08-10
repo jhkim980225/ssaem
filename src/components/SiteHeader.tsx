@@ -2,17 +2,31 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { SHOW_PRICING } from "@/lib/flags";
+import { useSession, useRole, type Role } from "@/lib/role";
 
-const NAV = [
-  { href: "/ask", label: "질문하기" },
-  { href: "/quiz", label: "문제풀이" },
-  { href: "/teacher", label: "강사 공간" },
-  { href: "/admin", label: "학원장" },
-  ...(SHOW_PRICING ? ([{ href: "/pricing", label: "요금제" }] as const) : []),
-];
+// 내 역할에 해당하는 링크만 보여준다. 전부 깔면 좁은 화면에서 잘리고, 원장에게
+// "강사 공간"을 보여줘 봐야 눌러도 거부 화면만 나온다.
+function navFor(role: Role | undefined, signedIn: boolean) {
+  const pricing = SHOW_PRICING ? [{ href: "/pricing", label: "요금제" }] : [];
+  if (!signedIn) return [...pricing, { href: "/login", label: "로그인" }];
+  if (role === "admin") return [...pricing, { href: "/admin", label: "학원장" }];
+  if (role === "teacher" || role === null)
+    return [...pricing, { href: "/teacher", label: "강사 공간" }, { href: "/ask", label: "질문하기" }];
+  if (role === "student")
+    return [
+      ...pricing,
+      { href: "/ask", label: "질문하기" },
+      { href: "/quiz", label: "문제풀이" },
+      { href: "/quiz/notes", label: "오답노트" },
+    ];
+  return pricing; // 역할 조회 중 — 확정되면 채운다
+}
 
 export default function SiteHeader() {
   const pathname = usePathname();
+  const { session } = useSession();
+  const role = useRole(session);
+  const nav = navFor(role, Boolean(session));
 
   return (
     <header
@@ -30,7 +44,7 @@ export default function SiteHeader() {
         </Link>
 
         {/* 좁은 화면에선 내비가 가로 스크롤 — 페이지 전체가 밀려나지 않게 */}
-        <nav className="flex items-center gap-0.5 sm:gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <nav className="flex items-center gap-0.5 sm:gap-1 min-w-0 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           <button
             onClick={() => {
               const cur =
@@ -55,7 +69,7 @@ export default function SiteHeader() {
               />
             </svg>
           </button>
-          {NAV.map((n) => {
+          {nav.map((n) => {
             const active = pathname === n.href || pathname.startsWith(n.href + "/");
             return (
               <Link

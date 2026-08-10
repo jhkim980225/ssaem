@@ -42,15 +42,14 @@ export default function AskPage() {
   const [popular, setPopular] = useState<Popular | null>(null);
 
   // 질문은 로그인 계정에서만 — 익명 질문은 이력이 안 남고 남용 방어도 IP뿐이라 닫았다
-  const { session, gate } = useGate("any", {
+  const { session, gate, role, allowed } = useGate("any", {
     loginMessage: "질문하려면 로그인해 주세요. 대화는 계정에 저장돼요.",
   });
-  const [role, setRole] = useState<"student" | "teacher" | null>(null);
   const [convs, setConvs] = useState<Conv[]>([]);
 
   // 강사 목록 — 세션 확정 후 로드 (로그인 학생은 초대된 비공개 강사 포함)
   useEffect(() => {
-    if (!session) return;
+    if (!allowed || !session) return;
     // 멀티테넌트: /ask?academy=<slug> 로 학원 한정 (미지정 시 전체)
     const params = new URLSearchParams(window.location.search);
     const academy = params.get("academy");
@@ -71,45 +70,42 @@ export default function AskPage() {
         setErr("선생님 목록을 불러오지 못했어요. 새로고침해 주세요.");
         setTeachers([]);
       });
-  }, [session]);
+  }, [allowed, session]);
 
   // 요즘 많이 묻는 질문 · 강사별 비중 (선택 강사 있으면 그 강사 기준)
   useEffect(() => {
     const t = chat?.teacherId;
-    if (!session) return;
+    if (!allowed || !session) return;
     fetch(`/api/popular${t ? `?teacher=${t}` : ""}`, {
       headers: { Authorization: `Bearer ${session.access_token}` },
     })
       .then((r) => r.json())
       .then((d) => setPopular({ questions: d.questions ?? [], byTeacher: d.byTeacher ?? [] }))
       .catch(() => setPopular({ questions: [], byTeacher: [] }));
-  }, [chat?.teacherId, session]);
+  }, [chat?.teacherId, allowed, session]);
 
-  // 로그인 시 내 이력 로드 (강사 계정이면 숨김 — /teacher/history 사용)
+  // 학생 이력만 로드 (강사·원장은 /teacher/history, /admin 사용)
   useEffect(() => {
-    if (!session) return;
+    if (!session || role !== "student") return;
     fetch("/api/conversations", {
       headers: { Authorization: `Bearer ${session.access_token}` },
     })
       .then((r) => r.json())
-      .then((d) => {
-        setRole(d.role ?? null);
-        setConvs(d.role === "student" ? d.conversations ?? [] : []);
-      })
+      .then((d) => setConvs(d.conversations ?? []))
       .catch(() => setConvs([]));
-  }, [session]);
+  }, [session, role]);
 
   // 강사 선택 시 그 강사의 강좌 목록 로드
   useEffect(() => {
     const tid = chat?.teacherId;
-    if (!tid || !session) return;
+    if (!allowed || !tid || !session) return;
     fetch(`/api/courses?teacher=${tid}`, {
       headers: { Authorization: `Bearer ${session.access_token}` },
     })
       .then((r) => r.json())
       .then((d) => setCourseData({ teacherId: tid, courses: d.courses ?? [] }))
       .catch(() => setCourseData({ teacherId: tid, courses: [] }));
-  }, [chat?.teacherId, session]);
+  }, [chat?.teacherId, allowed, session]);
 
   const courses = courseData && courseData.teacherId === chat?.teacherId ? courseData.courses : [];
 
@@ -520,14 +516,15 @@ export default function AskPage() {
   );
 }
 
-// 학생 로그인/가입. 로그인 없이도 질문 가능 — 로그인하면 이력이 계정에 저장됨.
-// 학생 로그인/가입은 /login으로 일원화. 로그인 없이도 질문 가능하므로 여기선 링크만.
-function StudentAuth({ session, role }: { session: Session | null; role: string | null }) {
+// 계정 표시 + 로그아웃. 로그인/가입은 /login으로 일원화.
+const ROLE_LABEL: Record<string, string> = { teacher: "강사 계정", admin: "학원장 계정" };
+
+function StudentAuth({ session, role }: { session: Session | null; role: string | null | undefined }) {
   if (session) {
     return (
       <div className="flex items-center gap-2 text-[13px]">
         <span className="font-bold truncate max-w-[180px]">
-          {role === "teacher" ? "강사 계정" : session.user.email?.replace(/@ssaem\.kr$/, "")}
+          {(role && ROLE_LABEL[role]) ?? session.user.email?.replace(/@ssaem\.kr$/, "")}
         </span>
         <button className="text-sub text-[12px]" onClick={() => supabase.auth.signOut()}>
           로그아웃

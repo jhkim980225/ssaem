@@ -1,9 +1,9 @@
 "use client";
-import { useEffect, useState, type ReactNode } from "react";
+import { type ReactNode } from "react";
 import Link from "next/link";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
-import { useRole, homeFor, type Role } from "@/lib/role";
+import { useSession, useRole, homeFor, type Role } from "@/lib/role";
 
 const LABEL: Record<"teacher" | "admin" | "student", string> = {
   teacher: "강사",
@@ -27,19 +27,9 @@ export function useGate(
     /** 비로그인일 때 기본 안내 대신 그릴 것 (원장 가입 폼처럼 그 페이지에만 있는 진입로) */
     loginRender?: ReactNode;
   } = {}
-): { session: Session | null; role: Role | undefined; gate: ReactNode | null } {
-  const [session, setSession] = useState<Session | null>(null);
-  const [ready, setReady] = useState(false);
+): { session: Session | null; role: Role | undefined; gate: ReactNode | null; allowed: boolean } {
+  const { session, ready } = useSession();
   const role = useRole(session);
-
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session);
-      setReady(true);
-    });
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => setSession(s));
-    return () => sub.subscription.unsubscribe();
-  }, []);
 
   const loginAs = opts.loginAs ?? (need === "teacher" || need === "admin" ? "teacher" : "student");
 
@@ -51,7 +41,9 @@ export function useGate(
   else if (need !== "any" && role !== need && !(role === null && opts.allowNoProfile))
     gate = <WrongRole need={need} role={role} />;
 
-  return { session, role, gate };
+  // 데이터 페치 이펙트는 이걸 보고 돌아야 한다. session만 보면 권한 없는 사용자도 요청을 쏴서
+  // 403이 콘솔에 찍힌다 (거부 화면이 뜨는 것과 별개로 불필요한 요청).
+  return { session, role, gate, allowed: gate === null };
 }
 
 // 역할 조회 중 표시할 자리

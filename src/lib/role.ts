@@ -1,8 +1,27 @@
 "use client";
 import { useEffect, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
+import { supabase } from "@/lib/supabase";
 
 export type Role = "teacher" | "student" | "admin" | null;
+
+// 현재 세션 구독. ready=false면 아직 조회 전 (로그인 여부를 단정하면 안 되는 구간).
+export function useSession(): { session: Session | null; ready: boolean } {
+  const [state, setState] = useState<{ session: Session | null; ready: boolean }>({
+    session: null,
+    ready: false,
+  });
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => setState({ session: data.session, ready: true }));
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) =>
+      setState({ session: s, ready: true })
+    );
+    return () => sub.subscription.unsubscribe();
+  }, []);
+
+  return state;
+}
 
 // uid → role. 페이지를 옮길 때마다 /api/profile을 다시 부르면 이동이 눈에 띄게 느려진다.
 // 탭을 새로 열면 비므로 stale 위험은 세션 1회 수준 — 서버가 어차피 401/403으로 최종 판정한다.

@@ -16,19 +16,19 @@ type Msg = { id: string; role: "user" | "assistant"; content: string; created_at
 
 // 학생 대화내역 — /ask 좌측 목록은 좁아서, 전체를 펼쳐 보는 전용 화면.
 export default function MyHistoryPage() {
-  const { session, gate } = useGate("student", { loginMessage: "대화내역은 계정에 저장돼요." });
+  const { session, gate, allowed } = useGate("student", { loginMessage: "대화내역은 계정에 저장돼요." });
   const [convs, setConvs] = useState<Conv[] | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
   const [msgs, setMsgs] = useState<Record<string, Msg[]>>({});
   const [msgErr, setMsgErr] = useState<Record<string, string>>({});
 
   useEffect(() => {
-    if (!session) return;
+    if (!allowed || !session) return;
     fetch("/api/conversations", { headers: { Authorization: `Bearer ${session.access_token}` } })
       .then((r) => r.json())
       .then((d) => setConvs(d.conversations ?? []))
       .catch(() => setConvs([]));
-  }, [session]);
+  }, [allowed, session]);
 
   async function toggle(id: string) {
     if (openId === id) return setOpenId(null);

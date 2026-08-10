@@ -12,17 +12,17 @@ type Insights = {
 };
 
 export default function InsightsPage() {
-  const { session, gate } = useGate("teacher");
+  const { session, gate, allowed } = useGate("teacher");
   const [data, setData] = useState<Insights | null>(null);
   const [err, setErr] = useState("");
 
   useEffect(() => {
-    if (!session) return;
+    if (!allowed || !session) return;
     fetch("/api/insights", { headers: { Authorization: `Bearer ${session.access_token}` } })
       .then((r) => r.json())
       .then((d) => (d.error ? setErr(d.error) : setData(d)))
       .catch(() => setErr("불러오기 실패"));
-  }, [session]);
+  }, [allowed, session]);
 
   if (gate) return gate;
 

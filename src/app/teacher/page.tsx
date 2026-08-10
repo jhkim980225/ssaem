@@ -70,7 +70,8 @@ function Dashboard({ session }: { session: Session }) {
   const [subject, setSubject] = useState("");
   const [toneNote, setToneNote] = useState("");
   const [isPublic, setIsPublic] = useState(true);
-  const [savedProfile, setSavedProfile] = useState(false);
+  // null = /api/profile 응답 전. false로 두면 이미 저장된 강사에게도 "먼저 저장하세요"가 잠깐 뜬다
+  const [savedProfile, setSavedProfile] = useState<boolean | null>(null);
   const [invite, setInvite] = useState<{ url: string; qrSvg: string } | null>(null);
   const [copied, setCopied] = useState(false);
 
@@ -148,9 +149,9 @@ function Dashboard({ session }: { session: Session }) {
           setToneNote(d.profile.tone_note ?? "");
           setIsPublic(d.profile.is_public ?? true);
           setSavedProfile(true);
-        }
+        } else setSavedProfile(false);
       })
-      .catch(() => {});
+      .catch(() => setSavedProfile(false));
     fetch("/api/invite", { headers: { Authorization: `Bearer ${token}` } })
       .then((r) => r.json())
       .then((d) => d.url && setInvite({ url: d.url, qrSvg: d.qrSvg }))
@@ -275,7 +276,8 @@ function Dashboard({ session }: { session: Session }) {
       {/* 프로필 */}
       <section className="rise d1 card p-5 lg:p-6 flex flex-col gap-3">
         <h2 className="font-bold text-[17px]">
-          내 프로필 {!savedProfile && <span className="text-blue text-[13px]">· 먼저 저장하세요</span>}
+          내 프로필{" "}
+          {savedProfile === false && <span className="text-blue text-[13px]">· 먼저 저장하세요</span>}
         </h2>
         <input className="field" placeholder="이름 (학생에게 표시)" value={name} onChange={(e) => setName(e.target.value)} />
         <input className="field" placeholder="과목 (예: 전산회계 2급)" value={subject} onChange={(e) => setSubject(e.target.value)} />
@@ -542,7 +544,9 @@ function Dashboard({ session }: { session: Session }) {
         <p className="text-sub text-[13px] -mt-1">
           등록한 자료로 어떻게 답하는지 바로 확인하세요.
         </p>
-        {savedProfile ? (
+        {savedProfile === null ? (
+          <div className="skel h-32 !rounded-[16px]" />
+        ) : savedProfile ? (
           /* token 없으면 자가 테스트가 익명 학생 질문으로 집계돼 인사이트를 오염시킴 */
           <ChatPanel teacherId={uid} teacherName={name || "나"} compact token={token} />
         ) : (
