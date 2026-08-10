@@ -370,8 +370,13 @@ export default function ChatPanel({
 
       <div className="flex gap-2 mt-3 items-end pb-[env(safe-area-inset-bottom)]">
         <textarea
-          className="field !rounded-[26px] resize-none leading-snug"
-          placeholder="질문 입력 (Shift+Enter 줄바꿈)"
+          className="field !rounded-[26px] resize-none leading-snug disabled:opacity-60"
+          // 답변 생성 중엔 send()가 조용히 return한다 — 입력은 되는데 Enter가 무반응이면
+          // 사용자는 앱이 멈춘 줄 안다. 막을 거면 막혔다고 보이게 한다.
+          disabled={loading || streaming}
+          placeholder={
+            loading || streaming ? "답변 중이에요. 끝나면 이어서 물어보세요" : "질문 입력 (Shift+Enter 줄바꿈)"
+          }
           rows={Math.min(4, Math.max(1, q.split("\n").length))}
           value={q}
           onChange={(e) => setQ(e.target.value)}

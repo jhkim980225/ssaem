@@ -156,9 +156,15 @@ function Dashboard({ session }: { session: Session }) {
       .then((r) => r.json())
       .then((d) => d.url && setInvite({ url: d.url, qrSvg: d.qrSvg }))
       .catch(() => {});
+  }, [token]);
+
+  // 프로필을 저장해야 role=teacher가 되고 자료 API가 열린다.
+  // 저장 전에 부르면 403이라 "불러오지 못했어요" 배너가 첫 화면부터 뜬다.
+  useEffect(() => {
+    if (savedProfile !== true) return;
     // eslint-disable-next-line react-hooks/set-state-in-effect -- async 함수라 setState는 await 이후, 동기 캐스케이드 아님
     loadDocs();
-  }, [token, loadDocs]);
+  }, [savedProfile, loadDocs]);
 
   async function saveProfile() {
     say("");
@@ -304,6 +310,15 @@ function Dashboard({ session }: { session: Session }) {
       </section>
 
       {/* 학생 초대 */}
+      {savedProfile === false && (
+        <section className="rise d2 card p-5 lg:p-6">
+          <h2 className="font-bold text-[17px]">먼저 프로필을 저장해 주세요</h2>
+          <p className="text-sub text-[14px] mt-1.5 leading-relaxed">
+            이름과 과목을 저장해야 자료 등록·학생 초대를 쓸 수 있어요. 위에서 저장하면 바로 열려요.
+          </p>
+        </section>
+      )}
+
       {savedProfile && invite && (
         <section className="rise d2 card p-5 lg:p-6 flex flex-col gap-3">
           <h2 className="font-bold text-[17px]">학생 초대</h2>

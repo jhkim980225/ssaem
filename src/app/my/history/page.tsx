@@ -148,7 +148,7 @@ export default function MyHistoryPage() {
                   href={`/ask?teacher=${c.teacher_id}`}
                   className="btn btn-ghost py-2.5 text-[13px] text-center mt-1"
                 >
-                  이 선생님께 이어서 질문하기
+                  이 선생님께 새로 질문하기
                 </Link>
               </div>
             )}

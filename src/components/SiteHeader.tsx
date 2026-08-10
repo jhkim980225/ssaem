@@ -12,13 +12,9 @@ function navFor(role: Role | undefined, signedIn: boolean) {
   if (role === "admin") return [...pricing, { href: "/admin", label: "학원장" }];
   if (role === "teacher" || role === null)
     return [...pricing, { href: "/teacher", label: "강사 공간" }, { href: "/ask", label: "질문하기" }];
+  // 375px에 로고까지 얹으면 3개부터 화면 밖으로 밀린다. 오답노트는 /quiz 안에서 간다.
   if (role === "student")
-    return [
-      ...pricing,
-      { href: "/ask", label: "질문하기" },
-      { href: "/quiz", label: "문제풀이" },
-      { href: "/quiz/notes", label: "오답노트" },
-    ];
+    return [...pricing, { href: "/ask", label: "질문하기" }, { href: "/quiz", label: "문제풀이" }];
   return pricing; // 역할 조회 중 — 확정되면 채운다
 }
 
@@ -70,7 +66,12 @@ export default function SiteHeader() {
             </svg>
           </button>
           {nav.map((n) => {
-            const active = pathname === n.href || pathname.startsWith(n.href + "/");
+            // prefix로만 보면 /quiz/notes에서 "문제풀이"와 "오답노트"가 동시에 켜진다.
+            // 후보 중 가장 긴 것 하나만 활성으로 본다.
+            const match = nav
+              .filter((x) => pathname === x.href || pathname.startsWith(x.href + "/"))
+              .sort((a, b) => b.href.length - a.href.length)[0];
+            const active = match?.href === n.href;
             return (
               <Link
                 key={n.href}

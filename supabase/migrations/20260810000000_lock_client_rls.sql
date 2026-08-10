@@ -60,3 +60,27 @@ alter table plan_inquiries     enable row level security;
 -- 확인: rowsecurity가 전부 true, 남은 정책 0건이어야 한다
 select tablename, rowsecurity from pg_tables where schemaname = 'public' order by tablename;
 select count(*) as remaining_policies from pg_policies where schemaname = 'public';
+
+-- ─────────────────────────────────────────────
+-- 검색에서 말투 자료 제외
+-- ─────────────────────────────────────────────
+-- kind='style'은 "AI가 어떻게 답할지" 적은 강사 내부 지시문이다. 근거로 잡히면
+-- 학생 화면 '출처'에 그 지시문이 그대로 보인다. (앱에서도 한 번 더 거르지만 원천에서 막는다.)
+create or replace function match_chunks(
+  p_teacher uuid,
+  p_query vector(1536),
+  p_k int default 5,
+  p_course uuid default null
+) returns table (id uuid, document_id uuid, content text, kind text, similarity float)
+language sql stable as $$
+  select c.id, c.document_id, c.content, d.kind,
+         1 - (c.embedding <=> p_query) as similarity
+  from chunks c
+  join documents d on d.id = c.document_id
+  where c.teacher_id = p_teacher
+    and c.embedding is not null
+    and d.kind <> 'style'
+    and (p_course is null or d.course_id is null or d.course_id = p_course)
+  order by c.embedding <=> p_query
+  limit p_k;
+$$;
