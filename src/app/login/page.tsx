@@ -61,7 +61,10 @@ function LoginInner() {
           email: id.trim(),
           password: pw,
           name: name.trim() || id.trim(),
-          inviteCode: invite.trim(),
+          // 같은 칸을 역할별로 다르게 쓴다 — 강사는 전역/원장 초대코드, 학생은 강사 초대코드
+          ...(role === "student"
+            ? { studentInviteCode: invite.trim() }
+            : { inviteCode: invite.trim() }),
           academySlug,
         }),
       });
@@ -136,13 +139,18 @@ function LoginInner() {
               value={name}
               onChange={(e) => setName(e.target.value)}
             />
-            {role === "teacher" && (
-              <input
-                className="field"
-                placeholder="초대코드"
-                value={invite}
-                onChange={(e) => setInvite(e.target.value)}
-              />
+            <input
+              className="field"
+              placeholder={role === "teacher" ? "초대코드" : "선생님 초대코드 (선택)"}
+              autoCapitalize="none"
+              autoCorrect="off"
+              value={invite}
+              onChange={(e) => setInvite(e.target.value)}
+            />
+            {role === "student" && (
+              <p className="text-sub text-[12px] -mt-1.5 leading-relaxed">
+                선생님께 받은 코드를 넣으면 그 선생님 반에 바로 등록돼요. 없으면 비워두세요.
+              </p>
             )}
           </>
         )}

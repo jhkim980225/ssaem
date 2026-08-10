@@ -24,6 +24,8 @@ export async function POST(req: Request) {
   const password = (body?.password ?? "").toString();
   const inviteCode = (body?.inviteCode ?? "").toString().trim();
   const teacherInviteCode = (body?.teacherInviteCode ?? "").toString().trim();
+  // 학생이 강사에게 받은 초대코드 (선택). 넣으면 그 강사의 학원으로 소속이 정해진다
+  const studentInviteCode = (body?.studentInviteCode ?? "").toString().trim();
   const role = body?.role === "student" ? "student" : body?.role === "admin" ? "admin" : "teacher";
   const name = (body?.name ?? "").toString().trim();
   const academyName = (body?.academyName ?? "").toString().trim().slice(0, 50);
@@ -63,6 +65,23 @@ export async function POST(req: Request) {
   } else if (!name) {
     return NextResponse.json({ error: "이름을 입력하세요" }, { status: 400 });
   }
+  // 학생 초대코드: 계정을 만들기 전에 검증해야 실패 시 유령 계정이 안 남는다
+  let invitedTeacherAcademyId: string | null = null;
+  if (role === "student" && studentInviteCode) {
+    const teacherId = verifyInviteCode(studentInviteCode);
+    if (!teacherId)
+      return NextResponse.json({ error: "선생님 초대코드가 올바르지 않아요" }, { status: 403 });
+    const { data: t } = await db
+      .from("profiles")
+      .select("academy_id")
+      .eq("id", teacherId)
+      .eq("role", "teacher")
+      .maybeSingle();
+    if (!t?.academy_id)
+      return NextResponse.json({ error: "초대한 선생님을 찾을 수 없어요" }, { status: 404 });
+    invitedTeacherAcademyId = t.academy_id;
+  }
+
   if (role === "admin") {
     if (!academyName) return NextResponse.json({ error: "학원 이름을 입력하세요" }, { status: 400 });
     // 학원 개설도 초대코드로 게이트 — 공개 배포에서 누구나 학원을 만드는 것 차단
@@ -110,7 +129,8 @@ export async function POST(req: Request) {
   }
 
   if (role === "student" && uid) {
-    const academyId = await resolveAcademy(db, academySlug);
+    // 초대코드로 온 학생은 그 선생님의 학원으로. 없으면 slug(또는 기본 학원)
+    const academyId = invitedTeacherAcademyId ?? (await resolveAcademy(db, academySlug));
     const { error: perr } = await db
       .from("profiles")
       .upsert({ id: uid, academy_id: academyId, role: "student", name });

@@ -304,6 +304,72 @@ async function main() {
     );
   }
 
+  // ── 7.5 학생 가입 초대코드
+  section("학생 가입 초대코드");
+  {
+    const inv = await json("/api/invite", { headers: bearer(teacherTok) });
+    const code = (inv.body?.url ?? "").split("/join/")[1] ?? "";
+    ok("강사 초대 코드 발급", Boolean(code));
+
+    ok(
+      "잘못된 초대코드 가입 거부",
+      (await status("/api/signup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          role: "student",
+          email: `e2einv${Date.now()}`,
+          password: "12345678",
+          name: "[E2E]초대",
+          studentInviteCode: "nope-not-a-code",
+        }),
+      })) === 403
+    );
+
+    if (code) {
+      const sid = `e2einv${Date.now()}`;
+      const made = await json("/api/signup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          role: "student",
+          email: sid,
+          password: "12345678",
+          name: "[E2E]초대학생",
+          studentInviteCode: code,
+        }),
+      });
+      ok("초대코드 가입 200", made.status === 200, `status=${made.status}`);
+      const newUid = made.body?.userId;
+      if (newUid) {
+        // 초대한 강사의 학원으로 소속되고, 그 강사 반에 수강 연결됐는지
+        const { data: prof } = await db
+          .from("profiles")
+          .select("academy_id, role")
+          .eq("id", newUid)
+          .maybeSingle();
+        const { data: teacherProf } = await db
+          .from("profiles")
+          .select("academy_id")
+          .eq("id", t0.id)
+          .maybeSingle();
+        ok("학생 role 저장", prof?.role === "student");
+        ok(
+          "초대한 강사의 학원으로 소속",
+          Boolean(prof?.academy_id) && prof?.academy_id === teacherProf?.academy_id
+        );
+        const { count } = await db
+          .from("enrollments")
+          .select("student_id", { count: "exact", head: true })
+          .eq("student_id", newUid);
+        ok("수강 연결 생성", (count ?? 0) > 0, `${count}건`);
+        await db.from("enrollments").delete().eq("student_id", newUid);
+        await db.from("profiles").delete().eq("id", newUid);
+        await db.auth.admin.deleteUser(newUid);
+      }
+    }
+  }
+
   // ── 8. 요금제 문의
   section("요금제 문의");
   const hasInq = await tableExists("plan_inquiries", "contact");
