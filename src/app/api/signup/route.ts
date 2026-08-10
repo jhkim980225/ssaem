@@ -10,11 +10,6 @@ import { toEmail, isValidId, enrollToAcademyTeachers } from "@/lib/account";
 // - teacher: 원장 초대 코드(teacherInviteCode) 또는 전역 INVITE_CODE
 // - student: 이름만 (초대 링크 경유 시 /api/join이 수강 연결)
 export async function POST(req: Request) {
-  // 대량 계정 생성 방어 — IP당 시간당 5회 (dev는 100 — e2e 반복 실행용)
-  const limit = process.env.NODE_ENV === "production" ? 5 : 100;
-  if (!rateLimit(`signup:${clientIp(req)}`, limit, 3_600_000))
-    return NextResponse.json({ error: "가입 시도가 너무 잦아요. 잠시 후 다시" }, { status: 429 });
-
   const body = await req.json().catch(() => null);
   // 아이디 또는 이메일 — 아이디면 내부 이메일로 매핑 (@ 없으면 아이디로 취급)
   const rawId = (body?.email ?? body?.id ?? "").toString().trim();
@@ -30,6 +25,14 @@ export async function POST(req: Request) {
   const name = (body?.name ?? "").toString().trim();
   const academyName = (body?.academyName ?? "").toString().trim().slice(0, 50);
   const academySlug = (body?.academySlug ?? "").toString().trim() || null;
+
+  // 대량 계정 생성 방어. 학원은 공인 IP 하나를 30명이 함께 쓰므로(교실 단체 가입)
+  // IP당 5회로 잡으면 온보딩 첫날 6번째 학생부터 막힌다.
+  // 초대 코드는 HMAC 서명이라 위조가 안 되니, 코드를 들고 온 가입은 한도를 넉넉히 준다.
+  const invited = Boolean(studentInviteCode || teacherInviteCode);
+  const limit = process.env.NODE_ENV !== "production" ? 100 : invited ? 60 : 5;
+  if (!rateLimit(`signup:${invited ? "inv:" : ""}${clientIp(req)}`, limit, 3_600_000))
+    return NextResponse.json({ error: "가입 시도가 너무 잦아요. 잠시 후 다시" }, { status: 429 });
 
   if (!email || !password)
     return NextResponse.json({ error: "이메일과 비밀번호를 입력하세요" }, { status: 400 });

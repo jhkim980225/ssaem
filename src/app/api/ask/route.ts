@@ -4,7 +4,7 @@ import { retrieve } from "@/lib/retrieve";
 import { generateStream, llmModel, hasLlmKey } from "@/lib/anthropic";
 import { buildTutorSystem } from "@/lib/prompt";
 import { requireUser } from "@/lib/auth";
-import { rateLimit, clientIp } from "@/lib/ratelimit";
+import { rateLimit } from "@/lib/ratelimit";
 import { askLimitError } from "@/lib/plan";
 
 const HISTORY_LIMIT = 10; // 직전 메시지 N개만 맥락으로 (토큰 방어)
@@ -16,8 +16,10 @@ export async function POST(req: Request) {
   if ("res" in gate) return gate.res;
   const studentId = gate.uid;
 
-  // IP당 분당 20회 (LLM 비용 방어)
-  if (!rateLimit(`ask:${clientIp(req)}`, 20, 60_000))
+  // 계정당 분당 20회 (LLM 비용 방어).
+  // IP 기준으로 잡으면 같은 교실에서 30명이 동시에 물을 때 학원 하나가 20건을 나눠 쓴다 —
+  // 로그인 필수가 된 뒤로는 uid가 정확한 단위다.
+  if (!rateLimit(`ask:${studentId}`, 20, 60_000))
     return NextResponse.json(
       { error: "질문이 너무 잦아요. 잠시 후 다시 시도해 주세요." },
       { status: 429 }
