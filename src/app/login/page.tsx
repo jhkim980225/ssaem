@@ -179,11 +179,6 @@ function LoginInner() {
           </Link>
         )}
 
-        {role === "student" && (
-          <Link href="/ask" className="text-sub text-[13px] text-center pt-1">
-            로그인 없이 먼저 둘러보기
-          </Link>
-        )}
       </div>
     </main>
   );
