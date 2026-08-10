@@ -12,11 +12,6 @@ export default function SiteFooter() {
               <span className="grid place-items-center w-7 h-7 rounded-[9px] bg-blue text-white text-[12px] font-extrabold">마</span>
               마스터 전산회계 학원
             </p>
-            <p className="mt-3 text-[13px] text-sub leading-relaxed">
-              선생님이 올린 문제·풀이를 근거로
-              <br />
-              학생 질문에 답하는 AI 튜터예요.
-            </p>
           </div>
 
           <div className="flex gap-14">

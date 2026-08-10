@@ -111,13 +111,7 @@ function LoginInner() {
       <h1 className="rise d1 text-[24px] font-extrabold">
         {role === "teacher" ? "강사" : "학생"} {mode === "login" ? "로그인" : "회원가입"}
       </h1>
-      <p className="rise d1 text-sub text-[14px] mt-1.5 mb-6 leading-relaxed">
-        {role === "teacher"
-          ? "내 자료로 답하는 AI 튜터를 만들고 관리해요."
-          : "선생님 자료를 근거로 궁금한 걸 물어봐요."}
-      </p>
-
-      <div className="rise d2 flex flex-col gap-3">
+      <div className="rise d2 mt-6 flex flex-col gap-3">
         <input
           className="field"
           placeholder="아이디 (이메일도 가능)"
