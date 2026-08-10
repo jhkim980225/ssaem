@@ -79,13 +79,35 @@ function LoginInner() {
       email: toEmail(id),
       password: pw,
     });
-    setBusy(false);
     if (error) {
+      setBusy(false);
       setErr(mode === "login" ? "아이디나 비밀번호가 맞지 않아요." : error.message);
       return;
     }
-    // 착지 화면은 서버가 아는 실제 역할로 결정. 학생이 강사 탭으로 로그인해도 /teacher로 안 감.
-    router.replace(homeFor(await fetchRole(signed.session!.access_token)));
+
+    // 역할은 항상 서버 profiles 기준. 탭 선택값은 "이 탭으로는 이 역할만"이라는 필터일 뿐,
+    // 역할을 정하는 근거로는 절대 쓰지 않는다 (탭을 신뢰하면 권한 상승이 된다).
+    const realRole = await fetchRole(signed.session!.access_token);
+    // 강사 탭은 role=null(가입 직후, 프로필 저장 전)도 통과시켜야 프로필을 만들 수 있다
+    const fits =
+      role === "student" ? realRole === "student" : realRole === "teacher" || realRole === null;
+    if (!fits) {
+      await supabase.auth.signOut();
+      setBusy(false);
+      setErr(
+        realRole === "admin"
+          ? "학원장 계정이에요. 학원장 화면에서 로그인해 주세요."
+          : realRole === "student"
+            ? "학생 계정이에요. 학생 탭에서 로그인해 주세요."
+            : realRole === "teacher"
+              ? "강사 계정이에요. 강사 탭에서 로그인해 주세요."
+              : "이 탭으로는 로그인할 수 없는 계정이에요."
+      );
+      return;
+    }
+
+    setBusy(false);
+    router.replace(homeFor(realRole));
   }
 
   return (
