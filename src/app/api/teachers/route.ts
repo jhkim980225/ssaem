@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { serviceClient } from "@/lib/supabase";
-import { userFromRequest, requireUser } from "@/lib/auth";
+import { requireUser } from "@/lib/auth";
 
 // 강사 목록. 기본은 공개(is_public) 강사만, ?academy=<slug>로 학원 한정.
 // 로그인 학생이 Bearer로 호출하면 수강 연결(enrollments)된 비공개 강사도 포함 — 초대 기반 권한.
@@ -46,8 +46,8 @@ export async function GET(req: Request) {
   }));
 
   // 초대(수강 연결)된 강사 병합 — 비공개여도 학생에겐 보임
-  const uid = await userFromRequest(req);
-  if (uid) {
+  const uid = g.uid;
+  {
     const { data: enr } = await db
       .from("enrollments")
       .select("courses!inner(teacher_id)")
