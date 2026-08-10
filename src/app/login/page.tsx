@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { toEmail } from "@/lib/account";
-import { homeFor, type Role as RealRole } from "@/lib/role";
+import { homeFor, roleFitsTab, type Role as RealRole } from "@/lib/role";
 
 type Role = "teacher" | "student";
 
@@ -88,10 +88,7 @@ function LoginInner() {
     // 역할은 항상 서버 profiles 기준. 탭 선택값은 "이 탭으로는 이 역할만"이라는 필터일 뿐,
     // 역할을 정하는 근거로는 절대 쓰지 않는다 (탭을 신뢰하면 권한 상승이 된다).
     const realRole = await fetchRole(signed.session!.access_token);
-    // 강사 탭은 role=null(가입 직후, 프로필 저장 전)도 통과시켜야 프로필을 만들 수 있다
-    const fits =
-      role === "student" ? realRole === "student" : realRole === "teacher" || realRole === null;
-    if (!fits) {
+    if (!roleFitsTab(role, realRole)) {
       await supabase.auth.signOut();
       setBusy(false);
       setErr(

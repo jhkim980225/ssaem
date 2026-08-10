@@ -71,7 +71,9 @@ export async function DELETE(req: Request) {
   if ("res" in gate) return gate.res;
   const uid = gate.uid;
   const id = new URL(req.url).searchParams.get("id");
-  if (!id) return NextResponse.json({ error: "id required" }, { status: 400 });
+  // uuid 형식 검사 — 안 하면 잘못된 id가 그대로 DB로 가서 500이 난다 (400이 맞다)
+  if (!id || !/^[0-9a-f-]{36}$/i.test(id))
+    return NextResponse.json({ error: "id required" }, { status: 400 });
 
   const db = serviceClient();
   const { error } = await db.from("courses").delete().eq("id", id).eq("teacher_id", uid);

@@ -65,6 +65,13 @@ export function useRole(session: Session | null): Role | undefined {
   return cached !== undefined ? cached : undefined;
 }
 
+// /login 역할 탭은 "이 탭으로는 이 역할만"이라는 필터다.
+// 역할 판정 근거로는 절대 쓰지 않는다 — 탭을 신뢰하면 권한 상승이 된다.
+// 강사 탭이 null을 통과시키는 건 가입 직후(프로필 저장 전) 상태라, 막으면 프로필을 못 만든다.
+export function roleFitsTab(tab: "student" | "teacher", role: Role): boolean {
+  return tab === "student" ? role === "student" : role === "teacher" || role === null;
+}
+
 // 역할별 기본 착지 화면.
 // role=null(프로필 없음)은 강사 가입 직후 상태 — 학생·원장은 가입 시 프로필이 생기므로.
 // 그래서 프로필 설정 화면인 /teacher로 보낸다.
