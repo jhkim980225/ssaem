@@ -8,6 +8,11 @@ export const metadata: Metadata = {
   description: "선생님이 올린 문제·풀이를 근거로 답하는 학원 전용 AI 튜터",
   // iOS 홈 화면 실행 시 브라우저 UI 없이 앱처럼 (매니페스트만으론 iOS가 안 따름)
   appleWebApp: { capable: true, title: "마스터 전산회계", statusBarStyle: "default" },
+  other: {
+    // Next는 표준 `mobile-web-app-capable`만 내보낸다. iOS 16.4 미만은 이 구형 태그를 봐야
+    // 전체화면(standalone)으로 열린다 — 없으면 홈 화면에 추가해도 사파리 주소창이 남는다.
+    "apple-mobile-web-app-capable": "yes",
+  },
 };
 
 export const viewport: Viewport = {
