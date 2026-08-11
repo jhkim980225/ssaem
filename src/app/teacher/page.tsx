@@ -22,6 +22,15 @@ type Doc = {
 
 type Course = { id: string; title: string; documents: number };
 
+type Quiz = {
+  id: string;
+  question: string;
+  choices: string[];
+  answer: number;
+  explanation: string | null;
+  document_id: string | null;
+};
+
 const PAGE = 20; // 자료 목록 한 번에 보여줄 개수
 
 type DocEvent = {
@@ -82,6 +91,8 @@ function Dashboard({ session }: { session: Session }) {
   const [content, setContent] = useState("");
   const [docs, setDocs] = useState<Doc[] | null>(null); // null = 아직 로딩 중 (자료 0건과 구분)
   const [docsErr, setDocsErr] = useState("");
+  // 자료별 출제 문항. LLM이 이상하게 만든 문제를 강사가 직접 걷어낼 수 있어야 한다.
+  const [quizzes, setQuizzes] = useState<Record<string, Quiz[]>>({});
   const [events, setEvents] = useState<DocEvent[]>([]);
   const [msg, setMsg] = useState("");
   const [msgErr, setMsgErr] = useState(false); // 실패 메시지를 성공 톤(파랑)으로 안 띄우기 위해
@@ -100,10 +111,11 @@ function Dashboard({ session }: { session: Session }) {
 
   const loadDocs = useCallback(async () => {
     try {
-      const [dr, er, cr] = await Promise.all([
+      const [dr, er, cr, qr] = await Promise.all([
         fetch("/api/documents", { headers: { Authorization: `Bearer ${token}` } }),
         fetch("/api/documents/events", { headers: { Authorization: `Bearer ${token}` } }),
         fetch("/api/courses", { headers: { Authorization: `Bearer ${token}` } }),
+        fetch("/api/quiz/generate", { headers: { Authorization: `Bearer ${token}` } }),
       ]);
       if (!dr.ok) throw new Error();
       const d = await dr.json();
@@ -113,6 +125,16 @@ function Dashboard({ session }: { session: Session }) {
       if (er.ok) setEvents(e.events ?? []);
       const c = await cr.json();
       if (cr.ok) setCourses(c.courses ?? []);
+      // 자료 단위로 묶어둔다 — 문제는 자료에서 나오므로 자료 카드에서 관리하는 게 자연스럽다
+      const qd = await qr.json();
+      if (qr.ok) {
+        const by: Record<string, Quiz[]> = {};
+        for (const q of (qd.questions ?? []) as Quiz[]) {
+          if (!q.document_id) continue;
+          (by[q.document_id] ??= []).push(q);
+        }
+        setQuizzes(by);
+      }
     } catch {
       // docs는 그대로 둔다 — 실패를 "자료 없음"으로 오해하게 만들지 않기 위해
       setDocsErr("자료 목록을 불러오지 못했어요 — 새로고침해 주세요.");
@@ -229,8 +251,23 @@ function Dashboard({ session }: { session: Session }) {
     });
     const d = await r.json().catch(() => null);
     setQuizBusy(null);
-    if (r.ok) say(`문제 ${d.created}개를 만들었어요`);
-    else say(d?.error || "문제를 만들지 못했어요", true);
+    if (r.ok) {
+      say(`문제 ${d.created}개를 만들었어요`);
+      loadDocs(); // 방금 만든 문항이 카드에 바로 보이게
+    } else say(d?.error || "문제를 만들지 못했어요", true);
+  }
+
+  async function removeQuiz(quizId: string, documentId: string) {
+    if (!confirm("이 문제를 삭제할까요? 되돌릴 수 없어요.")) return;
+    const r = await fetch(`/api/quiz/generate?id=${quizId}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!r.ok) return say("문제를 삭제하지 못했어요 — 다시 시도해 주세요.", true);
+    setQuizzes((prev) => ({
+      ...prev,
+      [documentId]: (prev[documentId] ?? []).filter((q) => q.id !== quizId),
+    }));
   }
 
   async function removeDoc(id: string) {
@@ -534,7 +571,8 @@ function Dashboard({ session }: { session: Session }) {
                   </div>
                 </div>
               ) : (
-              <div key={d.id} className="flex justify-between gap-2 rounded-[14px] border border-line p-3" style={{ background: "var(--fill-2)" }}>
+              <div key={d.id} className="rounded-[14px] border border-line p-3" style={{ background: "var(--fill-2)" }}>
+              <div className="flex justify-between gap-2">
                 <div className="text-[14px] min-w-0">
                   <div className="flex items-center gap-1.5 mb-1 flex-wrap">
                     <span className="chip !py-0.5 !px-2 !text-[11px]">
@@ -571,6 +609,49 @@ function Dashboard({ session }: { session: Session }) {
                     삭제
                   </button>
                 </div>
+              </div>
+
+              {/* 출제한 문제 — 예전엔 만들고 나면 확인·삭제할 화면이 없어서
+                  LLM이 이상하게 만든 문항을 걷어낼 방법이 없었다 */}
+              {(quizzes[d.id]?.length ?? 0) > 0 && (
+                <details className="mt-2">
+                  <summary className="text-[13px] text-sub cursor-pointer select-none">
+                    출제한 문제 {quizzes[d.id].length}개
+                  </summary>
+                  <ol className="mt-2 flex flex-col gap-2">
+                    {quizzes[d.id].map((q, qi) => (
+                      <li key={q.id} className="rounded-[12px] border border-line p-3" style={{ background: "var(--surface)" }}>
+                        <div className="flex justify-between gap-2">
+                          <p className="text-[13px] font-medium min-w-0">
+                            {qi + 1}. {q.question}
+                          </p>
+                          <button
+                            onClick={() => removeQuiz(q.id, d.id)}
+                            className="text-[12px] shrink-0"
+                            style={{ color: "var(--red)" }}
+                          >
+                            삭제
+                          </button>
+                        </div>
+                        <ul className="mt-1.5 flex flex-col gap-0.5">
+                          {q.choices.map((c, ci) => (
+                            <li
+                              key={ci}
+                              className="text-[12px]"
+                              style={ci === q.answer ? { color: "var(--blue)", fontWeight: 700 } : { color: "var(--sub)" }}
+                            >
+                              {ci === q.answer ? "✓" : "·"} {c}
+                            </li>
+                          ))}
+                        </ul>
+                        {q.explanation && (
+                          <p className="text-sub text-[12px] mt-1.5 leading-relaxed">{q.explanation}</p>
+                        )}
+                      </li>
+                    ))}
+                  </ol>
+                </details>
+              )}
               </div>
               )
             )}
