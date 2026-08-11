@@ -11,19 +11,38 @@ import { useGate } from "@/components/RoleGuard";
 type AdminData = {
   admin: { name: string };
   academy: { name: string; slug: string; plan?: string };
+  period: { days: number; options: number[] };
+  stats: {
+    teachers: number;
+    students: number;
+    activeStudents: number;
+    questions: number;
+    up: number;
+    down: number;
+  };
+  work: { newDocuments: number; newQuestions: number };
+  cumulative: { answers: number; minutesPerAnswer: number; hoursSaved: number };
+  daily: { date: string; count: number }[];
   teachers: {
     id: string;
     name: string;
     subject: string | null;
     is_public: boolean;
     documents: number;
-    students: { id: string; name: string }[];
+    questions: number;
     up: number;
     down: number;
   }[];
-  stats: { teachers: number; students: number; recentQuestions: number };
-  insights?: { days: number; daily: { date: string; count: number }[] };
+  students: { id: string; name: string; questions: number; lastAt: string | null }[];
+  lowRated: { question: string; answer: string; teacher: string; created_at: string }[];
   invite: { url: string; qrSvg: string };
+};
+
+const PERIOD_LABEL: Record<number, string> = { 7: "7일", 30: "30일", 90: "90일" };
+const ago = (iso: string | null) => {
+  if (!iso) return "기록 없음";
+  const d = Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000);
+  return d <= 0 ? "오늘" : `${d}일 전`;
 };
 
 export default function AdminPage() {
@@ -111,15 +130,16 @@ function AuthForm() {
 
 function Dashboard({ session }: { session: Session }) {
   const [data, setData] = useState<AdminData | null>(null);
+  const [days, setDays] = useState(30);
   const [err, setErr] = useState("");
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
-    fetch("/api/admin", { headers: { Authorization: `Bearer ${session.access_token}` } })
+    fetch(`/api/admin?days=${days}`, { headers: { Authorization: `Bearer ${session.access_token}` } })
       .then((r) => r.json())
       .then((d) => (d.academy ? setData(d) : setErr(d.error ?? "불러오기 실패")))
       .catch(() => setErr("불러오기 실패"));
-  }, [session]);
+  }, [session, days]);
 
   async function togglePublic(teacherId: string) {
     const r = await fetch("/api/admin", {
@@ -155,6 +175,10 @@ function Dashboard({ session }: { session: Session }) {
       </div>
     );
 
+  const label = PERIOD_LABEL[data.period.days] ?? `${data.period.days}일`;
+  const maxDaily = Math.max(...data.daily.map((d) => d.count), 1);
+  const idle = data.students.filter((s) => s.questions === 0);
+
   return (
     <div className="flex flex-col gap-4">
       <div className="rise flex items-start justify-between gap-3">
@@ -179,98 +203,153 @@ function Dashboard({ session }: { session: Session }) {
         </button>
       </div>
 
-      {/* 스탯 */}
-      <div className="rise d1 grid grid-cols-3 gap-2">
-        {(
-          [
-            ["강사", data.stats.teachers],
-            ["학생", data.stats.students],
-            ["질문 (7일)", data.stats.recentQuestions],
-          ] as const
-        ).map(([label, n]) => (
-          <div key={label} className="card p-4">
-            <p className="text-sub text-[12px]">{label}</p>
-            <p className="text-[24px] font-extrabold tabular-nums">{n}</p>
-          </div>
+      {/* 기간 선택 — 아래 숫자는 전부 이 기간 기준 (누적 답변만 예외) */}
+      <div className="rise d1 flex items-center gap-1.5">
+        {data.period.options.map((d) => (
+          <button
+            key={d}
+            onClick={() => setDays(d)}
+            className={`chip !py-1.5 !px-3.5 !text-[13px] ${d === data.period.days ? "chip-on" : ""}`}
+          >
+            최근 {PERIOD_LABEL[d] ?? `${d}일`}
+          </button>
         ))}
       </div>
 
-      {/* 학원 인사이트 — 일별 질문 추이 (14일) */}
-      {(data.insights?.daily.some((d) => d.count > 0) ?? false) && (
+      {/* 이번 기간 요약 — 재계약 대화의 근거가 되는 숫자들 */}
+      <section className="rise d1 card p-5 lg:p-6">
+        <h2 className="font-bold text-[17px]">최근 {label} 요약</h2>
+        <div className="mt-4 grid grid-cols-2 lg:grid-cols-4 gap-3">
+          {(
+            [
+              ["등록된 자료", `${data.work.newDocuments}건`, "이 기간에 새로 들어간 자료"],
+              ["학생 질문", `${data.stats.questions}건`, `강사 ${data.stats.teachers}명 · 학생 ${data.stats.students}명`],
+              [
+                "쓰고 있는 학생",
+                `${data.stats.activeStudents}/${data.stats.students}명`,
+                idle.length ? `${idle.length}명은 아직 안 써봤어요` : "전원 사용 중",
+              ],
+              ["답변 평가", `${data.stats.up} / ${data.stats.down}`, "도움됐어요 / 아쉬워요"],
+            ] as const
+          ).map(([k, v, sub]) => (
+            <div key={k} className="rounded-[14px] border border-line p-4" style={{ background: "var(--fill-2)" }}>
+              <p className="text-sub text-[12px]">{k}</p>
+              <p className="text-[22px] font-extrabold tabular-nums mt-0.5">{v}</p>
+              <p className="text-sub text-[11px] mt-1 leading-snug">{sub}</p>
+            </div>
+          ))}
+        </div>
+
+        {/* 누적 환산 — /pricing이 조교 인건비와 비교하는 논리를 화면에서 잇는다 */}
+        <div className="mt-3 rounded-[14px] px-4 py-3.5" style={{ background: "var(--blue-weak)" }}>
+          <p className="text-[14px] font-bold text-blue">
+            지금까지 답변 {data.cumulative.answers.toLocaleString()}건 · 조교 약 {data.cumulative.hoursSaved}시간 분량
+          </p>
+          <p className="text-sub text-[11px] mt-1">
+            답변 1건을 조교 응대 {data.cumulative.minutesPerAnswer}분으로 환산한 값이에요.
+          </p>
+        </div>
+      </section>
+
+      {/* 일별 질문 추이 */}
+      {data.daily.some((d) => d.count > 0) && (
         <section className="rise d2 card p-5">
           <div className="flex items-baseline justify-between mb-3">
-            <h2 className="font-bold text-[15px]">일별 질문 수 (최근 {data.insights!.days}일)</h2>
-            <span className="text-sub text-[12px]">
-              최대 {Math.max(...data.insights!.daily.map((d) => d.count))}건
-            </span>
+            <h2 className="font-bold text-[15px]">일별 질문 수 (최근 {label})</h2>
+            <span className="text-sub text-[12px]">최대 {maxDaily}건</span>
           </div>
           <div className="flex items-end gap-[2px] h-24" role="img" aria-label="일별 질문 수 막대 그래프">
-            {data.insights!.daily.map((d) => {
-              const max = Math.max(...data.insights!.daily.map((x) => x.count), 1);
-              return (
-                <div key={d.date} className="group relative flex-1 h-full flex flex-col justify-end items-center">
-                  <span className="pointer-events-none absolute -top-6 hidden group-hover:block text-[11px] whitespace-nowrap rounded-md px-1.5 py-0.5 border border-line card z-10">
-                    {d.date.slice(5).replace("-", "/")} · {d.count}건
-                  </span>
-                  <div
-                    className="w-full max-w-[22px] rounded-t-[4px]"
-                    style={{ background: "var(--blue)", height: `${(d.count / max) * 100}%`, minHeight: d.count > 0 ? 3 : 0 }}
-                  />
-                </div>
-              );
-            })}
+            {data.daily.map((d) => (
+              <div key={d.date} className="group relative flex-1 h-full flex flex-col justify-end items-center">
+                <span className="pointer-events-none absolute -top-6 hidden group-hover:block text-[11px] whitespace-nowrap rounded-md px-1.5 py-0.5 border border-line card z-10">
+                  {d.date.slice(5).replace("-", "/")} · {d.count}건
+                </span>
+                <div
+                  className="w-full max-w-[22px] rounded-t-[4px]"
+                  style={{
+                    background: "var(--blue)",
+                    height: `${(d.count / maxDaily) * 100}%`,
+                    minHeight: d.count > 0 ? 3 : 0,
+                  }}
+                />
+              </div>
+            ))}
           </div>
           <div className="flex justify-between mt-1 text-sub text-[11px]">
-            <span>{data.insights!.daily[0]?.date.slice(5).replace("-", "/")}</span>
-            <span>{data.insights!.daily.at(-1)?.date.slice(5).replace("-", "/")}</span>
+            <span>{data.daily[0]?.date.slice(5).replace("-", "/")}</span>
+            <span>{data.daily.at(-1)?.date.slice(5).replace("-", "/")}</span>
           </div>
         </section>
       )}
 
-      {/* 강사 초대 */}
-      <section className="rise d2 card p-5 lg:p-6 flex flex-col gap-3">
-        <h2 className="font-bold text-[17px]">강사 초대</h2>
-        <p className="text-sub text-[13px] -mt-1">
-          QR이나 링크로 강사를 초대하세요. 가입하면 우리 학원 소속이 돼요.
-        </p>
-        <div className="flex flex-col sm:flex-row gap-4 items-start">
-          <div
-            className="rounded-[14px] border border-line p-2 bg-white shrink-0 [&>svg]:block [&>svg]:w-[150px] [&>svg]:h-[150px]"
-            dangerouslySetInnerHTML={{ __html: data.invite.qrSvg }}
-          />
-          <div className="flex flex-col gap-2 min-w-0 w-full">
-            <p className="text-[13px] break-all rounded-[10px] border border-line px-3 py-2.5" style={{ background: "var(--fill-2)" }}>
-              {data.invite.url}
-            </p>
-            <button
-              onClick={() => {
-                navigator.clipboard.writeText(data.invite.url).then(() => {
-                  setCopied(true);
-                  setTimeout(() => setCopied(false), 1500);
-                });
-              }}
-              className="btn btn-ghost py-2.5 px-5 self-start text-[14px]"
-            >
-              {copied ? "복사됨 ✓" : "링크 복사"}
-            </button>
+      {/* 학생 참여 — "학생 N명"만으론 몇 명이 실제로 쓰는지 알 수 없다. 안 쓰는 학생이 해지 신호다. */}
+      <section className="rise d2 card p-5 lg:p-6 flex flex-col gap-2">
+        <h2 className="font-bold text-[17px]">
+          학생 {data.students.length}명 중 {data.stats.activeStudents}명 사용
+        </h2>
+        {data.students.length === 0 ? (
+          <p className="text-sub text-[14px] py-4 text-center">아직 학생이 없어요.</p>
+        ) : (
+          <div className="flex flex-col gap-1.5 mt-1">
+            {data.students.map((s) => (
+              <div
+                key={s.id}
+                className="flex items-center gap-3 rounded-[12px] border border-line px-3 py-2.5"
+                style={{ background: "var(--fill-2)" }}
+              >
+                <span className="avatar !w-8 !h-8 !text-[14px]">{avatarEmoji(s.name)}</span>
+                <p className="text-[14px] font-medium min-w-0 flex-1 truncate">{s.name}</p>
+                {s.questions === 0 ? (
+                  <span
+                    className="chip !py-1 !px-2.5 !text-[12px] !cursor-default shrink-0"
+                    style={{ color: "var(--red)" }}
+                  >
+                    미사용
+                  </span>
+                ) : (
+                  <span className="text-[12px] text-sub shrink-0 text-right">
+                    질문 {s.questions}건
+                    <br />
+                    <span className="text-[11px]">최근 {ago(s.lastAt)}</span>
+                  </span>
+                )}
+              </div>
+            ))}
           </div>
-        </div>
+        )}
       </section>
+
+      {/* 아쉬움 받은 답변 — 지금까지 숫자만 보여서 원장이 품질을 확인할 수 없었다 */}
+      {data.lowRated.length > 0 && (
+        <section className="rise d3 card p-5 lg:p-6 flex flex-col gap-2">
+          <h2 className="font-bold text-[17px]">확인이 필요한 답변 {data.lowRated.length}건</h2>
+          <p className="text-sub text-[13px] -mt-1">
+            학생이 아쉬워요를 준 답변이에요. 관련 자료를 보강하면 좋아져요.
+          </p>
+          {data.lowRated.map((l, i) => (
+            <details key={i} className="rounded-[14px] border border-line p-3" style={{ background: "var(--fill-2)" }}>
+              <summary className="text-[14px] font-medium cursor-pointer select-none">
+                {l.question || "(제목 없음)"}
+                <span className="text-sub text-[12px] ml-2">
+                  {l.teacher} · {l.created_at.slice(5, 10).replace("-", "/")}
+                </span>
+              </summary>
+              <p className="mt-2 text-[13px] text-sub leading-relaxed whitespace-pre-wrap">{l.answer}…</p>
+            </details>
+          ))}
+        </section>
+      )}
 
       {/* 강사 목록 */}
       <section className="rise d3 card p-5 lg:p-6 flex flex-col gap-2">
         <h2 className="font-bold text-[17px]">소속 강사 {data.teachers.length}명</h2>
         {data.teachers.length === 0 ? (
           <p className="text-sub text-[14px] py-4 text-center">
-            아직 강사가 없어요. 위 초대 링크를 공유해 보세요.
+            아직 강사가 없어요. 아래 초대 링크를 공유해 보세요.
           </p>
         ) : (
           data.teachers.map((t) => (
-            <div
-              key={t.id}
-              className="rounded-[14px] border border-line p-3"
-              style={{ background: "var(--fill-2)" }}
-            >
+            <div key={t.id} className="rounded-[14px] border border-line p-3" style={{ background: "var(--fill-2)" }}>
               {/* 통계+버튼은 좁은 화면(375px)에서 아래 줄로 내려야 이름이 안 잘린다 */}
               <div className="flex flex-wrap items-center gap-3">
                 <span className="avatar !w-10 !h-10 !text-[18px]">{avatarEmoji(t.name)}</span>
@@ -283,7 +362,7 @@ function Dashboard({ session }: { session: Session }) {
                 </div>
                 <div className="flex items-center justify-between gap-3 w-full sm:w-auto">
                   <span className="text-[12px] text-sub sm:text-right">
-                    자료 {t.documents} · 학생 {t.students.length}
+                    자료 {t.documents} · 질문 {t.questions}
                     {(t.up > 0 || t.down > 0) && (
                       <>
                         <br />
@@ -301,23 +380,42 @@ function Dashboard({ session }: { session: Session }) {
                   </button>
                 </div>
               </div>
-              {t.students.length > 0 && (
-                <details className="mt-2 pl-[52px]">
-                  <summary className="text-[12px] text-sub cursor-pointer select-none">
-                    학생 목록 보기
-                  </summary>
-                  <div className="mt-1.5 flex flex-wrap gap-1.5">
-                    {t.students.map((s) => (
-                      <span key={s.id} className="chip !py-1 !px-2.5 !text-[12px] !cursor-default">
-                        {s.name}
-                      </span>
-                    ))}
-                  </div>
-                </details>
-              )}
             </div>
           ))
         )}
+      </section>
+
+      {/* 강사 초대 */}
+      <section className="rise d4 card p-5 lg:p-6 flex flex-col gap-3">
+        <h2 className="font-bold text-[17px]">강사 초대</h2>
+        <p className="text-sub text-[13px] -mt-1">
+          QR이나 링크로 강사를 초대하세요. 가입하면 우리 학원 소속이 돼요.
+        </p>
+        <div className="flex flex-col sm:flex-row gap-4 items-start">
+          <div
+            className="rounded-[14px] border border-line p-2 bg-white shrink-0 [&>svg]:block [&>svg]:w-[150px] [&>svg]:h-[150px]"
+            dangerouslySetInnerHTML={{ __html: data.invite.qrSvg }}
+          />
+          <div className="flex flex-col gap-2 min-w-0 w-full">
+            <p
+              className="text-[13px] break-all rounded-[10px] border border-line px-3 py-2.5"
+              style={{ background: "var(--fill-2)" }}
+            >
+              {data.invite.url}
+            </p>
+            <button
+              onClick={() => {
+                navigator.clipboard.writeText(data.invite.url).then(() => {
+                  setCopied(true);
+                  setTimeout(() => setCopied(false), 1500);
+                });
+              }}
+              className="btn btn-ghost py-2.5 px-5 self-start text-[14px]"
+            >
+              {copied ? "복사됨 ✓" : "링크 복사"}
+            </button>
+          </div>
+        </div>
       </section>
 
       <Link href="/ask" className="rise d4 btn btn-ghost py-4 text-center">
