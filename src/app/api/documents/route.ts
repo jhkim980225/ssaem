@@ -14,7 +14,7 @@ export async function GET(req: Request) {
   const db = serviceClient();
   const { data, error } = await db
     .from("documents")
-    .select("id, kind, title, source, raw_text, created_at, chunks(count)")
+    .select("id, kind, title, source, raw_text, created_at, course_id, courses(title), chunks(count)")
     .eq("teacher_id", uid)
     .order("created_at", { ascending: false });
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
@@ -22,6 +22,7 @@ export async function GET(req: Request) {
   type Row = {
     id: string; kind: string; title: string | null; source: string;
     raw_text: string; created_at: string; chunks: { count: number }[];
+    course_id: string | null; courses: { title: string } | { title: string }[] | null;
   };
   const documents = ((data ?? []) as Row[]).map((d) => ({
     id: d.id,
@@ -32,6 +33,9 @@ export async function GET(req: Request) {
     raw: d.source === "text" ? d.raw_text : "", // 수정 프리필용 (PDF는 수정 불가)
     chunks: d.chunks?.[0]?.count ?? 0,
     created_at: d.created_at,
+    // 목록에서 어느 강좌 자료인지 보이게 (43건이 뒤섞이면 구분이 안 된다)
+    course_id: d.course_id,
+    course: (Array.isArray(d.courses) ? d.courses[0]?.title : d.courses?.title) ?? null,
   }));
   return NextResponse.json({ documents });
 }

@@ -16,9 +16,13 @@ type Doc = {
   raw: string;
   chunks: number;
   created_at: string;
+  course_id: string | null;
+  course: string | null;
 };
 
 type Course = { id: string; title: string; documents: number };
+
+const PAGE = 20; // 자료 목록 한 번에 보여줄 개수
 
 type DocEvent = {
   id: string;
@@ -89,6 +93,10 @@ function Dashboard({ session }: { session: Session }) {
   const [courses, setCourses] = useState<Course[]>([]);
   const [newCourse, setNewCourse] = useState("");
   const [courseSel, setCourseSel] = useState(""); // "" = 공용 (모든 강좌에서 검색됨)
+  // 목록 전용 상태. 자료가 수십 건이면 전부 그리는 것만으로 화면이 수천 px가 된다.
+  const [docQuery, setDocQuery] = useState("");
+  const [docCourse, setDocCourse] = useState(""); // "" = 전체
+  const [docLimit, setDocLimit] = useState(PAGE);
 
   const loadDocs = useCallback(async () => {
     try {
@@ -180,6 +188,14 @@ function Dashboard({ session }: { session: Session }) {
       say("프로필을 저장했어요");
     }
   }
+
+  // 검색·강좌 필터를 적용한 목록. 원본 docs는 총계(개수·청크 수) 표시에 그대로 쓴다.
+  const shownDocs = (docs ?? []).filter((d) => {
+    if (docCourse === "none" ? d.course_id !== null : docCourse && d.course_id !== docCourse) return false;
+    const q = docQuery.trim().toLowerCase();
+    if (!q) return true;
+    return (d.title ?? "").toLowerCase().includes(q) || d.preview.toLowerCase().includes(q);
+  });
 
   const [editId, setEditId] = useState<string | null>(null);
   const [editText, setEditText] = useState("");
@@ -279,12 +295,22 @@ function Dashboard({ session }: { session: Session }) {
 
       <div className="lg:grid lg:grid-cols-[1fr_420px] lg:gap-5 lg:items-start flex flex-col gap-4">
       <div className="flex flex-col gap-4 min-w-0">
-      {/* 프로필 */}
-      <section className="rise d1 card p-5 lg:p-6 flex flex-col gap-3">
-        <h2 className="font-bold text-[17px]">
-          내 프로필{" "}
-          {savedProfile === false && <span className="text-blue text-[13px]">· 먼저 저장하세요</span>}
-        </h2>
+      {/* 프로필 — 저장 후엔 접어둔다. 한 번 정하면 거의 안 건드리는데 최상단을 차지했다 */}
+      <details className="rise d1 card p-5 lg:p-6" open={savedProfile !== true}>
+        <summary className="font-bold text-[17px] cursor-pointer select-none list-none flex items-center justify-between gap-2">
+          <span>
+            내 프로필{" "}
+            {savedProfile === false && <span className="text-blue text-[13px]">· 먼저 저장하세요</span>}
+            {savedProfile === true && name && (
+              <span className="text-sub text-[13px] font-normal">
+                · {name}
+                {subject ? ` · ${subject}` : ""}
+              </span>
+            )}
+          </span>
+          <span className="text-sub text-[13px] font-normal shrink-0">펼치기</span>
+        </summary>
+        <div className="flex flex-col gap-3 mt-3">
         <input className="field" placeholder="이름 (학생에게 표시)" value={name} onChange={(e) => setName(e.target.value)} />
         <input className="field" placeholder="과목 (예: 전산회계 2급)" value={subject} onChange={(e) => setSubject(e.target.value)} />
         <textarea
@@ -307,7 +333,8 @@ function Dashboard({ session }: { session: Session }) {
         <button onClick={saveProfile} className="btn btn-primary py-3 self-start px-6">
           프로필 저장
         </button>
-      </section>
+        </div>
+      </details>
 
       {/* 학생 초대 */}
       {savedProfile === false && (
@@ -453,7 +480,45 @@ function Dashboard({ session }: { session: Session }) {
             <p className="text-sub text-[13px]">
               등록된 자료 {docs.length}개 · 청크 {docs.reduce((s, d) => s + d.chunks, 0)}개
             </p>
-            {docs.map((d) =>
+
+            {/* 자료가 수십 건이면 전부 그리는 것만으로 화면이 수천 px가 되고, 원하는 자료를 못 찾는다 */}
+            {docs.length > 5 && (
+              <div className="flex gap-2 flex-wrap">
+                <input
+                  className="field !py-2.5 flex-1 min-w-[160px]"
+                  placeholder="자료 검색 (제목·내용)"
+                  value={docQuery}
+                  onChange={(e) => {
+                    setDocQuery(e.target.value);
+                    setDocLimit(PAGE);
+                  }}
+                />
+                {courses.length > 0 && (
+                  <select
+                    className="field !py-2.5 w-auto"
+                    value={docCourse}
+                    onChange={(e) => {
+                      setDocCourse(e.target.value);
+                      setDocLimit(PAGE);
+                    }}
+                  >
+                    <option value="">모든 강좌</option>
+                    <option value="none">공용</option>
+                    {courses.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.title}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
+            )}
+
+            {shownDocs.length === 0 && (
+              <p className="text-sub text-[13px] py-3 text-center">조건에 맞는 자료가 없어요.</p>
+            )}
+
+            {shownDocs.slice(0, docLimit).map((d) =>
               editId === d.id ? (
                 <div key={d.id} className="flex flex-col gap-2 rounded-[14px] border border-line p-3" style={{ background: "var(--fill-2)" }}>
                   {/* 배경은 .field(--surface)에 맡긴다 — Tailwind dark:는 prefers-color-scheme,
@@ -475,6 +540,8 @@ function Dashboard({ session }: { session: Session }) {
                     <span className="chip !py-0.5 !px-2 !text-[11px]">
                       {d.kind === "style" ? "말투" : "문제"}
                     </span>
+                    {/* 43건이 뒤섞이면 어느 강좌 자료인지 카드만 보고는 알 수 없다 */}
+                    <span className="chip !py-0.5 !px-2 !text-[11px]">{d.course ?? "공용"}</span>
                     {d.source === "pdf" && <span className="chip !py-0.5 !px-2 !text-[11px]">PDF</span>}
                     <span className="text-sub text-[11px]">청크 {d.chunks}개</span>
                   </div>
@@ -507,16 +574,26 @@ function Dashboard({ session }: { session: Session }) {
               </div>
               )
             )}
+            {shownDocs.length > docLimit && (
+              <button
+                onClick={() => setDocLimit((n) => n + PAGE)}
+                className="btn btn-gray py-3 text-[14px] mt-1"
+              >
+                {shownDocs.length - docLimit}개 더 보기
+              </button>
+            )}
           </div>
         )}
       </section>
 
       {/* 자료 기록 (감사 로그) */}
       {events.length > 0 && (
-        <section className="rise d3 card p-5 lg:p-6 flex flex-col gap-3">
-          <h2 className="font-bold text-[17px]">자료 기록</h2>
-          <p className="text-sub text-[13px] -mt-1">등록·제거 이력. 지운 자료도 기록은 남아요.</p>
-          <div className="flex flex-col gap-2">
+        <details className="rise d3 card p-5 lg:p-6">
+          <summary className="font-bold text-[17px] cursor-pointer select-none">
+            자료 기록 <span className="text-sub text-[13px] font-normal">· {events.length}건</span>
+          </summary>
+          <p className="text-sub text-[13px] mt-2">등록·제거 이력. 지운 자료도 기록은 남아요.</p>
+          <div className="flex flex-col gap-2 mt-3">
             {events.map((e) => (
               <div key={e.id} className="flex items-center gap-2 text-[13px]">
                 <span
@@ -544,13 +621,34 @@ function Dashboard({ session }: { session: Session }) {
               </div>
             ))}
           </div>
-        </section>
+        </details>
       )}
 
       </div>
 
-      {/* 우측(PC) / 하단(모바일): 자가 테스트 */}
+      {/* 우측(PC) / 하단(모바일): 이동 + 자가 테스트 */}
       <div className="flex flex-col gap-4 lg:sticky lg:top-6">
+      {/* 매일 보는 화면들 — 예전엔 스크롤 맨 아래에 있어 찾기 어려웠다 */}
+      <section className="rise d1 card p-3 grid grid-cols-3 gap-2">
+        {(
+          [
+            ["/teacher/insights", "인사이트", "질문 추이·자료 공백"],
+            ["/teacher/history", "질문 이력", "미해결 큐"],
+            ["/teacher/students", "학생 리포트", "학생별 활동"],
+          ] as const
+        ).map(([href, label, sub]) => (
+          <Link
+            key={href}
+            href={href}
+            className="rounded-[14px] border border-line px-2 py-3 text-center hover:bg-[var(--fill)] transition-colors"
+            style={{ background: "var(--fill-2)" }}
+          >
+            <p className="text-[13px] font-bold">{label}</p>
+            <p className="text-[11px] text-sub mt-0.5 leading-snug">{sub}</p>
+          </Link>
+        ))}
+      </section>
+
       <section className="rise d3 card p-5 lg:p-6 flex flex-col gap-3">
         <div className="flex items-center justify-between">
           <h2 className="font-bold text-[17px]">내 튜터 직접 테스트</h2>
@@ -569,15 +667,6 @@ function Dashboard({ session }: { session: Session }) {
         )}
       </section>
 
-      <Link href="/teacher/insights" className="rise d4 btn btn-gray py-4 text-center">
-        인사이트 (질문 추이·자료 공백) →
-      </Link>
-      <Link href="/teacher/history" className="rise d4 btn btn-gray py-4 text-center">
-        학생 질문 이력 →
-      </Link>
-      <Link href="/teacher/students" className="rise d4 btn btn-gray py-4 text-center">
-        학생별 리포트 →
-      </Link>
       <Link href="/ask" className="rise d4 btn btn-ghost py-4 text-center">
         학생 화면으로 보기 →
       </Link>
