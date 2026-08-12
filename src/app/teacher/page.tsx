@@ -22,6 +22,12 @@ type Doc = {
 
 type Course = { id: string; title: string; documents: number };
 
+type Usage = {
+  plan: "free" | "pro";
+  documents: { used: number; limit: number | null };
+  questionsToday: { used: number; limit: number | null };
+};
+
 type Quiz = {
   id: string;
   question: string;
@@ -91,6 +97,7 @@ function Dashboard({ session }: { session: Session }) {
   const [content, setContent] = useState("");
   const [docs, setDocs] = useState<Doc[] | null>(null); // null = 아직 로딩 중 (자료 0건과 구분)
   const [docsErr, setDocsErr] = useState("");
+  const [usage, setUsage] = useState<Usage | null>(null);
   // 자료별 출제 문항. LLM이 이상하게 만든 문제를 강사가 직접 걷어낼 수 있어야 한다.
   const [quizzes, setQuizzes] = useState<Record<string, Quiz[]>>({});
   const [events, setEvents] = useState<DocEvent[]>([]);
@@ -111,11 +118,12 @@ function Dashboard({ session }: { session: Session }) {
 
   const loadDocs = useCallback(async () => {
     try {
-      const [dr, er, cr, qr] = await Promise.all([
+      const [dr, er, cr, qr, ur] = await Promise.all([
         fetch("/api/documents", { headers: { Authorization: `Bearer ${token}` } }),
         fetch("/api/documents/events", { headers: { Authorization: `Bearer ${token}` } }),
         fetch("/api/courses", { headers: { Authorization: `Bearer ${token}` } }),
         fetch("/api/quiz/generate", { headers: { Authorization: `Bearer ${token}` } }),
+        fetch("/api/usage", { headers: { Authorization: `Bearer ${token}` } }),
       ]);
       if (!dr.ok) throw new Error();
       const d = await dr.json();
@@ -135,6 +143,7 @@ function Dashboard({ session }: { session: Session }) {
         }
         setQuizzes(by);
       }
+      if (ur.ok) setUsage(await ur.json());
     } catch {
       // docs는 그대로 둔다 — 실패를 "자료 없음"으로 오해하게 만들지 않기 위해
       setDocsErr("자료 목록을 불러오지 못했어요 — 새로고침해 주세요.");
@@ -451,7 +460,36 @@ function Dashboard({ session }: { session: Session }) {
 
       {/* 자료 */}
       <section className="rise d2 card p-5 lg:p-6 flex flex-col gap-3">
-        <h2 className="font-bold text-[17px]">학습 자료</h2>
+        <div className="flex items-baseline justify-between gap-2 flex-wrap">
+          <h2 className="font-bold text-[17px]">학습 자료</h2>
+          {/* 예전엔 한도 초과를 "버튼 눌러 실패해야" 알 수 있었다 */}
+          {usage && (
+            <span className="text-[13px] text-sub">
+              {usage.documents.limit === null ? (
+                <>자료 {usage.documents.used}건 · 무제한</>
+              ) : (
+                <span style={usage.documents.used >= usage.documents.limit ? { color: "var(--red)", fontWeight: 700 } : undefined}>
+                  자료 {usage.documents.used}/{usage.documents.limit}건
+                </span>
+              )}
+              {" · "}
+              {usage.questionsToday.limit === null ? (
+                <>오늘 질문 {usage.questionsToday.used}건</>
+              ) : (
+                <span style={usage.questionsToday.used >= usage.questionsToday.limit ? { color: "var(--red)", fontWeight: 700 } : undefined}>
+                  오늘 질문 {usage.questionsToday.used}/{usage.questionsToday.limit}건
+                </span>
+              )}
+            </span>
+          )}
+        </div>
+        {usage?.documents.limit !== null &&
+          usage &&
+          usage.documents.used >= usage.documents.limit! && (
+            <p className="text-[13px] rounded-[12px] px-3 py-2.5" style={{ background: "var(--blue-weak)", color: "var(--blue)" }}>
+              무료 플랜 자료 한도({usage.documents.limit}건)를 다 썼어요. 더 올리려면 원장님께 문의해 주세요.
+            </p>
+          )}
         {courses.length > 0 && (
           <select
             className="field !py-2.5"

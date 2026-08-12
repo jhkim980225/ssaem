@@ -69,3 +69,57 @@ export async function askLimitError(db: Db, teacherId: string): Promise<string |
     return `오늘 무료 질문 한도(${FREE_LIMITS.questionsPerDay}건)를 모두 썼어요. 내일 다시 시도하거나 원장님께 Pro 도입을 요청해 주세요.`;
   return null;
 }
+
+// 대시보드용 사용량. 강사·원장이 "지금 얼마나 썼는지"를 보려면 필요하다 —
+// 예전엔 한도 초과를 버튼을 눌러 실패해야만 알 수 있었다.
+// Pro는 한도가 없으므로 limit=null (사용량은 그대로 보여준다).
+export type Usage = {
+  plan: Plan;
+  documents: { used: number; limit: number | null };
+  questionsToday: { used: number; limit: number | null };
+};
+
+export async function usageFor(
+  db: Db,
+  opts: { academyId: string | null; teacherId?: string }
+): Promise<Usage> {
+  const { academyId, teacherId } = opts;
+  let plan: Plan = "free";
+  if (academyId) {
+    const { data } = await db.from("academies").select("plan").eq("id", academyId).maybeSingle();
+    if (data?.plan === "pro") plan = "pro";
+  }
+
+  // 학원 강사 전원 (질문 한도는 학원 단위)
+  const { data: ts } = academyId
+    ? await db.from("profiles").select("id").eq("academy_id", academyId).eq("role", "teacher")
+    : { data: [] as { id: string }[] };
+  const ids = (ts ?? []).map((t) => t.id);
+
+  const dayStart = new Date();
+  dayStart.setHours(0, 0, 0, 0);
+
+  const [docRes, qRes] = await Promise.all([
+    teacherId
+      ? db.from("documents").select("id", { count: "exact", head: true }).eq("teacher_id", teacherId)
+      : Promise.resolve({ count: 0 }),
+    ids.length
+      ? db
+          .from("messages")
+          .select("id, conversations!inner(teacher_id)", { count: "exact", head: true })
+          .eq("role", "user")
+          .in("conversations.teacher_id", ids)
+          .gte("created_at", dayStart.toISOString())
+      : Promise.resolve({ count: 0 }),
+  ]);
+
+  const free = plan === "free";
+  return {
+    plan,
+    documents: {
+      used: docRes.count ?? 0,
+      limit: free && teacherId ? FREE_LIMITS.docsPerTeacher : null,
+    },
+    questionsToday: { used: qRes.count ?? 0, limit: free ? FREE_LIMITS.questionsPerDay : null },
+  };
+}

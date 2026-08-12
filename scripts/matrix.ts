@@ -80,6 +80,7 @@ function buildCases(teacherId: string): Case[] {
     { path: "/api/feedback", method: "POST", body: {}, expect: M(DENY, ALLOW, ALLOW, ALLOW) },
     { path: "/api/profile", expect: M(DENY, ALLOW, ALLOW, ALLOW) },
     { path: "/api/conversations", expect: M(DENY, ALLOW, ALLOW, ALLOW) },
+    { path: "/api/usage", expect: M(DENY, ALLOW, ALLOW, ALLOW) },
 
     // 강사 전용 — 학생·원장·익명 전부 거부
     { path: "/api/documents", expect: M(DENY, DENY, ALLOW, DENY) },

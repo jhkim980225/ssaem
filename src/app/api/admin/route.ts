@@ -3,6 +3,7 @@ import QRCode from "qrcode";
 import { serviceClient } from "@/lib/supabase";
 import { requireRole } from "@/lib/auth";
 import { createInviteCode } from "@/lib/invite";
+import { usageFor } from "@/lib/plan";
 
 // 답변 1건이 아꼈다고 보는 조교 시간(분). /pricing이 조교 인건비와 비교하는 논리를
 // 화면에서 이어받기 위한 환산 기준 — 근거를 화면에도 같이 표시한다.
@@ -69,6 +70,7 @@ export async function GET(req: Request) {
       teachers: [],
       students: studentRows.map((s) => ({ ...s, questions: 0, lastAt: null })),
       lowRated: [],
+      usage: await usageFor(db, { academyId: me.academy_id }),
       invite: await inviteFor(uid, req),
     });
   }
@@ -217,6 +219,8 @@ export async function GET(req: Request) {
     teachers,
     students,
     lowRated,
+    // 무료 한도를 얼마나 썼는지 — 한도에 닿으면 학생 질문이 막히므로 원장이 미리 알아야 한다
+    usage: await usageFor(db, { academyId: me.academy_id }),
     invite: await inviteFor(uid, req),
   });
 }
