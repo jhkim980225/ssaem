@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { serviceClient } from "@/lib/supabase";
 import { requireRole, requireUser } from "@/lib/auth";
+import { sameAcademy } from "@/lib/tenant";
 
 // 강좌 관리.
 // GET ?teacher=<id> → 공개용: 그 강사의 강좌 목록 (학생 필터 칩)
@@ -14,6 +15,10 @@ export async function GET(req: Request) {
   if (teacherParam) {
     const g = await requireUser(req);
     if ("res" in g) return g.res;
+    if (!/^[0-9a-f-]{36}$/i.test(teacherParam))
+      return NextResponse.json({ error: "teacher required" }, { status: 400 });
+    if (!(await sameAcademy(db, g.uid, teacherParam)))
+      return NextResponse.json({ courses: [] });
     const { data, error } = await db
       .from("courses")
       .select("id, title")

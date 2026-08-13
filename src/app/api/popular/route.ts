@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { serviceClient } from "@/lib/supabase";
 import { score } from "@/lib/lexical";
 import { requireUser } from "@/lib/auth";
+import { academyOf, teacherIdsOf, sameAcademy } from "@/lib/tenant";
 
 const SAMPLE = 400; // 최근 질문 표본
 const CLUSTER_MIN = 10; // 이 점수 이상이면 같은 주제로 묶음 (lexical.ts 스케일 기준)
@@ -15,14 +16,23 @@ export async function GET(req: Request) {
   const teacherId = /^[0-9a-f-]{36}$/i.test(raw) ? raw : null;
 
   const db = serviceClient();
-  let q = db
+
+  // 학원 경계. 예전엔 teacher 파라미터가 없으면 필터가 아예 없어서
+  // 전 학원 질문 원문과 강사 명단이 로그인 계정 아무에게나 노출됐다.
+  const academyId = await academyOf(db, g.uid);
+  if (!academyId) return NextResponse.json({ questions: [], byTeacher: [] });
+  if (teacherId && !(await sameAcademy(db, g.uid, teacherId)))
+    return NextResponse.json({ questions: [], byTeacher: [] });
+  const scope = teacherId ? [teacherId] : await teacherIdsOf(db, academyId);
+  if (!scope.length) return NextResponse.json({ questions: [], byTeacher: [] });
+
+  const { data, error } = await db
     .from("messages")
     .select("content, conversations!inner(teacher_id)")
     .eq("role", "user")
+    .in("conversations.teacher_id", scope)
     .order("created_at", { ascending: false })
     .limit(SAMPLE);
-  if (teacherId) q = q.eq("conversations.teacher_id", teacherId);
-  const { data, error } = await q;
   if (error) return NextResponse.json({ questions: [], byTeacher: [] });
 
   type Row = { content: string; conversations: { teacher_id: string } | { teacher_id: string }[] };

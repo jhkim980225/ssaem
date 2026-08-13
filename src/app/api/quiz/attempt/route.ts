@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { serviceClient } from "@/lib/supabase";
 import { requireUser } from "@/lib/auth";
+import { sameAcademy } from "@/lib/tenant";
 import { rateLimit, clientIp } from "@/lib/ratelimit";
 
 // 채점. 정답 판정은 서버에서만 — 클라이언트는 정답을 모른다.
@@ -21,10 +22,14 @@ export async function POST(req: Request) {
   const db = serviceClient();
   const { data: q } = await db
     .from("quiz_questions")
-    .select("id, answer, explanation")
+    .select("id, answer, explanation, teacher_id")
     .eq("id", questionId)
     .maybeSingle();
   if (!q) return NextResponse.json({ error: "not found" }, { status: 404 });
+  // 채점 응답이 정답·해설을 주므로, 학원 경계를 여기서도 막아야 한다.
+  // 안 막으면 questionId만 알면 남의 학원 정답표를 한 문항씩 긁어갈 수 있다.
+  if (!(await sameAcademy(db, g.uid, q.teacher_id)))
+    return NextResponse.json({ error: "not found" }, { status: 404 });
 
   const correct = chosen === q.answer;
 

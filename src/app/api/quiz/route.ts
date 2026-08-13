@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { serviceClient } from "@/lib/supabase";
 import { requireUser } from "@/lib/auth";
+import { sameAcademy } from "@/lib/tenant";
 
 const LIMIT = 10; // 한 세션 문항 수
 
@@ -19,6 +20,9 @@ export async function GET(req: Request) {
 
   const db = serviceClient();
   const uid = g.uid;
+  // 남의 학원 문제 목록을 uuid만 알면 볼 수 있던 것 차단
+  if (!(await sameAcademy(db, uid, teacherId)))
+    return NextResponse.json({ error: "not found" }, { status: 404 });
 
   let q = db
     .from("quiz_questions")

@@ -25,7 +25,9 @@ npx tsx scripts/verify-instructors.ts   # 강사 자료/검색/프롬프트
 
 # E2E (서버 실행 중이어야 함). 인증·역할가드·질문답변·퀴즈·PWA 전 구간
 npx tsx scripts/e2e.ts
-npx tsx scripts/matrix.ts               # 역할 × 라우트 교차 접근 전수 (158케이스)
+npx tsx scripts/matrix.ts               # 역할 × 라우트 교차 접근 전수
+npx tsx scripts/tenant-check.ts         # 학원(테넌트) 경계 — 학원 2개 만들어 실검증
+npx tsx scripts/rls-check.ts            # anon key 직접 접근 차단
 E2E_BASE=https://<도메인> npx tsx scripts/e2e.ts   # 배포본 검사
 
 # 시드 (Supabase 셋업 후)

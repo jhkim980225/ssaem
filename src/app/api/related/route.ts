@@ -3,6 +3,7 @@ import { serviceClient } from "@/lib/supabase";
 import { score } from "@/lib/lexical";
 import { rateLimit, clientIp } from "@/lib/ratelimit";
 import { requireUser } from "@/lib/auth";
+import { sameAcademy } from "@/lib/tenant";
 
 const MIN_SCORE = 6; // 이 미만이면 관련 없다고 보고 미노출 (빈 추천이 오답 추천보다 낫다)
 
@@ -21,6 +22,8 @@ export async function GET(req: Request) {
     return NextResponse.json({ related: [] });
 
   const db = serviceClient();
+  // 남의 학원 강사 uuid로 그 학원 학생들의 질문 원문을 긁어가지 못하게
+  if (!(await sameAcademy(db, g.uid, teacherId))) return NextResponse.json({ related: [] });
   const { data } = await db
     .from("messages")
     .select("content, conversations!inner(teacher_id)")
