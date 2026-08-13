@@ -195,31 +195,12 @@ create index if not exists quiz_attempts_question_idx on quiz_attempts(question_
 alter table quiz_questions enable row level security;
 alter table quiz_attempts  enable row level security;
 
--- 문제: 같은 학원 사람은 읽기, 출제 강사만 쓰기
+-- 클라이언트 정책 없음 = service_role만 통과. 20260810000000_lock_client_rls.sql 참조.
+-- (drop만 남긴다 — 옛 정책이 어딘가 남아 있어도 걷어내기 위해.)
 drop policy if exists quiz_questions_read on quiz_questions;
-create policy quiz_questions_read on quiz_questions for select
-  using (exists (
-    select 1 from profiles p where p.id = quiz_questions.teacher_id and p.academy_id = current_academy()
-  ));
-
 drop policy if exists quiz_questions_owner_write on quiz_questions;
-create policy quiz_questions_owner_write on quiz_questions for all
-  using (teacher_id = auth.uid()) with check (teacher_id = auth.uid());
-
--- 풀이 기록: 본인 것 + 출제 강사
 drop policy if exists quiz_attempts_party on quiz_attempts;
-create policy quiz_attempts_party on quiz_attempts for select
-  using (
-    student_id = auth.uid()
-    or exists (
-      select 1 from quiz_questions q where q.id = question_id and q.teacher_id = auth.uid()
-    )
-  );
-
 drop policy if exists quiz_attempts_self_write on quiz_attempts;
-create policy quiz_attempts_self_write on quiz_attempts for all
-  using (student_id = auth.uid()) with check (student_id = auth.uid());
-
 -- ─────────────────────────────────────────────
 -- 헬퍼: 현재 사용자의 학원
 -- ─────────────────────────────────────────────
@@ -229,7 +210,7 @@ language sql stable security definer set search_path = public as $$
 $$;
 
 -- ─────────────────────────────────────────────
--- RLS — 학원 경계를 넘는 읽기 금지
+-- RLS — 클라이언트 직접 접근 전면 차단 (정책 0개). 앱은 /api/* 서버가 service_role로 대행.
 -- ─────────────────────────────────────────────
 alter table academies        enable row level security;
 alter table profiles         enable row level security;
@@ -244,97 +225,21 @@ alter table messages         enable row level security;
 alter table message_citations enable row level security;
 alter table message_feedback enable row level security;
 
--- 내 학원만 조회
 drop policy if exists academies_own on academies;
-create policy academies_own on academies for select
-  using (id = current_academy());
-
--- 같은 학원 사용자만 조회 / 본인만 수정
 drop policy if exists profiles_same_academy on profiles;
-create policy profiles_same_academy on profiles for select
-  using (academy_id = current_academy());
-
 drop policy if exists profiles_self_write on profiles;
-create policy profiles_self_write on profiles for all
-  using (id = auth.uid()) with check (id = auth.uid());
-
--- 같은 학원 + 공개 강사만 조회 / 본인만 수정
 drop policy if exists teacher_profiles_read on teacher_profiles;
-create policy teacher_profiles_read on teacher_profiles for select
-  using (
-    is_public
-    and exists (
-      select 1 from profiles p
-      where p.id = teacher_profiles.id and p.academy_id = current_academy()
-    )
-  );
-
 drop policy if exists teacher_profiles_self_write on teacher_profiles;
-create policy teacher_profiles_self_write on teacher_profiles for all
-  using (id = auth.uid()) with check (id = auth.uid());
-
--- 강좌: 같은 학원 조회, 담당 강사만 수정
 drop policy if exists courses_read on courses;
-create policy courses_read on courses for select
-  using (academy_id = current_academy());
-
 drop policy if exists courses_teacher_write on courses;
-create policy courses_teacher_write on courses for all
-  using (teacher_id = auth.uid()) with check (teacher_id = auth.uid());
-
--- 수강: 본인 것 또는 담당 강사
 drop policy if exists enrollments_visible on enrollments;
-create policy enrollments_visible on enrollments for select
-  using (
-    student_id = auth.uid()
-    or exists (select 1 from courses c where c.id = course_id and c.teacher_id = auth.uid())
-  );
-
--- 자료: 소유 강사 본인만. 학생 직접 접근 차단 (검색은 서버가 service_role로 대행).
 drop policy if exists documents_owner on documents;
-create policy documents_owner on documents for all
-  using (teacher_id = auth.uid()) with check (teacher_id = auth.uid());
-
 drop policy if exists chunks_owner on chunks;
-create policy chunks_owner on chunks for all
-  using (teacher_id = auth.uid()) with check (teacher_id = auth.uid());
-
--- 감사 로그: 본인 것 읽기만. 위조/삭제 방지 위해 쓰기는 service_role 전용.
 drop policy if exists document_events_owner_read on document_events;
-create policy document_events_owner_read on document_events for select
-  using (teacher_id = auth.uid());
-
--- 대화: 본인(학생) 또는 대상 강사
 drop policy if exists conversations_party on conversations;
-create policy conversations_party on conversations for select
-  using (student_id = auth.uid() or teacher_id = auth.uid());
-
 drop policy if exists messages_party on messages;
-create policy messages_party on messages for select
-  using (exists (
-    select 1 from conversations c
-    where c.id = conversation_id
-      and (c.student_id = auth.uid() or c.teacher_id = auth.uid())
-  ));
-
 drop policy if exists citations_party on message_citations;
-create policy citations_party on message_citations for select
-  using (exists (
-    select 1 from messages m
-    join conversations c on c.id = m.conversation_id
-    where m.id = message_id
-      and (c.student_id = auth.uid() or c.teacher_id = auth.uid())
-  ));
-
 drop policy if exists feedback_party on message_feedback;
-create policy feedback_party on message_feedback for all
-  using (exists (
-    select 1 from messages m
-    join conversations c on c.id = m.conversation_id
-    where m.id = message_id
-      and (c.student_id = auth.uid() or c.teacher_id = auth.uid())
-  ));
-
 -- ─────────────────────────────────────────────
 -- 검색 RPC (service_role로 호출)
 -- ─────────────────────────────────────────────
