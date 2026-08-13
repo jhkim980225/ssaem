@@ -43,10 +43,15 @@ function LoginInner() {
 
   // 이미 로그인돼 있으면 "실제" 역할에 맞는 화면으로 (탭 선택값이 아니라 서버 profiles 기준).
   // 스토어가 이미 확정한 값을 쓰므로 여기서 getSession/profile을 다시 부르지 않는다.
+  //
+  // busy·err 가드가 필요한 이유: 탭 불일치를 처리하는 동안 스토어는 잠깐 signed-in이 된다
+  // (signInWithPassword는 성공했고 signOut은 아직 안 끝난 구간). 가드가 없으면 그 순간
+  // 이 이펙트가 이겨서 안내 문구가 1프레임만 보이고 대시보드로 밀려난다.
   useEffect(() => {
+    if (busy || err) return;
     if (auth.status !== "signed-in" || auth.role === undefined) return;
     router.replace(next ?? homeFor(auth.role));
-  }, [auth.status, auth.role, next, router]);
+  }, [auth.status, auth.role, busy, err, next, router]);
 
   async function submit() {
     // 버튼 disabled만으로는 Enter 연타를 못 막는다 (onKeyDown이 직접 submit을 부른다).
@@ -104,13 +109,16 @@ function LoginInner() {
     // 스토어와 같은 요청을 공유한다. 각자 부르면 로그인 1회에 /api/profile이 2번 나간다.
     const got = await ensureRole(signed.session!);
     if (got === "unauthorized") {
-      await supabase.auth.signOut();
+      // 위와 같은 이유로 안내가 먼저다
       setBusy(false);
-      return setErr("로그인 정보를 확인하지 못했어요. 잠시 후 다시 시도해 주세요.");
+      setErr("로그인 정보를 확인하지 못했어요. 잠시 후 다시 시도해 주세요.");
+      await supabase.auth.signOut();
+      return;
     }
     const realRole: RealRole = got;
     if (!roleFitsTab(role, realRole)) {
-      await supabase.auth.signOut();
+      // 안내를 먼저 띄우고 로그아웃은 뒤에 — signOut 네트워크를 기다리는 사이에
+      // 리다이렉트 이펙트가 먼저 돌면 문구가 안 보인 채 화면이 넘어간다.
       setBusy(false);
       setErr(
         realRole === "admin"
@@ -121,6 +129,7 @@ function LoginInner() {
               ? "강사 계정이에요. 강사 탭에서 로그인해 주세요."
               : "이 탭으로는 로그인할 수 없는 계정이에요."
       );
+      await supabase.auth.signOut();
       return;
     }
 
@@ -161,7 +170,10 @@ function LoginInner() {
           autoCapitalize="none"
           autoCorrect="off"
           value={id}
-          onChange={(e) => setId(e.target.value)}
+          onChange={(e) => {
+            setId(e.target.value);
+            setErr("");
+          }}
         />
         <input
           className="field"
