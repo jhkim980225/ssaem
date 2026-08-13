@@ -25,6 +25,37 @@ export type AuthSnapshot = {
   role: Role | undefined;
 };
 
+// 로그인 지속 상한. Supabase 세션 자체는 만료가 없어(refresh token 무기한) 브라우저를
+// 안 지우면 영원히 로그인 상태다. 학원 공용 PC를 생각하면 그건 곤란하다.
+//
+// ponytail: 브라우저에서 거는 상한이라 우회 가능하다. 서버 강제는 Supabase 대시보드의
+// Authentication → Sessions → Time-box user sessions(168h). 그쪽이 진짜 방어선이고
+// 여기는 "공용 PC에 방치된 세션"을 끊는 용도다. 대시보드 설정이 켜지면 이 코드는 있어도 무해.
+const MAX_SESSION_MS = 7 * 24 * 60 * 60 * 1000;
+const STARTED_KEY = "ssaem.session-started";
+
+/** 이 세션이 7일을 넘겼는지. 처음 보는 계정이면 지금을 시작 시각으로 기록한다. */
+function sessionExpired(uid: string): boolean {
+  try {
+    const raw = localStorage.getItem(STARTED_KEY);
+    const rec = raw ? (JSON.parse(raw) as { uid?: string; at?: number }) : null;
+    // 토큰 갱신(1시간마다)으로는 시작 시각을 갱신하지 않는다 — 그래야 "절대 7일"이 된다
+    if (rec?.uid !== uid || typeof rec.at !== "number") {
+      localStorage.setItem(STARTED_KEY, JSON.stringify({ uid, at: Date.now() }));
+      return false;
+    }
+    return Date.now() - rec.at > MAX_SESSION_MS;
+  } catch {
+    return false; // 스토리지를 못 쓰면 막지 않는다 (기능이 죽는 것보다 낫다)
+  }
+}
+
+function clearStarted() {
+  try {
+    localStorage.removeItem(STARTED_KEY);
+  } catch {}
+}
+
 const SIGNED_OUT: AuthSnapshot = { status: "signed-out", session: null, role: null };
 const LOADING: AuthSnapshot = { status: "loading", session: null, role: undefined };
 
@@ -78,7 +109,16 @@ export function ensureRole(session: Session): Promise<RoleResult> {
 function applySession(session: Session | null) {
   if (!session) {
     inflight = null;
+    clearStarted();
     emit(SIGNED_OUT);
+    return;
+  }
+  // 7일 상한. 토큰 갱신 때마다 이 경로를 지나므로 늦어도 1시간 안에 걸린다.
+  if (sessionExpired(session.user.id)) {
+    inflight = null;
+    clearStarted();
+    emit(SIGNED_OUT);
+    supabase.auth.signOut();
     return;
   }
   const sameUser = snapshot.session?.user.id === session.user.id;

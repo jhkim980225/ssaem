@@ -4,6 +4,8 @@ import { usePathname } from "next/navigation";
 import { SHOW_PRICING } from "@/lib/flags";
 import type { Role } from "@/lib/role";
 import { useAuth } from "@/lib/auth-store";
+import { supabase } from "@/lib/supabase";
+import { useRouter } from "next/navigation";
 
 // 내 역할에 해당하는 링크만 보여준다. 전부 깔면 좁은 화면에서 잘리고, 원장에게
 // "강사 공간"을 보여줘 봐야 눌러도 거부 화면만 나온다.
@@ -21,6 +23,7 @@ function navFor(role: Role | undefined, signedIn: boolean) {
 
 export default function SiteHeader() {
   const pathname = usePathname();
+  const router = useRouter();
   const { status, role } = useAuth();
   // 확정 전에 비로그인 내비("로그인")를 그리면, 로그인한 사용자에게 로그인 버튼이 한 번
   // 번쩍이고 → 빈 내비 → 역할 메뉴로 두 번 바뀐다. 확정될 때까지는 자리만 잡아둔다.
@@ -37,11 +40,14 @@ export default function SiteHeader() {
           <span className="grid place-items-center w-8 h-8 rounded-[10px] bg-blue text-white text-[13px] font-extrabold transition-transform group-hover:rotate-[-8deg]">
             마
           </span>
-          <span className="text-[14px] sm:text-[15px] font-extrabold tracking-tight whitespace-nowrap">
+          {/* 375px에서 로고+내비+테마+로그아웃을 다 넣으면 넘친다.
+              아주 좁은 화면에선 배지(마)만 남기고 이름은 접는다 — 로그아웃이 잘리면 안 되므로. */}
+          <span className="hidden min-[420px]:inline text-[14px] sm:text-[15px] font-extrabold tracking-tight whitespace-nowrap">
             마스터 전산회계 학원
           </span>
         </Link>
 
+        <div className="flex items-center gap-0.5 sm:gap-1 min-w-0">
         {/* 좁은 화면에선 내비가 가로 스크롤 — 페이지 전체가 밀려나지 않게 */}
         <nav className="flex items-center gap-0.5 sm:gap-1 min-w-0 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           <button
@@ -92,6 +98,31 @@ export default function SiteHeader() {
             );
           })}
         </nav>
+
+        {/* 로그아웃은 스크롤 영역 **밖**에 둔다. 안에 넣으면 좁은 화면에서 잘려
+            정작 공용 PC에서 로그아웃할 방법이 없어진다. */}
+        {status === "signed-in" && (
+          <button
+            onClick={async () => {
+              await supabase.auth.signOut();
+              router.replace("/login");
+            }}
+            aria-label="로그아웃"
+            title="로그아웃"
+            className="grid place-items-center w-8 h-8 shrink-0 rounded-full text-sub hover:text-text hover:bg-[var(--fill)] transition-colors"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
+              <path
+                d="M15 17v1a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h7a2 2 0 0 1 2 2v1"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+              />
+              <path d="M11 12h10m0 0-3-3m3 3-3 3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
+        )}
+        </div>
       </div>
     </header>
   );
