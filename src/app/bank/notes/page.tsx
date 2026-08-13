@@ -110,11 +110,15 @@ export default function BankNotesPage() {
                             ? { borderColor: "var(--red)", background: "var(--red-weak)" }
                             : {};
                         return (
-                          <div key={i} style={style} className="rounded-[12px] border border-line px-3 py-2 text-[13px]">
-                            <span className="font-bold mr-1.5">{"①②③④"[i]}</span>
-                            {c}
-                            {isAnswer && <span className="text-blue text-[11px] ml-1.5 font-bold">정답</span>}
-                            {isMine && !isAnswer && <span className="text-[11px] ml-1.5 font-bold" style={{ color: "var(--red)" }}>내 답</span>}
+                          <div key={i} style={style} className="rounded-[12px] border border-line px-3 py-2 text-[13px] flex items-start gap-2">
+                            <span className="shrink-0 grid place-items-center mt-0.5 rounded-full border border-current text-[10px] font-extrabold" style={{ width: 18, height: 18 }}>
+                              {i + 1}
+                            </span>
+                            <span>
+                              {c}
+                              {isAnswer && <span className="text-blue text-[11px] ml-1.5 font-bold">정답</span>}
+                              {isMine && !isAnswer && <span className="text-[11px] ml-1.5 font-bold" style={{ color: "var(--red)" }}>내 답</span>}
+                            </span>
                           </div>
                         );
                       })}

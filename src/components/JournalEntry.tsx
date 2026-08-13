@@ -20,7 +20,11 @@ export default function JournalEntry({ text }: { text: string }) {
             {twoCol ? (
               <div className="grid grid-cols-2">
                 <div className="whitespace-pre-wrap break-words pr-3">{line.slice(0, di).trim()}</div>
-                <div className="whitespace-pre-wrap break-words border-l border-line pl-3">
+                {/* --line은 blue-weak 배경 위에서 대비가 0이라 안 보인다 → 중간톤으로 */}
+                <div
+                  className="whitespace-pre-wrap break-words pl-3"
+                  style={{ borderLeft: "1.5px solid color-mix(in srgb, var(--sub) 45%, transparent)" }}
+                >
                   {line.slice(di).trim()}
                 </div>
               </div>

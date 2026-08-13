@@ -129,6 +129,7 @@ export default function BankPage() {
     if (!q || q.type !== "practice" || selfDone || !token) return;
     setSelfDone(true);
     setScore((s) => ({ right: s.right + (correct ? 1 : 0), done: s.done + 1 }));
+    // 이론 채점과 달리 결과를 안 기다리면 클릭 직후 이탈 시 기록이 유실될 수 있어 await
     await fetch("/api/bank/attempt", {
       method: "POST",
       headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
@@ -266,10 +267,12 @@ export default function BankPage() {
                     onClick={() => pick(i)}
                     disabled={!!graded}
                     style={style}
-                    className="text-left rounded-[14px] border border-line px-4 py-3 text-[14px] leading-relaxed transition-colors disabled:cursor-default hover:border-[var(--blue)]"
+                    className="text-left rounded-[14px] border border-line px-4 py-3 text-[14px] leading-relaxed transition-colors disabled:cursor-default hover:border-[var(--blue)] flex items-start gap-2.5"
                   >
-                    <span className="font-bold mr-1.5">{"①②③④"[i]}</span>
-                    {c}
+                    <span className="shrink-0 grid place-items-center w-5 h-5 mt-0.5 rounded-full border border-current text-[11px] font-extrabold">
+                      {i + 1}
+                    </span>
+                    <span>{c}</span>
                   </button>
                 );
               })}
@@ -324,7 +327,7 @@ export default function BankPage() {
           {graded && (
             <div className="flex flex-col gap-2">
               <p className="text-[14px] font-bold" style={{ color: graded.correct ? "var(--blue)" : "var(--red)" }}>
-                {graded.correct ? "정답이에요" : `아쉬워요, 정답은 ${"①②③④"[graded.answer]}`}
+                {graded.correct ? "정답이에요" : `아쉬워요, 정답은 ${graded.answer + 1}번`}
               </p>
               {graded.explanation && (
                 <div className="rounded-[14px] border border-line p-4">
