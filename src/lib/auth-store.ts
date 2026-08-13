@@ -44,40 +44,40 @@ function emit(next: AuthSnapshot) {
   for (const l of listeners) l();
 }
 
-// 진행 중인 역할 조회의 대상 uid. 같은 uid로 중복 요청하지 않는다.
-let roleFetchUid: string | null = null;
+/** 401 = 인증 실패. 200 + profile:null(강사 가입 직후)과 반드시 구분해야 한다. */
+export type RoleResult = Role | "unauthorized";
 
-async function loadRole(session: Session) {
+// 진행 중인 조회를 uid별로 공유한다. 로그인 직후엔 onAuthStateChange(스토어)와
+// /login 화면이 거의 동시에 역할을 필요로 하는데, 각자 부르면 /api/profile이 2번 나간다.
+let inflight: { uid: string; p: Promise<RoleResult> } | null = null;
+
+async function fetchRole(session: Session): Promise<RoleResult> {
+  const r = await fetch("/api/profile", {
+    headers: { Authorization: `Bearer ${session.access_token}` },
+  }).catch(() => null);
+  if (!r) return null; // 네트워크 실패 — 권한 없음으로 본다
+  if (r.status === 401) return "unauthorized";
+  const d = await r.json().catch(() => null);
+  return (d?.profile?.role as Role) ?? null;
+}
+
+/**
+ * 이 세션의 역할. 같은 uid로 이미 조회 중이면 그 요청을 함께 기다린다.
+ * 스토어와 /login이 같은 요청 하나를 쓰게 하는 것이 목적.
+ */
+export function ensureRole(session: Session): Promise<RoleResult> {
   const uid = session.user.id;
-  if (roleFetchUid === uid) return; // 이미 조회 중
-  roleFetchUid = uid;
-  try {
-    const r = await fetch("/api/profile", {
-      headers: { Authorization: `Bearer ${session.access_token}` },
-    });
-    // 401(인증 실패)과 200 + profile:null(프로필 미생성)은 완전히 다른 상태다.
-    // 예전엔 둘 다 role=null로 뭉개져서, 세션 만료가 "강사 계정만 쓸 수 있어요"로 표시되고
-    // /login에서는 "강사 신규 가입자"로 오인돼 /teacher로 착지했다.
-    if (r.status === 401) {
-      await supabase.auth.signOut();
-      return; // SIGNED_OUT 이벤트가 스토어를 정리한다
-    }
-    const d = await r.json().catch(() => null);
-    if (snapshot.session?.user.id !== uid) return; // 그 사이 계정이 바뀜
-    emit({ status: "signed-in", session: snapshot.session, role: (d?.profile?.role as Role) ?? null });
-  } catch {
-    // 네트워크 실패. 이미 아는 역할이 있으면 유지하고, 없으면 권한 없음으로 본다.
-    if (snapshot.session?.user.id !== uid) return;
-    if (snapshot.role === undefined)
-      emit({ status: "signed-in", session: snapshot.session, role: null });
-  } finally {
-    if (roleFetchUid === uid) roleFetchUid = null;
-  }
+  if (inflight?.uid === uid) return inflight.p;
+  const p = fetchRole(session).finally(() => {
+    if (inflight?.uid === uid) inflight = null;
+  });
+  inflight = { uid, p };
+  return p;
 }
 
 function applySession(session: Session | null) {
   if (!session) {
-    roleFetchUid = null;
+    inflight = null;
     emit(SIGNED_OUT);
     return;
   }
@@ -85,7 +85,17 @@ function applySession(session: Session | null) {
   // 토큰 갱신(TOKEN_REFRESHED)은 세션 객체만 바뀔 뿐 사람은 그대로다 → 역할을 다시 묻지 않는다.
   const role = sameUser ? snapshot.role : undefined;
   emit({ status: "signed-in", session, role });
-  if (role === undefined) loadRole(session);
+  if (role !== undefined) return;
+
+  ensureRole(session).then((r) => {
+    if (snapshot.session?.user.id !== session.user.id) return; // 그 사이 계정이 바뀜
+    if (r === "unauthorized") {
+      // 토큰이 죽었다. SIGNED_OUT 이벤트가 스토어를 정리한다.
+      supabase.auth.signOut();
+      return;
+    }
+    emit({ status: "signed-in", session: snapshot.session, role: r });
+  });
 }
 
 function start() {
@@ -109,13 +119,4 @@ const getServerSnapshot = () => LOADING;
 
 export function useAuth(): AuthSnapshot {
   return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
-}
-
-/**
- * 이미 조회한 역할을 스토어에 넣는다. 로그인 직후 /login이 받은 값을 재사용해
- * 도착 페이지가 /api/profile을 또 부르지 않게 한다.
- */
-export function primeRole(uid: string, role: Role) {
-  if (snapshot.session?.user.id !== uid) return;
-  emit({ status: "signed-in", session: snapshot.session, role });
 }

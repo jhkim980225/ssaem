@@ -5,21 +5,9 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { toEmail, isValidId } from "@/lib/account";
 import { homeFor, roleFitsTab, type Role as RealRole } from "@/lib/role";
-import { useAuth, primeRole } from "@/lib/auth-store";
+import { useAuth, ensureRole } from "@/lib/auth-store";
 
 type Role = "teacher" | "student";
-
-// 서버가 아는 실제 역할 조회.
-// 401(인증 실패)과 200+profile:null(강사 가입 직후)을 반드시 구분한다 —
-// 예전엔 둘 다 null이 돼서 세션 만료가 "강사 신규 가입자"로 오인돼 /teacher로 착지했다.
-async function fetchRole(token: string): Promise<{ ok: true; role: RealRole } | { ok: false }> {
-  const r = await fetch("/api/profile", { headers: { Authorization: `Bearer ${token}` } }).catch(
-    () => null
-  );
-  if (!r || r.status === 401) return { ok: false };
-  const d = await r.json().catch(() => null);
-  return { ok: true, role: (d?.profile?.role as RealRole) ?? null };
-}
 
 // 오픈 리다이렉트 방지: 같은 오리진의 절대 경로만 허용한다.
 // "//evil.com", "https://evil.com", "/\evil.com" 전부 막힌다.
@@ -113,13 +101,14 @@ function LoginInner() {
 
     // 역할은 항상 서버 profiles 기준. 탭 선택값은 "이 탭으로는 이 역할만"이라는 필터일 뿐,
     // 역할을 정하는 근거로는 절대 쓰지 않는다 (탭을 신뢰하면 권한 상승이 된다).
-    const got = await fetchRole(signed.session!.access_token);
-    if (!got.ok) {
+    // 스토어와 같은 요청을 공유한다. 각자 부르면 로그인 1회에 /api/profile이 2번 나간다.
+    const got = await ensureRole(signed.session!);
+    if (got === "unauthorized") {
       await supabase.auth.signOut();
       setBusy(false);
       return setErr("로그인 정보를 확인하지 못했어요. 잠시 후 다시 시도해 주세요.");
     }
-    const realRole = got.role;
+    const realRole: RealRole = got;
     if (!roleFitsTab(role, realRole)) {
       await supabase.auth.signOut();
       setBusy(false);
@@ -135,8 +124,6 @@ function LoginInner() {
       return;
     }
 
-    // 방금 조회한 역할을 스토어에 넣어 도착 페이지가 /api/profile을 또 부르지 않게 한다
-    primeRole(signed.session!.user.id, realRole);
     setBusy(false);
     router.replace(next ?? homeFor(realRole));
   }
