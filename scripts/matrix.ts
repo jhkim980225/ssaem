@@ -9,6 +9,7 @@ config({ path: ".env.local" });
 const BASE = process.env.E2E_BASE ?? "http://localhost:3000";
 
 let pass = 0;
+let skipped = 0;
 const fails: string[] = [];
 function ok(name: string, cond: boolean, note = "") {
   if (cond) {
@@ -153,6 +154,7 @@ async function main() {
       const want = c.expect[who];
       // 429(rate limit)는 판정 불가 — 거부/허용 어느 쪽으로도 세지 않는다
       if (st === 429) {
+        skipped++;
         console.log(`  SKIP  ${who} ${c.method ?? "GET"} ${c.path} — 429 rate limit`);
         continue;
       }
@@ -176,7 +178,10 @@ async function main() {
   }
 
   console.log("\n" + "=".repeat(50));
-  console.log(`통과 ${pass} · 실패 ${fails.length}`);
+  // 건너뜀을 요약에 드러낸다 — 안 그러면 rate limit에 걸린 만큼 커버리지가 조용히 줄어든다
+  console.log(`통과 ${pass} · 실패 ${fails.length} · 건너뜀 ${skipped}`);
+  if (skipped)
+    console.log("  (건너뜀 = 429. 앞선 호출로 한도를 쓴 것 — 서버 재시작 후 재실행하면 0)");
   if (fails.length) {
     console.log("실패:");
     for (const f of fails) console.log("  - " + f);

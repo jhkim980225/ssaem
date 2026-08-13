@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { serviceClient } from "@/lib/supabase";
 import { requireRole } from "@/lib/auth";
+import { rateLimit } from "@/lib/ratelimit";
 import { saveDocument, updateDocument, logDocumentEvent, ownCourseOrNull } from "@/lib/documents";
 import { docLimitError } from "@/lib/plan";
 
@@ -46,6 +47,14 @@ export async function POST(req: Request) {
   if ("res" in gate) return gate.res;
   const uid = gate.uid;
 
+  // 텍스트 등록·수정도 청킹 + 임베딩을 돌린다(수정은 재임베딩). 업로드와 같은 비용 계열이라
+  // 같이 막는다 — 한쪽만 막으면 뚫린 쪽으로 돌아간다.
+  if (!rateLimit(`docwrite:${uid}`, 60, 3_600_000))
+    return NextResponse.json(
+      { error: "자료 등록이 너무 잦아요. 잠시 후 다시 시도해 주세요." },
+      { status: 429 }
+    );
+
   const body = await req.json().catch(() => null);
   const content = (body?.content ?? "").toString().trim();
   const kind = body?.kind === "style" ? "style" : "problem";
@@ -69,6 +78,14 @@ export async function PATCH(req: Request) {
   const gate = await requireRole(req, "teacher");
   if ("res" in gate) return gate.res;
   const uid = gate.uid;
+
+  // 텍스트 등록·수정도 청킹 + 임베딩을 돌린다(수정은 재임베딩). 업로드와 같은 비용 계열이라
+  // 같이 막는다 — 한쪽만 막으면 뚫린 쪽으로 돌아간다.
+  if (!rateLimit(`docwrite:${uid}`, 60, 3_600_000))
+    return NextResponse.json(
+      { error: "자료 등록이 너무 잦아요. 잠시 후 다시 시도해 주세요." },
+      { status: 429 }
+    );
 
   const body = await req.json().catch(() => null);
   const id = (body?.id ?? "").toString();

@@ -5,6 +5,7 @@ import { saveDocument, ownCourseOrNull } from "@/lib/documents";
 import { ocrPdf } from "@/lib/ocr";
 import { serviceClient } from "@/lib/supabase";
 import { docLimitError, planForTeacher } from "@/lib/plan";
+import { rateLimit } from "@/lib/ratelimit";
 
 export const runtime = "nodejs";
 
@@ -13,6 +14,14 @@ export async function POST(req: Request) {
   const gate = await requireRole(req, "teacher");
   if ("res" in gate) return gate.res;
   const uid = gate.uid;
+
+  // 전 라우트 중 유일하게 한도가 없었다. 요청 1건이 15MB 파싱 + 청킹 + 임베딩을 돌리므로
+  // 반복 호출만으로 함수 시간·임베딩 비용이 샌다. 본문을 읽기 전에 막는다.
+  if (!rateLimit(`upload:${uid}`, 30, 3_600_000))
+    return NextResponse.json(
+      { error: "업로드가 너무 잦아요. 잠시 후 다시 시도해 주세요." },
+      { status: 429 }
+    );
 
   const form = await req.formData().catch(() => null);
   const file = form?.get("file");
@@ -42,11 +51,19 @@ export async function POST(req: Request) {
         { error: "스캔 PDF는 아직 지원하지 않아요. 텍스트가 들어 있는 PDF로 올려 주세요." },
         { status: 403 }
       );
+    // OCR은 15MB를 통째로 비전 모델에 밀어넣는다 — 업로드 한도보다 더 좁게 잡는다
+    if (!rateLimit(`ocr:${uid}`, 10, 3_600_000))
+      return NextResponse.json(
+        { error: "스캔 PDF 인식이 너무 잦아요. 잠시 후 다시 시도해 주세요." },
+        { status: 429 }
+      );
     try {
       content = (await ocrPdf(buf)) ?? "";
     } catch (e) {
+      // 프로바이더 응답 원문에는 쿼터·프로젝트 정보가 섞인다 — 로그에만 남긴다
+      console.error("ocr:", e instanceof Error ? e.message : e);
       return NextResponse.json(
-        { error: `OCR 실패: ${e instanceof Error ? e.message.slice(0, 120) : "unknown"}` },
+        { error: "스캔 PDF를 읽지 못했어요. 잠시 후 다시 시도해 주세요." },
         { status: 422 }
       );
     }
@@ -70,6 +87,7 @@ export async function POST(req: Request) {
     });
     return NextResponse.json({ ok: true, chars: content.length, ...r });
   } catch (e) {
-    return NextResponse.json({ error: e instanceof Error ? e.message : "실패" }, { status: 500 });
+    console.error("upload save:", e instanceof Error ? e.message : e);
+    return NextResponse.json({ error: "자료를 저장하지 못했어요." }, { status: 500 });
   }
 }
