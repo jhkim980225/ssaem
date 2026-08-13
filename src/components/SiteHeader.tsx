@@ -2,7 +2,8 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { SHOW_PRICING } from "@/lib/flags";
-import { useSession, useRole, type Role } from "@/lib/role";
+import type { Role } from "@/lib/role";
+import { useAuth } from "@/lib/auth-store";
 
 // 내 역할에 해당하는 링크만 보여준다. 전부 깔면 좁은 화면에서 잘리고, 원장에게
 // "강사 공간"을 보여줘 봐야 눌러도 거부 화면만 나온다.
@@ -20,9 +21,11 @@ function navFor(role: Role | undefined, signedIn: boolean) {
 
 export default function SiteHeader() {
   const pathname = usePathname();
-  const { session } = useSession();
-  const role = useRole(session);
-  const nav = navFor(role, Boolean(session));
+  const { status, role } = useAuth();
+  // 확정 전에 비로그인 내비("로그인")를 그리면, 로그인한 사용자에게 로그인 버튼이 한 번
+  // 번쩍이고 → 빈 내비 → 역할 메뉴로 두 번 바뀐다. 확정될 때까지는 자리만 잡아둔다.
+  const settled = status !== "loading" && role !== undefined;
+  const nav = settled ? navFor(role, status === "signed-in") : [];
 
   return (
     <header
@@ -65,6 +68,10 @@ export default function SiteHeader() {
               />
             </svg>
           </button>
+          {!settled && (
+            // 폭을 실제 내비와 비슷하게 잡아 확정될 때 레이아웃이 밀리지 않게 한다
+            <span className="skel h-7 w-[132px] sm:w-[150px] !rounded-full" aria-hidden />
+          )}
           {nav.map((n) => {
             // prefix로만 보면 /quiz/notes에서 "문제풀이"와 "오답노트"가 동시에 켜진다.
             // 후보 중 가장 긴 것 하나만 활성으로 본다.

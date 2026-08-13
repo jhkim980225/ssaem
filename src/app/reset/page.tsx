@@ -2,6 +2,7 @@
 import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
+import { toEmail } from "@/lib/account";
 
 // 비밀번호 재설정. 두 단계를 한 페이지에서 처리:
 //  1) 메일 요청 — /reset 직접 진입
@@ -36,11 +37,14 @@ function ResetInner() {
   }, []);
 
   async function sendMail() {
+    if (busy) return;
     setErr("");
     setMsg("");
     if (!email.trim()) return setErr("이메일을 입력해 주세요.");
     setBusy(true);
-    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+    // 아이디로 가입한 계정은 <id>@ssaem.kr로 저장돼 있다. 같은 매핑을 거쳐야 요청이 성립한다.
+    // (다만 그 주소는 수신함이 아니라 메일이 도달하지 않는다 — 아래 안내로 명시)
+    const { error } = await supabase.auth.resetPasswordForEmail(toEmail(email.trim()), {
       redirectTo: `${window.location.origin}/reset`,
     });
     setBusy(false);
@@ -49,6 +53,7 @@ function ResetInner() {
   }
 
   async function updatePw() {
+    if (busy) return;
     setErr("");
     setMsg("");
     if (pw.length < 8) return setErr("비밀번호는 8자 이상이어야 해요.");
@@ -69,6 +74,11 @@ function ResetInner() {
         {mode === "update"
           ? "쓸 비밀번호를 새로 입력해 주세요."
           : "가입한 이메일을 넣으면 재설정 링크를 보내드려요."}
+      </p>
+      <p className="rise d1 text-sub text-[12px] -mt-4 mb-6 leading-relaxed">
+        {mode === "update"
+          ? ""
+          : "이메일 없이 아이디로 가입했다면 메일을 받을 수 없어요. 선생님께 비밀번호 초기화를 요청해 주세요."}
       </p>
 
       <div className="rise d2 flex flex-col gap-3">

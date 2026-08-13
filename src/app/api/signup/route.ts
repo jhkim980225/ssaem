@@ -14,7 +14,7 @@ export async function POST(req: Request) {
   // 아이디 또는 이메일 — 아이디면 내부 이메일로 매핑 (@ 없으면 아이디로 취급)
   const rawId = (body?.email ?? body?.id ?? "").toString().trim();
   if (rawId && !rawId.includes("@") && !isValidId(rawId))
-    return NextResponse.json({ error: "아이디는 영문·숫자 2~30자로 지어 주세요" }, { status: 400 });
+    return NextResponse.json({ error: "아이디는 영문·숫자와 . _ - 를 써서 2~30자로 지어 주세요" }, { status: 400 });
   const email = rawId ? toEmail(rawId) : "";
   const password = (body?.password ?? "").toString();
   const inviteCode = (body?.inviteCode ?? "").toString().trim();
@@ -105,8 +105,11 @@ export async function POST(req: Request) {
         : undefined,
   });
   if (error) {
-    const msg = /already/i.test(error.message) ? "이미 가입된 이메일이에요" : error.message;
-    return NextResponse.json({ error: msg }, { status: 400 });
+    // GoTrue 원문에는 내부 설정·DB 상태가 섞여 나온다. 비인증 엔드포인트라 원문을 흘리지 않는다.
+    if (/already/i.test(error.message))
+      return NextResponse.json({ error: "이미 가입된 계정이에요. 로그인으로 진행해 주세요." }, { status: 400 });
+    console.error("signup createUser:", error.message);
+    return NextResponse.json({ error: "가입하지 못했어요. 입력을 확인해 주세요." }, { status: 400 });
   }
   const uid = data.user?.id;
 
@@ -124,11 +127,17 @@ export async function POST(req: Request) {
         .insert({ name: academyName, slug: mkSlug() })
         .select("id")
         .single();
-    if (academy.error) return NextResponse.json({ error: academy.error.message }, { status: 500 });
+    if (academy.error) {
+      console.error("signup academy insert:", academy.error.message);
+      return NextResponse.json({ error: "학원을 만들지 못했어요." }, { status: 500 });
+    }
     const { error: perr } = await db
       .from("profiles")
       .upsert({ id: uid, academy_id: academy.data.id, role: "admin", name: name || "원장" });
-    if (perr) return NextResponse.json({ error: perr.message }, { status: 500 });
+    if (perr) {
+      console.error("signup admin profile:", perr.message);
+      return NextResponse.json({ error: "계정을 만들지 못했어요." }, { status: 500 });
+    }
   }
 
   if (role === "student" && uid) {
@@ -137,7 +146,10 @@ export async function POST(req: Request) {
     const { error: perr } = await db
       .from("profiles")
       .upsert({ id: uid, academy_id: academyId, role: "student", name });
-    if (perr) return NextResponse.json({ error: perr.message }, { status: 500 });
+    if (perr) {
+      console.error("signup student profile:", perr.message);
+      return NextResponse.json({ error: "계정을 만들지 못했어요." }, { status: 500 });
+    }
     // 학원 강사들에게 자동 수강 연결 — 가입 직후 빈 강사 목록을 보지 않게
     await enrollToAcademyTeachers(db, uid, academyId);
   }

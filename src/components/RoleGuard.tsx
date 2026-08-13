@@ -1,9 +1,11 @@
 "use client";
 import { type ReactNode } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
-import { useSession, useRole, homeFor, type Role } from "@/lib/role";
+import { homeFor, type Role } from "@/lib/role";
+import { useAuth } from "@/lib/auth-store";
 
 const LABEL: Record<"teacher" | "admin" | "student", string> = {
   teacher: "강사",
@@ -28,16 +30,16 @@ export function useGate(
     loginRender?: ReactNode;
   } = {}
 ): { session: Session | null; role: Role | undefined; gate: ReactNode | null; allowed: boolean } {
-  const { session, ready } = useSession();
-  const role = useRole(session);
+  const { status, session, role } = useAuth();
 
   const loginAs = opts.loginAs ?? (need === "teacher" || need === "admin" ? "teacher" : "student");
 
+  // 상태를 3종으로 명시해 "조회 중"과 "비로그인"을 절대 섞지 않는다.
+  // 섞으면 로그인한 사용자에게 비로그인 화면이 한 프레임 보인다.
   let gate: ReactNode | null = null;
-  if (!ready) gate = <RoleLoading />;
-  else if (!session)
+  if (status === "loading" || role === undefined) gate = <RoleLoading />;
+  else if (status === "signed-out" || !session)
     gate = opts.loginRender ?? <NeedLogin as={loginAs} message={opts.loginMessage} />;
-  else if (role === undefined) gate = <RoleLoading />; // 역할 확정 전엔 아무것도 그리지 않는다
   else if (need !== "any" && role !== need && !(role === null && opts.allowNoProfile))
     gate = <WrongRole need={need} role={role} />;
 
@@ -46,11 +48,14 @@ export function useGate(
   return { session, role, gate, allowed: gate === null };
 }
 
-// 역할 조회 중 표시할 자리
+// 역할 조회 중 자리. 화면 한가운데 스피너는 "빈 화면"처럼 보여서,
+// 실제 콘텐츠와 비슷한 형태의 스켈레톤으로 자리를 잡아둔다.
 export function RoleLoading() {
   return (
-    <main className="flex-1 grid place-items-center">
-      <div className="skel w-12 h-12 !rounded-full" />
+    <main className="flex-1 w-full max-w-lg lg:max-w-3xl mx-auto px-5 py-8 flex flex-col gap-3">
+      <div className="skel h-7 w-40" />
+      <div className="skel h-24 !rounded-[20px]" />
+      <div className="skel h-40 !rounded-[20px]" />
     </main>
   );
 }
@@ -77,14 +82,18 @@ export function WrongRole({ need, role }: { need: "teacher" | "admin" | "student
   );
 }
 
-// 로그인이 필요할 때
+// 로그인이 필요할 때. 로그인 후 원래 보려던 화면으로 돌아오게 현재 경로를 넘긴다.
 export function NeedLogin({ as, message }: { as: "teacher" | "student"; message?: string }) {
+  const next = usePathname();
   return (
     <main className="flex-1 grid place-items-center px-5">
       <div className="text-center">
         <p className="text-[16px] font-bold mb-1">로그인이 필요해요</p>
         <p className="text-sub text-[14px] mb-5">{message ?? "계정으로 로그인해 주세요."}</p>
-        <Link href={`/login?role=${as}`} className="btn btn-primary py-3 px-6 inline-block">
+        <Link
+          href={`/login?role=${as}${next && next !== "/" ? `&next=${encodeURIComponent(next)}` : ""}`}
+          className="btn btn-primary py-3 px-6 inline-block"
+        >
           {LABEL[as]} 로그인
         </Link>
       </div>

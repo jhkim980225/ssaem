@@ -76,9 +76,13 @@ function AuthForm() {
   const [pw, setPw] = useState("");
   const [inviteCode, setInviteCode] = useState("");
   const [msg, setMsg] = useState("");
+  const [busy, setBusy] = useState(false);
 
   async function submit() {
+    if (busy) return;
+    setBusy(true);
     setMsg("");
+    try {
     if (mode === "signup") {
       const r = await fetch("/api/signup", {
         method: "POST",
@@ -93,7 +97,10 @@ function AuthForm() {
     }
     // 가입은 아이디를 내부 이메일로 매핑해 저장하므로 로그인도 같은 매핑을 거쳐야 한다
     const { error } = await supabase.auth.signInWithPassword({ email: toEmail(email), password: pw });
-    if (error) setMsg(error.message);
+    if (error) setMsg("아이디나 비밀번호가 맞지 않아요.");
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
@@ -116,8 +123,8 @@ function AuthForm() {
         // 서버가 role=admin 가입에 INVITE_CODE를 요구한다 — 없으면 403
         <input className="field" placeholder="학원 개설 코드" value={inviteCode} onChange={(e) => setInviteCode(e.target.value)} />
       )}
-      <button onClick={submit} className="btn btn-primary py-4 mt-1">
-        {mode === "signup" ? "학원 개설하기" : "로그인"}
+      <button onClick={submit} disabled={busy} className="btn btn-primary py-4 mt-1 disabled:opacity-60">
+        {busy ? "처리 중…" : mode === "signup" ? "학원 개설하기" : "로그인"}
       </button>
       <button onClick={() => setMode(mode === "signup" ? "login" : "signup")} className="text-sub text-[14px] mt-1">
         {mode === "signup" ? "이미 계정이 있나요? 로그인" : "학원이 없나요? 개설하기"}

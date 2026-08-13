@@ -17,6 +17,7 @@ export default function JoinPage({ params }: { params: Promise<{ code: string }>
   const [err, setErr] = useState("");
   const [session, setSession] = useState<Session | null>(null);
   const [joining, setJoining] = useState(false);
+  const [busy, setBusy] = useState(false);
 
   const [mode, setMode] = useState<"signup" | "login">("signup");
   const [name, setName] = useState("");
@@ -51,12 +52,18 @@ export default function JoinPage({ params }: { params: Promise<{ code: string }>
   }
 
   async function submit() {
+    // 버튼 disabled만으론 Enter 연타를 못 막는다
+    if (busy) return;
+    setBusy(true);
     setMsg("");
+    try {
     if (mode === "signup") {
       const r = await fetch("/api/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ role: "student", name, email, password: pw }),
+        // 초대코드를 안 넘기면 서버가 학원을 못 찾아 "기본 학원"으로 프로필을 만든다.
+        // 그러면 학생의 academy_id와 실제 수강 강사의 학원이 어긋난다 (테넌트 경계 깨짐).
+        body: JSON.stringify({ role: "student", name, email, password: pw, studentInviteCode: code }),
       });
       const d = await r.json();
       if (!r.ok) {
@@ -71,6 +78,9 @@ export default function JoinPage({ params }: { params: Promise<{ code: string }>
       return;
     }
     await join(data.session);
+    } finally {
+      setBusy(false);
+    }
   }
 
   if (err)
@@ -139,8 +149,8 @@ export default function JoinPage({ params }: { params: Promise<{ code: string }>
                   if (e.key === "Enter" && !e.nativeEvent.isComposing) submit();
                 }}
               />
-              <button onClick={submit} className="btn btn-primary py-3.5">
-                {mode === "signup" ? "가입하고 등록하기" : "로그인하고 등록하기"}
+              <button onClick={submit} disabled={busy} className="btn btn-primary py-3.5 disabled:opacity-60">
+                {busy ? "처리 중…" : mode === "signup" ? "가입하고 등록하기" : "로그인하고 등록하기"}
               </button>
               <button
                 className="text-sub text-[13px]"

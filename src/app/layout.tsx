@@ -29,7 +29,8 @@ export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="ko" className="h-full antialiased">
+    // 아래 테마 스크립트가 하이드레이션 전에 <html>에 data-theme을 심는다
+    <html lang="ko" className="h-full antialiased" suppressHydrationWarning>
       <head>
         <link
           rel="stylesheet"
