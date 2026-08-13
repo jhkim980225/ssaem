@@ -12,12 +12,13 @@ import { useRouter } from "next/navigation";
 function navFor(role: Role | undefined, signedIn: boolean) {
   const pricing = SHOW_PRICING ? [{ href: "/pricing", label: "요금제" }] : [];
   if (!signedIn) return [...pricing, { href: "/login", label: "로그인" }];
-  if (role === "admin") return [...pricing, { href: "/admin", label: "학원장" }];
+  // 기출문제는 전역 공용(학원·강사 무관)이라 전 역할에 노출. 좁은 화면에선 내비가 가로 스크롤된다.
+  const bank = { href: "/bank", label: "기출문제" };
+  if (role === "admin") return [...pricing, { href: "/admin", label: "학원장" }, bank];
   if (role === "teacher" || role === null)
-    return [...pricing, { href: "/teacher", label: "강사 공간" }, { href: "/ask", label: "질문하기" }];
-  // 375px에 로고까지 얹으면 3개부터 화면 밖으로 밀린다. 오답노트는 /quiz 안에서 간다.
+    return [...pricing, { href: "/teacher", label: "강사 공간" }, { href: "/ask", label: "질문하기" }, bank];
   if (role === "student")
-    return [...pricing, { href: "/ask", label: "질문하기" }, { href: "/quiz", label: "문제풀이" }];
+    return [...pricing, { href: "/ask", label: "질문하기" }, { href: "/quiz", label: "문제풀이" }, bank];
   return pricing; // 역할 조회 중 — 확정되면 채운다
 }
 

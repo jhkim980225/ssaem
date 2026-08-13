@@ -94,6 +94,19 @@ async function main() {
   });
   ok("채점 기록 위조 차단", forge.status >= 400, `status=${forge.status}`);
 
+  // 7) 문제은행 — 전역 공용이지만 anon 직접 접근은 여전히 차단(정답 유출 방지, 서버 경유만)
+  const bankQ = await rest("bank_questions?select=answer_idx,answer_text&limit=3", st.token);
+  ok("문제은행 정답 직접 열람 차단", empty(bankQ.body), `${bankQ.body.slice(0, 60)}`);
+  const bankForge = await rest("bank_attempts", st.token, {
+    method: "POST",
+    body: JSON.stringify({
+      question_id: "00000000-0000-0000-0000-000000000000",
+      user_id: st.uid,
+      is_correct: true,
+    }),
+  });
+  ok("문제은행 기록 위조 차단", bankForge.status >= 400, `status=${bankForge.status}`);
+
   console.log("\n" + "=".repeat(50));
   console.log(`통과 ${pass} · 실패 ${fails.length}`);
   if (fails.length) {

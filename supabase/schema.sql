@@ -355,3 +355,45 @@ language sql stable as $$
   order by c.embedding <=> p_query
   limit p_k;
 $$;
+
+-- ─────────────────────────────────────────────
+-- 문제은행 (기출문제) — 전역 공용. 상세: migrations/20260813000000_question_bank.sql
+-- 강사 퀴즈(quiz_*)와 별개. teacher_id 없음. RLS 정책 0개 = service_role 전용.
+-- ─────────────────────────────────────────────
+create table if not exists bank_questions (
+  id           uuid primary key default gen_random_uuid(),
+  subject      text not null,
+  category     text not null,                        -- 이론 | 실무분개 | 결산
+  type_tag     text not null default '미분류',
+  area         text not null default '재무회계',
+  stem         text not null unique,
+  choices      jsonb,
+  answer_idx   int check (answer_idx between 0 and 3),
+  answer_text  text,
+  explanation  text,
+  source       text,
+  created_at   timestamptz default now(),
+  check ((choices is not null and answer_idx is not null) or answer_text is not null)
+);
+create index if not exists bank_questions_filter_idx on bank_questions (subject, category, area);
+create index if not exists bank_questions_tag_idx on bank_questions (subject, type_tag);
+
+create table if not exists bank_attempts (
+  id           uuid primary key default gen_random_uuid(),
+  user_id      uuid not null references profiles(id) on delete cascade,
+  question_id  uuid not null references bank_questions(id) on delete cascade,
+  chosen_idx   int check (chosen_idx between 0 and 3),
+  is_correct   boolean not null,
+  created_at   timestamptz default now()
+);
+create index if not exists bank_attempts_user_idx on bank_attempts (user_id, created_at desc);
+create index if not exists bank_attempts_question_idx on bank_attempts (question_id);
+
+create or replace view bank_tag_counts
+with (security_invoker = true) as
+select subject, area, category, type_tag, count(*)::int as count
+from bank_questions
+group by subject, area, category, type_tag;
+
+alter table bank_questions enable row level security;
+alter table bank_attempts  enable row level security;

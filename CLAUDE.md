@@ -32,6 +32,7 @@ E2E_BASE=https://<도메인> npx tsx scripts/e2e.ts   # 배포본 검사
 
 # 시드 (Supabase 셋업 후)
 npx tsx scripts/seed.ts                 # 강사 10명 생성. 로그인 <id>@a.test / 123456
+npx tsx scripts/import-bank.ts           # 문제은행 적재 (마이그레이션 선행). BANK_SRC로 소스 json 지정
 ```
 
 테스트 프레임워크 없음 — 위 tsx 스크립트가 assert 기반 셀프체크.

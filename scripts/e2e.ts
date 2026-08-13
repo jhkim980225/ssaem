@@ -304,6 +304,61 @@ async function main() {
     );
   }
 
+  // ── 7.3 문제은행 (기출)
+  section("문제은행");
+  const hasBank = await tableExists("bank_questions", "stem");
+  if (!hasBank) {
+    skip("문제은행 전 구간", "bank_questions 테이블 없음 — 마이그레이션·import 미실행");
+  } else {
+    const tree = await json("/api/bank", { headers: bearer(studentTok) });
+    ok("필터 트리 200", tree.status === 200 && Array.isArray(tree.body?.tree));
+    const subj = (tree.body?.tree ?? [])[0]?.subject;
+    ok("트리에 과목 있음", Boolean(subj), subj ?? "비어 있음");
+    if (subj) {
+      const set = await json(`/api/bank?subject=${encodeURIComponent(subj)}&limit=5`, {
+        headers: bearer(studentTok),
+      });
+      ok("문제 세트 200", set.status === 200);
+      const items = set.body?.questions ?? [];
+      ok("문제 반환됨", items.length > 0, `${items.length}문항`);
+      const theory = items.find((q: { type: string }) => q.type === "theory");
+      const practice = items.find((q: { type: string }) => q.type === "practice");
+      // 이론은 정답 미포함
+      ok(
+        "이론 정답 미포함",
+        !theory || (!("answer_idx" in theory) && !("explanation" in theory)),
+        theory ? Object.keys(theory).join(",") : "이론 없음"
+      );
+      // 실무는 자가채점이라 answer_text 포함
+      ok("실무 answer_text 포함", !practice || "answerText" in practice, practice ? "ok" : "실무 없음");
+
+      if (theory) {
+        const graded = await json("/api/bank/attempt", {
+          method: "POST",
+          headers: { ...bearer(studentTok), "Content-Type": "application/json" },
+          body: JSON.stringify({ questionId: theory.id, chosen: 0 }),
+        });
+        ok("이론 채점 200", graded.status === 200);
+        ok(
+          "채점 응답에 정답·해설",
+          typeof graded.body?.correct === "boolean" && "answer_idx" in (graded.body ?? {}),
+          Object.keys(graded.body ?? {}).join(",")
+        );
+        ok("이론 기록 저장", graded.body?.saved === true);
+      }
+      if (practice) {
+        const self = await json("/api/bank/attempt", {
+          method: "POST",
+          headers: { ...bearer(studentTok), "Content-Type": "application/json" },
+          body: JSON.stringify({ questionId: practice.id, correct: false }),
+        });
+        ok("실무 자가채점 200", self.status === 200 && self.body?.saved === true);
+      }
+      const notes = await json("/api/bank/attempt", { headers: bearer(studentTok) });
+      ok("오답노트 200", notes.status === 200 && typeof notes.body?.totals?.attempted === "number");
+    }
+  }
+
   // ── 7.5 학생 가입 초대코드
   section("학생 가입 초대코드");
   {

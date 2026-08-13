@@ -205,6 +205,24 @@ async function main() {
   const at2Body = await at2.json();
   ok("같은 학원 채점 정상 (정답·해설 반환)", at2.status === 200 && at2Body.correct === true, `status=${at2.status}`);
 
+  // ── 문제은행은 반대다: 전역 공용이라 A·B 학원 학생이 둘 다 봐야 한다.
+  //    누가 나중에 /api/bank에 sameAcademy를 잘못 붙이면 여기서 잡힌다.
+  section("문제은행 — 전역 공용 (학원 경계 없어야 함)");
+  const bankRes = await db.from("bank_questions").select("id", { count: "exact", head: true });
+  const bankCount = bankRes.error ? null : bankRes.count;
+  if (!bankCount) {
+    console.log("  SKIP  문제은행 — 테이블 없음/비어 있음 (마이그레이션·import 미실행)");
+  } else {
+    const tokB = await login(`tenant-stu-b-${stamp}@ssaem.kr`, "12345678");
+    const bankA = await (await api("/api/bank?subject=전산회계1급&limit=3", tok)).json();
+    const bankBResp = tokB ? await (await api("/api/bank?subject=전산회계1급&limit=3", tokB)).json() : { questions: [] };
+    ok("A학원 학생이 은행 문제 조회", (bankA.questions ?? []).length > 0, `${(bankA.questions ?? []).length}문항`);
+    ok("B학원 학생도 같은 은행 조회", (bankBResp.questions ?? []).length > 0, `${(bankBResp.questions ?? []).length}문항`);
+    // 필터 트리도 학원 무관하게 동일
+    const treeA = await (await api("/api/bank", tok)).json();
+    ok("필터 트리 반환", Array.isArray(treeA.tree) && treeA.tree.length > 0, `${(treeA.tree ?? []).length}조합`);
+  }
+
   console.log("\n" + "=".repeat(50));
   console.log(`통과 ${pass} · 실패 ${fails.length}`);
   if (fails.length) {
@@ -215,6 +233,7 @@ async function main() {
 }
 
 async function cleanup() {
+  for (const u of made.users) await db.from("bank_attempts").delete().eq("user_id", u);
   await db.from("quiz_attempts").delete().in("question_id", made.questions);
   await db.from("quiz_questions").delete().in("id", made.questions);
   await db.from("courses").delete().in("id", made.courses);

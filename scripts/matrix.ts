@@ -82,6 +82,10 @@ function buildCases(teacherId: string): Case[] {
     { path: "/api/profile", expect: M(DENY, ALLOW, ALLOW, ALLOW) },
     { path: "/api/conversations", expect: M(DENY, ALLOW, ALLOW, ALLOW) },
     { path: "/api/usage", expect: M(DENY, ALLOW, ALLOW, ALLOW) },
+    // 문제은행 — 전역 공용, 로그인 전원 (학원 경계 없음)
+    { path: "/api/bank", expect: M(DENY, ALLOW, ALLOW, ALLOW) },
+    { path: "/api/bank/attempt", expect: M(DENY, ALLOW, ALLOW, ALLOW) },
+    { path: "/api/bank/attempt", method: "POST", body: {}, expect: M(DENY, ALLOW, ALLOW, ALLOW) },
 
     // 강사 전용 — 학생·원장·익명 전부 거부
     { path: "/api/documents", expect: M(DENY, DENY, ALLOW, DENY) },
@@ -169,7 +173,7 @@ async function main() {
   section("페이지 라우트 (전 역할 200 — 가드는 클라이언트)");
   for (const p of [
     "/", "/login", "/reset", "/install", "/pricing", "/legal/terms", "/legal/privacy",
-    "/ask", "/quiz", "/quiz/notes", "/my/history",
+    "/ask", "/quiz", "/quiz/notes", "/my/history", "/bank", "/bank/notes",
     "/teacher", "/teacher/insights", "/teacher/history", "/teacher/students", "/admin",
   ]) {
     const r = await fetch(`${BASE}${p}`).catch(() => null);
