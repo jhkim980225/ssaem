@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
-import { toEmail } from "@/lib/account";
+import { toEmail, isValidId } from "@/lib/account";
 import { avatarEmoji } from "@/lib/avatar";
 import { SHOW_PRICING } from "@/lib/flags";
 import { useGate } from "@/components/RoleGuard";
@@ -80,6 +80,11 @@ function AuthForm() {
 
   async function submit() {
     if (busy) return;
+    // 원장 계정은 아이디 형식만 — 이메일 입력 차단
+    if (email.includes("@") || !isValidId(email)) {
+      setMsg("이메일이 아니라 아이디 형식(영문·숫자·._- 2~30자)으로 입력해 주세요.");
+      return;
+    }
     setBusy(true);
     setMsg("");
     try {
@@ -117,7 +122,7 @@ function AuthForm() {
           <input className="field" placeholder="원장 이름" value={name} onChange={(e) => setName(e.target.value)} />
         </>
       )}
-      <input className="field" placeholder="아이디 (이메일도 가능)" value={email} onChange={(e) => setEmail(e.target.value)} />
+      <input className="field" placeholder="아이디 (영문·숫자 2~30자)" value={email} onChange={(e) => setEmail(e.target.value)} />
       <input className="field" type="password" placeholder="비밀번호 (8자 이상)" value={pw} onChange={(e) => setPw(e.target.value)} />
       {mode === "signup" && (
         // 서버가 role=admin 가입에 INVITE_CODE를 요구한다 — 없으면 403

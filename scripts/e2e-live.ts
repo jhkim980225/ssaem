@@ -173,16 +173,17 @@ async function main() {
   }
 
   console.log("8-2) 학원장 계층 (원장 → 강사)");
-  const aemail = `e2e-admin-${Date.now()}@a.test`;
+  // 원장 가입은 이메일 불가 — 아이디 형식만 (서버가 내부 이메일로 매핑)
+  const aid = `e2e-admin-${Date.now()}`;
   const asu = await json("POST", "/api/signup", {
     role: "admin",
     academyName: "E2E학원",
     name: "E2E원장",
-    email: aemail,
+    email: aid,
     password: "e2epass1234",
   });
   ok(asu.status === 200 && asu.data.ok, "원장 가입 (학원 개설)");
-  const atoken = await login(aemail, "e2epass1234");
+  const atoken = await login(`${aid}@ssaem.kr`, "e2epass1234");
   ok(!!atoken, "원장 로그인");
   let adm = await json("GET", "/api/admin", undefined, atoken!);
   ok(adm.status === 200 && adm.data.academy.name === "E2E학원", "원장 대시보드 (학원 정보)");

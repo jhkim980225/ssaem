@@ -128,7 +128,7 @@ async function main() {
     anon: null,
     student: await login("st@ssaem.kr", "st"),
     teacher: await login("test@ssaem.kr", "test"),
-    admin: await login("admin@a.test", "12345678"),
+    admin: await login("admin@ssaem.kr", "12345678"),
   };
   section("계정 준비");
   for (const w of ["student", "teacher", "admin"] as const) ok(`${w} 토큰 확보`, Boolean(tok[w]));

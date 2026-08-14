@@ -77,7 +77,7 @@ async function main() {
   section("인증 (아이디 로그인)");
   const teacherTok = await login("test@ssaem.kr", "test");
   const studentTok = await login("st@ssaem.kr", "st");
-  const adminTok = await login("admin@a.test", "12345678");
+  const adminTok = await login("admin@ssaem.kr", "12345678");
   ok("강사 test/test 로그인", Boolean(teacherTok));
   ok("학생 st/st 로그인", Boolean(studentTok));
   ok("원장 로그인", Boolean(adminTok));

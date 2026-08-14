@@ -15,6 +15,9 @@ export async function POST(req: Request) {
   const rawId = (body?.email ?? body?.id ?? "").toString().trim();
   if (rawId && !rawId.includes("@") && !isValidId(rawId))
     return NextResponse.json({ error: "아이디는 영문·숫자와 . _ - 를 써서 2~30자로 지어 주세요" }, { status: 400 });
+  // 원장 계정은 이메일 가입 불가 — 아이디 형식만 (내부 이메일로 매핑)
+  if (body?.role === "admin" && rawId.includes("@"))
+    return NextResponse.json({ error: "원장 계정은 이메일이 아니라 아이디 형식으로 가입해 주세요" }, { status: 400 });
   const email = rawId ? toEmail(rawId) : "";
   const password = (body?.password ?? "").toString();
   const inviteCode = (body?.inviteCode ?? "").toString().trim();
