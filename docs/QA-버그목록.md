@@ -59,6 +59,8 @@
 | medium | `api/quiz/route.ts`·`bank/shared.ts`·`bank/attempt` GET | 오답노트 '마지막 시도'가 ascending+limit이라 시도 캡 초과 시 오래된 기록 기준 | descending+문항별 첫 등장(=최신) 채택 |
 | medium | `lib/plan.ts` | 무료 일일 한도 '오늘'이 서버(UTC) 자정 → KST 09:00 리셋 | KST 자정 기준 `kstDayStartIso()` (askLimitError·usageFor) |
 | medium | `quiz/page.tsx` submit | 채점 fetch 네트워크 throw 시 busy 영구 true → 퀴즈 잠김 | try/catch/finally로 busy 해제 |
+| medium | `login/page.tsx` submit | 로그인/가입 fetch throw 시 '처리 중…' 영구 잠김 | 전체 body try/catch/finally 래핑 (v0.11.9) |
+| medium | `teacher/page.tsx` makeQuiz | 문제 생성 fetch throw 시 quizBusy 잔존 → 그 자료 '문제 만들기' 버튼 영구 비활성 | try/catch/finally로 quizBusy 해제 (v0.11.9) |
 | medium | `schema.sql` match_chunks | 마이그레이션(20260810)의 `d.kind<>'style'` 필터 드리프트 — 재실행 시 회귀 | schema.sql에 필터 추가 정렬 |
 | low | `api/bank/route.ts` isTheory | GET/POST 판별 불일치(answer_idx) — choices만 있고 정답없는 문항이면 채점 400 막힘(현재 0건) | GET도 answer_idx까지 확인해 POST와 정렬(방어) |
 
@@ -69,8 +71,8 @@
 | medium | `api/admin`·`api/insights` `.limit(20000)` | PostgREST 1000행 캡에 걸려 큰 학원 통계 조용히 잘림 | 실제로 1000 캡 확인됨. 현재 데이터(81건) 미도달. 페이지네이션 리팩터 후속 |
 | medium | `schema.sql` citations cascade | 자료 수정 시 과거 답변 message_citations가 cascade 삭제 → 인사이트 '자료 공백' 왜곡 | 설계상 트레이드오프(재청킹 시 chunk 교체). 인용 스냅샷 비정규화는 별도 설계 필요 |
 | medium | `api/upload` MAX_CONTENT | PDF 추출 텍스트가 20만자 상한 우회 | 업로드 라우트에 상한 재적용 후속(회귀 위험 낮음, 다음 패스) |
-| medium | client busy 고착 (`login`·`teacher/page`) | fetch throw 시 '처리 중…' 영구 잠김 | quiz submit과 동형. 클라이언트 UX 패스에서 일괄 try/finally |
-| medium | client 토큰갱신 리로드 (`quiz`·`teacher`·`ask` preselect) | 세션 객체 갱신이 진행 중 화면 리셋/전환 | `session` 대신 `user.id`/토큰 ref로 의존성 축소하는 클라이언트 패스 후속 |
+| medium | client 토큰갱신 리로드 (`quiz`·`teacher`·`ask` preselect) | 세션 객체 갱신이 진행 중 화면 리셋/전환 | `session` 대신 `user.id`/토큰 ref로 의존성 축소하는 클라이언트 패스 후속 (ref 리팩터라 회귀 위험 — 별도 검증 패스) |
+| medium | 기타 client busy (`uploadPdf`·`addDoc` 등) | fetch throw 시 상태 메시지 잔존(하드락 아님) | makeQuiz·login과 동형. 다음 클라이언트 패스에서 일괄 |
 | medium | `lib/anthropic.ts` Gemini SSE | 스트림 내 error 이벤트 무시 → 실패가 '빈 정상 응답'으로 | 폴백 체인 에러 표면화 후속 |
 | low | 다수 | TOCTOU 한도 경합, lite 폴백 model 컬럼 기록, ChatPanel 언마운트 abort, bank 필터 stale 배지, import valid() 등 | 영향 낮음·비경합 환경. 카탈로그만, 우선순위 낮음 |
 

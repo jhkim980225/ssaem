@@ -253,17 +253,23 @@ function Dashboard({ session }: { session: Session }) {
   async function makeQuiz(documentId: string) {
     setQuizBusy(documentId);
     say("자료를 문제로 정리하고 있어요…");
-    const r = await fetch("/api/quiz/generate", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ documentId, count: 5 }),
-    });
-    const d = await r.json().catch(() => null);
-    setQuizBusy(null);
-    if (r.ok) {
-      say(`문제 ${d.created}개를 만들었어요`);
-      loadDocs(); // 방금 만든 문항이 카드에 바로 보이게
-    } else say(d?.error || "문제를 만들지 못했어요", true);
+    try {
+      const r = await fetch("/api/quiz/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ documentId, count: 5 }),
+      });
+      const d = await r.json().catch(() => null);
+      if (r.ok) {
+        say(`문제 ${d.created}개를 만들었어요`);
+        loadDocs(); // 방금 만든 문항이 카드에 바로 보이게
+      } else say(d?.error || "문제를 만들지 못했어요", true);
+    } catch {
+      // 네트워크 throw 시 quizBusy가 남아 그 자료의 '문제 만들기' 버튼이 영구 비활성되던 것 방지
+      say("문제를 만들지 못했어요 — 네트워크를 확인해 주세요.", true);
+    } finally {
+      setQuizBusy(null);
+    }
   }
 
   async function removeQuiz(quizId: string, documentId: string) {

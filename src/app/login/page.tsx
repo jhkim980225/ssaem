@@ -65,6 +65,8 @@ function LoginInner() {
       if (pw !== pw2) return setErr("두 비밀번호가 서로 달라요.");
     }
     setBusy(true);
+    // 네트워크 throw 시 '처리 중…'으로 영구 잠기던 것 방지 — finally에서 busy 해제
+    try {
 
     if (mode === "signup") {
       const academySlug = params.get("academy");
@@ -133,8 +135,12 @@ function LoginInner() {
       return;
     }
 
-    setBusy(false);
     router.replace(next ?? homeFor(realRole));
+    } catch {
+      setErr("네트워크 오류로 로그인하지 못했어요. 잠시 후 다시 시도해 주세요.");
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
