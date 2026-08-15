@@ -172,6 +172,17 @@ async function main() {
   const co = await (await api(`/api/courses?teacher=${tchBId}`, tok)).json();
   ok("타 학원 강좌 목록 차단", (co.courses ?? []).length === 0, `${(co.courses ?? []).length}건`);
 
+  // 9. 남의 학원 강사에게 질문 (/api/ask) — 답변·근거(X-Sources)로 비공개 자료가 새던 핵심 경로
+  const ask = await api("/api/ask", tok, {
+    method: "POST",
+    body: JSON.stringify({ teacherId: tchBId, question: "B학원 자료 관련 질문" }),
+  });
+  ok(
+    "타 학원 강사 질문 차단 (자료·근거 미노출)",
+    ask.status === 404 && !ask.headers.get("X-Sources"),
+    `status=${ask.status} X-Sources=${ask.headers.get("X-Sources") ? "有" : "없음"}`
+  );
+
   section("같은 학원 안에서는 정상 동작해야 한다 (과잉 차단 방지)");
   const tchAId = await mkUser(`tenant-tch-a-${stamp}@ssaem.kr`, "12345678");
   await db.from("profiles").insert({ id: tchAId, academy_id: acA, role: "teacher", name: `${TAG}강사A` });
@@ -204,6 +215,13 @@ async function main() {
   });
   const at2Body = await at2.json();
   ok("같은 학원 채점 정상 (정답·해설 반환)", at2.status === 200 && at2Body.correct === true, `status=${at2.status}`);
+
+  // 같은 학원 강사 질문은 통과해야 한다 (sameAcademy 과잉 차단 방지)
+  const ask2 = await api("/api/ask", tok, {
+    method: "POST",
+    body: JSON.stringify({ teacherId: tchAId, question: "감가상각이 뭐예요?" }),
+  });
+  ok("같은 학원 강사 질문 정상 (200)", ask2.status === 200, `status=${ask2.status}`);
 
   // ── 문제은행은 반대다: 전역 공용이라 A·B 학원 학생이 둘 다 봐야 한다.
   //    누가 나중에 /api/bank에 sameAcademy를 잘못 붙이면 여기서 잡힌다.

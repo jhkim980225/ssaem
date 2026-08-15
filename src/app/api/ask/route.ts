@@ -4,6 +4,7 @@ import { retrieve } from "@/lib/retrieve";
 import { generateStream, llmModel, hasLlmKey } from "@/lib/anthropic";
 import { buildTutorSystem } from "@/lib/prompt";
 import { requireUser } from "@/lib/auth";
+import { sameAcademy } from "@/lib/tenant";
 import { rateLimit } from "@/lib/ratelimit";
 import { askLimitError } from "@/lib/plan";
 
@@ -32,7 +33,8 @@ export async function POST(req: Request) {
   const courseId = /^[0-9a-f-]{36}$/i.test(rawCourse) ? rawCourse : null;
   const question = (body?.question ?? "").toString().trim();
   let conversationId: string | null = (body?.conversationId ?? null) as string | null;
-  if (!teacherId || !question)
+  // teacherId도 uuid 형식 강제 — 형식 오류가 match_chunks의 uuid 파싱 에러(500)로 새던 것 차단
+  if (!/^[0-9a-f-]{36}$/i.test(teacherId) || !question)
     return NextResponse.json({ error: "teacherId, question required" }, { status: 400 });
   if (question.length > MAX_QUESTION)
     return NextResponse.json(
@@ -41,6 +43,12 @@ export async function POST(req: Request) {
     );
 
   const db = serviceClient();
+
+  // 학원(테넌트) 경계 — 남의 학원 강사 uuid를 넣어 그 강사의 비공개 자료를
+  // 답변·근거(X-Sources)로 빼가던 것 차단. 형제 라우트(quiz·popular·related 등)와 동일 게이트.
+  // 강사 본인 자가 테스트(uid===teacherId)는 통과한다.
+  if (!(await sameAcademy(db, studentId, teacherId)))
+    return NextResponse.json({ error: "teacher not found" }, { status: 404 });
 
   // 무료 플랜 일일 한도 (학원 단위) — LLM 비용 방어 + 업그레이드 트리거
   const limitMsg = await askLimitError(db, teacherId);
@@ -65,7 +73,13 @@ export async function POST(req: Request) {
       .eq("id", teacherId)
       .eq("role", "teacher")
       .maybeSingle(),
-    retrieve(teacherId, question, 5, courseId),
+    // 검색 실패(RPC/lexical DB 에러)해도 라우트를 500으로 죽이지 않는다 —
+    // 근거 없이(빈 배열) 답변을 이어가는 편이 'Internal Server Error'가 답변 말풍선에
+    // 렌더링되는 것보다 낫다.
+    retrieve(teacherId, question, 5, courseId).catch((e) => {
+      console.error("retrieve:", e instanceof Error ? e.message : e);
+      return [] as Awaited<ReturnType<typeof retrieve>>;
+    }),
     conversationId
       ? db
           .from("messages")

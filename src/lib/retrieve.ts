@@ -19,7 +19,12 @@ export async function retrieve(
   courseId?: string | null
 ): Promise<Hit[]> {
   const db = serviceClient();
-  const vec = await embed(question);
+  // 임베딩 호출 실패(예: Gemini 무료티어 일일 쿼터 429)는 키 부재와 똑같이 취급 →
+  // 벡터 검색을 건너뛰고 lexical 폴백을 탄다. 안 잡으면 /api/ask 전체가 500 났다.
+  const vec = await embed(question).catch((e) => {
+    console.error("embed:", e instanceof Error ? e.message : e);
+    return null;
+  });
 
   if (vec) {
     // 말투 자료를 걸러내면 k개가 안 될 수 있으니 여유분을 더 받아온다
