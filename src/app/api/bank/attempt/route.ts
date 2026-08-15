@@ -71,11 +71,12 @@ export async function GET(req: Request) {
     .from("bank_attempts")
     .select("question_id, chosen_idx, is_correct, created_at")
     .eq("user_id", g.uid)
-    .order("created_at", { ascending: true })
+    .order("created_at", { ascending: false })
     .limit(2000);
   type A = { question_id: string; chosen_idx: number | null; is_correct: boolean; created_at: string };
+  // 최신순 + 문항별 첫 등장만 = 마지막 시도 (2000건 초과 시 최신 기준 유지)
   const last = new Map<string, A>();
-  for (const a of (attempts ?? []) as A[]) last.set(a.question_id, a);
+  for (const a of (attempts ?? []) as A[]) if (!last.has(a.question_id)) last.set(a.question_id, a);
   const wrong = [...last.values()].filter((a) => !a.is_correct);
   const totals = { attempted: last.size, wrong: wrong.length, correct: last.size - wrong.length };
   if (!wrong.length) return NextResponse.json({ totals, notes: [] });

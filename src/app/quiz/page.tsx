@@ -97,19 +97,25 @@ function QuizInner() {
     if (graded || busy || !qs) return;
     setPicked(choice);
     setBusy(true);
-    const r = await fetch("/api/quiz/attempt", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...(session ? { Authorization: `Bearer ${session.access_token}` } : {}),
-      },
-      body: JSON.stringify({ questionId: qs[idx].id, chosen: choice }),
-    });
-    const d = await r.json().catch(() => null);
-    setBusy(false);
-    if (!r.ok) return setErr(d?.error ?? "채점하지 못했어요.");
-    setGraded(d);
-    setScore((s) => ({ right: s.right + (d.correct ? 1 : 0), done: s.done + 1 }));
+    try {
+      const r = await fetch("/api/quiz/attempt", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(session ? { Authorization: `Bearer ${session.access_token}` } : {}),
+        },
+        body: JSON.stringify({ questionId: qs[idx].id, chosen: choice }),
+      });
+      const d = await r.json().catch(() => null);
+      if (!r.ok) return setErr(d?.error ?? "채점하지 못했어요.");
+      setGraded(d);
+      setScore((s) => ({ right: s.right + (d.correct ? 1 : 0), done: s.done + 1 }));
+    } catch {
+      // 네트워크 throw 시 busy가 영원히 true로 남아 퀴즈가 잠기던 것 방지
+      setErr("네트워크 오류로 채점하지 못했어요. 다시 시도해 주세요.");
+    } finally {
+      setBusy(false);
+    }
   }
 
   function next() {

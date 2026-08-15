@@ -256,6 +256,7 @@ language sql stable as $$
   join documents d on d.id = c.document_id
   where c.teacher_id = p_teacher
     and c.embedding is not null
+    and d.kind <> 'style'   -- 말투 자료는 검색 근거에서 제외 (마이그레이션 20260810과 정렬)
     and (p_course is null or d.course_id is null or d.course_id = p_course)
   order by c.embedding <=> p_query
   limit p_k;

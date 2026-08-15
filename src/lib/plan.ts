@@ -10,6 +10,15 @@ export type Plan = "free" | "pro";
 
 type Db = ReturnType<typeof serviceClient>;
 
+// 무료 일일 질문 한도의 '오늘'은 KST(UTC+9) 자정 기준.
+// 서버(Vercel=UTC) 로컬 자정을 쓰면 한국 학생 입장에선 오전 9시에 리셋돼 밤에 억울하게 막혔다.
+const KST_OFFSET = 9 * 3600_000;
+function kstDayStartIso(): string {
+  const shifted = Date.now() + KST_OFFSET; // UTC epoch → KST 벽시계 epoch
+  const kstMidnight = Math.floor(shifted / 86_400_000) * 86_400_000; // KST 자정
+  return new Date(kstMidnight - KST_OFFSET).toISOString(); // 다시 UTC 시각으로
+}
+
 // 강사 uid → 학원 플랜. plan 컬럼 미마이그레이션·학원 미소속이면 free.
 export async function planForTeacher(
   db: Db,
@@ -57,14 +66,12 @@ export async function askLimitError(db: Db, teacherId: string): Promise<string |
   const ids = (ts ?? []).map((t) => t.id);
   if (!ids.length) return null;
 
-  const dayStart = new Date();
-  dayStart.setHours(0, 0, 0, 0);
   const { count } = await db
     .from("messages")
     .select("id, conversations!inner(teacher_id)", { count: "exact", head: true })
     .eq("role", "user")
     .in("conversations.teacher_id", ids)
-    .gte("created_at", dayStart.toISOString());
+    .gte("created_at", kstDayStartIso());
   if ((count ?? 0) >= FREE_LIMITS.questionsPerDay)
     return `오늘 무료 질문 한도(${FREE_LIMITS.questionsPerDay}건)를 모두 썼어요. 내일 다시 시도하거나 원장님께 Pro 도입을 요청해 주세요.`;
   return null;
@@ -96,8 +103,7 @@ export async function usageFor(
     : { data: [] as { id: string }[] };
   const ids = (ts ?? []).map((t) => t.id);
 
-  const dayStart = new Date();
-  dayStart.setHours(0, 0, 0, 0);
+  const dayStartIso = kstDayStartIso();
 
   const [docRes, qRes] = await Promise.all([
     teacherId
@@ -109,7 +115,7 @@ export async function usageFor(
           .select("id, conversations!inner(teacher_id)", { count: "exact", head: true })
           .eq("role", "user")
           .in("conversations.teacher_id", ids)
-          .gte("created_at", dayStart.toISOString())
+          .gte("created_at", dayStartIso)
       : Promise.resolve({ count: 0 }),
   ]);
 

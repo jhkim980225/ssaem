@@ -54,14 +54,16 @@ export async function wrongQuestionIds(
   db: ReturnType<typeof serviceClient>,
   studentId: string
 ): Promise<Set<string>> {
+  // 최신순으로 받아 문항별 '첫 등장 = 마지막 시도'만 채택 —
+  // 오름차순+limit이면 시도가 1000건을 넘을 때 가장 오래된 기록으로 판정되던 것 차단.
   const { data } = await db
     .from("quiz_attempts")
     .select("question_id, correct, created_at")
     .eq("student_id", studentId)
-    .order("created_at", { ascending: true })
+    .order("created_at", { ascending: false })
     .limit(1000);
   const last = new Map<string, boolean>();
   for (const a of (data ?? []) as { question_id: string; correct: boolean }[])
-    last.set(a.question_id, a.correct);
+    if (!last.has(a.question_id)) last.set(a.question_id, a.correct);
   return new Set([...last.entries()].filter(([, ok]) => !ok).map(([id]) => id));
 }

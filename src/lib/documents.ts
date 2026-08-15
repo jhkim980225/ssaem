@@ -40,17 +40,25 @@ export async function saveDocument(opts: {
     .single();
   if (derr) throw derr;
 
-  const pieces = chunkText(opts.rawText);
-  const vecs = await embedMany(pieces);
-  const rows = pieces.map((content, i) => ({
-    document_id: doc.id,
-    teacher_id: opts.teacherId,
-    ord: i,
-    content,
-    embedding: vecs[i],
-  }));
-  const { error: cerr } = await db.from("chunks").insert(rows);
-  if (cerr) throw cerr;
+  // 임베딩/청크 저장이 실패하면 방금 만든 문서 행을 되돌린다 —
+  // 안 그러면 청크 0개 유령 문서가 남아 무료 플랜 자료 한도만 갉아먹는다.
+  let rows: { document_id: string; teacher_id: string; ord: number; content: string; embedding: number[] | null }[];
+  try {
+    const pieces = chunkText(opts.rawText);
+    const vecs = await embedMany(pieces);
+    rows = pieces.map((content, i) => ({
+      document_id: doc.id,
+      teacher_id: opts.teacherId,
+      ord: i,
+      content,
+      embedding: vecs[i],
+    }));
+    const { error: cerr } = await db.from("chunks").insert(rows);
+    if (cerr) throw cerr;
+  } catch (e) {
+    await db.from("documents").delete().eq("id", doc.id);
+    throw e;
+  }
 
   await logDocumentEvent({
     teacherId: opts.teacherId,
@@ -84,6 +92,19 @@ export async function updateDocument(opts: {
   if (doc.source !== "text") throw new Error("PDF 자료는 재업로드로 수정하세요");
 
   const title = opts.rawText.slice(0, 40);
+
+  // 재임베딩을 **먼저** 한다. 실패하면(쿼터 등) 여기서 throw하고 기존 원문·청크는 그대로 —
+  // 예전엔 청크를 먼저 지운 뒤 재임베딩해서, 실패 시 문서가 검색에서 통째로 사라졌다.
+  const pieces = chunkText(opts.rawText);
+  const vecs = await embedMany(pieces);
+  const rows = pieces.map((content, i) => ({
+    document_id: opts.documentId,
+    teacher_id: opts.teacherId,
+    ord: i,
+    content,
+    embedding: vecs[i],
+  }));
+
   const { error: uerr } = await db
     .from("documents")
     .update({ raw_text: opts.rawText, title })
@@ -94,15 +115,6 @@ export async function updateDocument(opts: {
   const { error: derr } = await db.from("chunks").delete().eq("document_id", opts.documentId);
   if (derr) throw derr;
 
-  const pieces = chunkText(opts.rawText);
-  const vecs = await embedMany(pieces);
-  const rows = pieces.map((content, i) => ({
-    document_id: opts.documentId,
-    teacher_id: opts.teacherId,
-    ord: i,
-    content,
-    embedding: vecs[i],
-  }));
   const { error: cerr } = await db.from("chunks").insert(rows);
   if (cerr) throw cerr;
 
