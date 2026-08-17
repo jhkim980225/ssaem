@@ -445,6 +445,67 @@ async function main() {
     }
   }
 
+  // ── 7.4 전자서명 (평가 본인 확인)
+  section("전자서명");
+  const hasSig = await tableExists("signatures", "image");
+  if (!hasSig) {
+    skip("전자서명 전 구간", "signatures 테이블 없음 — 20260818000000_signatures.sql 미실행");
+  } else {
+    const bigPng = "data:image/png;base64," + "A".repeat(4000);
+    ok(
+      "비로그인 서명 401",
+      (await status("/api/signature", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ kind: "assessment", image: bigPng }),
+      })) === 401
+    );
+    const badKind = await json("/api/signature", {
+      method: "POST",
+      headers: { ...bearer(studentTok), "Content-Type": "application/json" },
+      body: JSON.stringify({ kind: "nope", image: bigPng }),
+    });
+    ok("알 수 없는 kind 400", badKind.status === 400);
+    const badImg = await json("/api/signature", {
+      method: "POST",
+      headers: { ...bearer(studentTok), "Content-Type": "application/json" },
+      body: JSON.stringify({ kind: "assessment", image: "data:image/svg+xml;base64,AAAA" }),
+    });
+    ok("PNG 아닌 서명 거부 400", badImg.status === 400);
+    const blank = await json("/api/signature", {
+      method: "POST",
+      headers: { ...bearer(studentTok), "Content-Type": "application/json" },
+      body: JSON.stringify({ kind: "assessment", image: "data:image/png;base64,AAAA" }),
+    });
+    ok("빈 서명 거부 400", blank.status === 400);
+
+    const saved = await json("/api/signature", {
+      method: "POST",
+      headers: { ...bearer(studentTok), "Content-Type": "application/json" },
+      body: JSON.stringify({ kind: "assessment", image: bigPng }),
+    });
+    ok("서명 저장 200", saved.status === 200 && Boolean(saved.body?.id), `status=${saved.status}`);
+
+    const mine = await json("/api/signature?kind=assessment", { headers: bearer(studentTok) });
+    ok(
+      "본인 서명 조회",
+      mine.status === 200 && (mine.body?.signatures ?? []).some((r: { id: string }) => r.id === saved.body?.id)
+    );
+    // 남의 서명은 안 보여야 한다 (조회는 항상 본인 필터)
+    const others = await json("/api/signature?kind=assessment", { headers: bearer(teacherTok) });
+    ok(
+      "남의 서명 미노출",
+      others.status === 200 &&
+        !(others.body?.signatures ?? []).some((r: { id: string }) => r.id === saved.body?.id)
+    );
+    // 응답에 image 원문을 싣지 않는다 (목록에서 서명 이미지 유출 방지)
+    ok(
+      "조회 응답에 서명 이미지 미포함",
+      !(mine.body?.signatures ?? []).some((r: Record<string, unknown>) => "image" in r)
+    );
+    if (saved.body?.id) await db.from("signatures").delete().eq("id", saved.body.id);
+  }
+
   // ── 8. 요금제 문의
   section("요금제 문의");
   const hasInq = await tableExists("plan_inquiries", "contact");

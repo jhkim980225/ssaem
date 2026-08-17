@@ -33,9 +33,14 @@ export default function StudentProtection() {
     };
     const events = ["contextmenu", "dragstart", "copy", "cut", "selectstart"] as const;
     for (const ev of events) document.addEventListener(ev, block);
+    // 붙여넣기는 입력창에서도 막는다 — 위 예외를 그대로 두면 paste는 사실상 안 막히고,
+    // 밖에서 답·문제를 긁어와 넣는 부정행위가 그대로 통과한다.
+    const blockPaste = (e: Event) => e.preventDefault();
+    document.addEventListener("paste", blockPaste);
     document.body.classList.add("student-locked");
     return () => {
       for (const ev of events) document.removeEventListener(ev, block);
+      document.removeEventListener("paste", blockPaste);
       document.body.classList.remove("student-locked");
     };
   }, [isStudent]);

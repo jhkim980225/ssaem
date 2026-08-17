@@ -202,6 +202,26 @@ drop policy if exists quiz_questions_owner_write on quiz_questions;
 drop policy if exists quiz_attempts_party on quiz_attempts;
 drop policy if exists quiz_attempts_self_write on quiz_attempts;
 -- ─────────────────────────────────────────────
+-- 전자서명 (평가 응시 본인 확인)
+-- ─────────────────────────────────────────────
+-- 범용 설계(kind + ref_id). 평가 테이블이 아직 없어 FK는 걸지 않는다 —
+-- A(평가 세트) 구현 시 kind별로 앱에서 검증한다. 마이그레이션 20260818000000 참조.
+create table if not exists signatures (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references profiles(id) on delete cascade,
+  kind text not null check (kind in ('assessment')),
+  ref_id uuid,
+  image text not null,               -- PNG dataURL
+  signed_at timestamptz default now(),
+  ip text,
+  user_agent text
+);
+create index if not exists signatures_user_idx on signatures(user_id, signed_at desc);
+create index if not exists signatures_ref_idx on signatures(kind, ref_id);
+alter table signatures enable row level security;
+drop policy if exists signatures_self on signatures;
+
+-- ─────────────────────────────────────────────
 -- 헬퍼: 현재 사용자의 학원
 -- ─────────────────────────────────────────────
 create or replace function current_academy() returns uuid
