@@ -284,6 +284,15 @@ async function main() {
       !first || (!("answer" in first) && !("explanation" in first)),
       first ? Object.keys(first).join(",") : "문제 없음"
     );
+    // 공부 모드는 정답·해설을 함께 준다
+    const studyList = await json(`/api/quiz?teacher=${t0.id}&study=1`, { headers: bearer(studentTok) });
+    const studyFirst = studyList.body?.questions?.[0];
+    if (studyFirst)
+      ok(
+        "공부 모드 응답에 정답·해설 포함",
+        "answer" in studyFirst && "explanation" in studyFirst,
+        Object.keys(studyFirst).join(",")
+      );
     if (first) {
       const graded = await json("/api/quiz/attempt", {
         method: "POST",
@@ -329,6 +338,17 @@ async function main() {
         !theory || (!("answer_idx" in theory) && !("explanation" in theory)),
         theory ? Object.keys(theory).join(",") : "이론 없음"
       );
+      // 공부 모드는 이론도 정답(answerIdx)·해설 포함
+      const studySet = await json(`/api/bank?subject=${encodeURIComponent(subj)}&limit=10&study=1`, {
+        headers: bearer(studentTok),
+      });
+      const studyTheory = (studySet.body?.questions ?? []).find((q: { type: string }) => q.type === "theory");
+      if (studyTheory)
+        ok(
+          "공부 모드 이론에 정답·해설 포함",
+          "answerIdx" in studyTheory && "explanation" in studyTheory,
+          Object.keys(studyTheory).join(",")
+        );
       // 실무는 자가채점이라 answer_text 포함
       ok("실무 answer_text 포함", !practice || "answerText" in practice, practice ? "ok" : "실무 없음");
 

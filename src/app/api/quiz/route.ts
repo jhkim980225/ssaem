@@ -15,6 +15,8 @@ export async function GET(req: Request) {
   const teacherId = (url.searchParams.get("teacher") ?? "").trim();
   const courseId = (url.searchParams.get("course") ?? "").trim();
   const mode = url.searchParams.get("mode") === "wrong" ? "wrong" : "all";
+  // 공부 모드: 문제 옆에 정답·해설을 처음부터 함께 준다 (채점 아닌 복습용).
+  const study = url.searchParams.get("study") === "1";
   if (!/^[0-9a-f-]{36}$/i.test(teacherId))
     return NextResponse.json({ error: "teacher required" }, { status: 400 });
 
@@ -26,7 +28,7 @@ export async function GET(req: Request) {
 
   let q = db
     .from("quiz_questions")
-    .select("id, question, choices, course_id")
+    .select("id, question, choices, course_id, answer, explanation")
     .eq("teacher_id", teacherId)
     .order("created_at", { ascending: false })
     .limit(200);
@@ -34,7 +36,8 @@ export async function GET(req: Request) {
 
   const { data, error } = await q;
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  let questions = (data ?? []) as { id: string; question: string; choices: string[]; course_id: string | null }[];
+  type Row = { id: string; question: string; choices: string[]; course_id: string | null; answer: number; explanation: string | null };
+  let questions = (data ?? []) as Row[];
 
   if (mode === "wrong") {
     if (!uid) return NextResponse.json({ questions: [], needLogin: true });
@@ -42,10 +45,16 @@ export async function GET(req: Request) {
     questions = questions.filter((x) => wrong.has(x.id));
   }
 
-  // 정답·해설은 채점(POST /api/quiz/attempt) 때만 준다 — 응답만 보고 답 알아내는 것 차단
+  // 시험 모드: 정답·해설은 채점(POST /api/quiz/attempt) 때만 준다 — 응답만 보고 답 아는 것 차단.
+  // 공부 모드(study): 복습용이라 정답·해설을 처음부터 함께 준다.
   return NextResponse.json({
-    questions: questions.slice(0, LIMIT).map((x) => ({ id: x.id, question: x.question, choices: x.choices })),
+    questions: questions.slice(0, LIMIT).map((x) =>
+      study
+        ? { id: x.id, question: x.question, choices: x.choices, answer: x.answer, explanation: x.explanation ?? "" }
+        : { id: x.id, question: x.question, choices: x.choices }
+    ),
     total: questions.length,
+    study,
   });
 }
 

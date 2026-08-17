@@ -7,7 +7,8 @@ import { avatarEmoji } from "@/lib/avatar";
 
 type Teacher = { id: string; name: string; subject: string | null };
 type Course = { id: string; title: string };
-type Q = { id: string; question: string; choices: string[] };
+// 공부 모드일 때만 answer·explanation가 함께 온다
+type Q = { id: string; question: string; choices: string[]; answer?: number; explanation?: string };
 type Graded = { correct: boolean; answer: number; explanation: string };
 
 export default function QuizPage() {
@@ -36,6 +37,8 @@ function QuizInner() {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const [needLogin, setNeedLogin] = useState(false);
+  // 공부 모드: 문제 옆에 정답·해설을 처음부터 보여주는 복습 모드 (채점 없음)
+  const [study, setStudy] = useState(false);
 
   // 문제풀이도 로그인 계정에서만 — 채점 기록이 남아야 오답노트가 의미가 있다
   const { session, gate } = useGate("any", { loginMessage: "문제풀이 기록은 계정에 저장돼요." });
@@ -70,7 +73,7 @@ function QuizInner() {
   const load = useCallback(async () => {
     if (!teacherId) return;
     const r = await fetch(
-      `/api/quiz?teacher=${teacherId}${courseId ? `&course=${courseId}` : ""}&mode=${mode}`,
+      `/api/quiz?teacher=${teacherId}${courseId ? `&course=${courseId}` : ""}&mode=${mode}${study ? "&study=1" : ""}`,
       { headers: session ? { Authorization: `Bearer ${session.access_token}` } : {} }
     );
     const d = await r.json().catch(() => null);
@@ -86,7 +89,7 @@ function QuizInner() {
     }
     setErr("");
     setQs(d.questions ?? []);
-  }, [teacherId, courseId, mode, session]);
+  }, [teacherId, courseId, mode, session, study]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- load의 setState는 모두 await 이후라 동기 캐스케이드 아님
@@ -124,8 +127,14 @@ function QuizInner() {
     setIdx((i) => i + 1);
   }
 
+  // 공부 모드 앞뒤 이동 (채점 상태 리셋 불필요 — 채점 안 함)
+  function studyGo(delta: number) {
+    setIdx((i) => Math.min(Math.max(i + delta, 0), (qs?.length ?? 1) - 1));
+  }
+
   const q = qs?.[idx];
-  const finished = qs !== null && qs.length > 0 && idx >= qs.length;
+  // 공부 모드엔 '결과' 화면이 없다 (점수 채점을 안 하므로)
+  const finished = !study && qs !== null && qs.length > 0 && idx >= qs.length;
 
   if (gate) return gate;
 
@@ -145,6 +154,25 @@ function QuizInner() {
         <Link href="/quiz/notes" className="chip shrink-0 !text-[13px]">
           오답노트
         </Link>
+      </div>
+
+      {/* 시험/공부 모드 토글 */}
+      <div className="rise d1 flex gap-1.5">
+        <button
+          onClick={() => setStudy(false)}
+          className={`chip !text-[13px] ${!study ? "chip-on" : ""}`}
+        >
+          시험 모드
+        </button>
+        <button
+          onClick={() => setStudy(true)}
+          className={`chip !text-[13px] ${study ? "chip-on" : ""}`}
+        >
+          공부 모드
+        </button>
+        <span className="self-center text-[12px] text-sub ml-1">
+          {study ? "정답·풀이를 옆에 두고 익혀요" : "풀고 바로 채점해요"}
+        </span>
       </div>
 
       {/* 선생님·강좌 선택 */}
@@ -222,14 +250,60 @@ function QuizInner() {
           <span>
             {idx + 1} / {qs.length}문제
           </span>
-          <span className="tabular-nums">
-            맞은 개수 {score.right} / {score.done}
-          </span>
+          {!study && (
+            <span className="tabular-nums">
+              맞은 개수 {score.right} / {score.done}
+            </span>
+          )}
         </div>
       )}
 
-      {/* 문제 */}
-      {q && !finished && (
+      {/* 공부 모드 — 문제 옆에 정답·풀이 (데스크톱 2단, 모바일 세로) */}
+      {study && q && (
+        <div key={q.id} className="animate-pop grid gap-4 lg:grid-cols-2">
+          <div className="card p-5 lg:p-6 flex flex-col gap-4">
+            <p className="text-[16px] font-bold leading-relaxed">{q.question}</p>
+            <div className="flex flex-col gap-2">
+              {q.choices.map((c, i) => {
+                const isAnswer = q.answer === i;
+                return (
+                  <div
+                    key={i}
+                    className="flex items-start gap-3 rounded-[14px] border border-line p-3.5"
+                    style={isAnswer ? { borderColor: "var(--blue)", background: "var(--blue-weak)" } : {}}
+                  >
+                    <span className="shrink-0 grid place-items-center w-6 h-6 rounded-full border border-line text-[12px] font-extrabold">
+                      {i + 1}
+                    </span>
+                    <span className="text-[14px] leading-relaxed">{c}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+          <div className="card p-5 lg:p-6 flex flex-col gap-3 self-start">
+            <p className="text-[13px] font-extrabold text-blue">정답 {(q.answer ?? 0) + 1}번</p>
+            <p className="text-[14px] leading-relaxed" style={{ color: "var(--sub-2)" }}>
+              {q.explanation || "이 문제는 해설이 없어요."}
+            </p>
+            <div className="flex gap-2 mt-1">
+              <button onClick={() => studyGo(-1)} disabled={idx === 0} className="btn btn-gray flex-1 py-3 disabled:opacity-50">
+                이전
+              </button>
+              <button
+                onClick={() => studyGo(1)}
+                disabled={idx >= qs!.length - 1}
+                className="btn btn-primary flex-1 py-3 disabled:opacity-50"
+              >
+                다음
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 시험 모드 — 문제 */}
+      {!study && q && !finished && (
         <div key={q.id} className="animate-pop card p-5 lg:p-6 flex flex-col gap-4">
           <p className="text-[16px] font-bold leading-relaxed">{q.question}</p>
 

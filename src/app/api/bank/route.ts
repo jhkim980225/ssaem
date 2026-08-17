@@ -24,6 +24,8 @@ export async function GET(req: Request) {
   const area = (url.searchParams.get("area") ?? "").trim();
   const typeTag = (url.searchParams.get("type_tag") ?? "").trim();
   const mode = url.searchParams.get("mode") === "wrong" ? "wrong" : "all";
+  // 공부 모드: 이론 문항도 정답·해설을 처음부터 함께 준다 (복습용). 실무는 원래 포함.
+  const study = url.searchParams.get("study") === "1";
   const hasFilter = Boolean(url.searchParams.get("subject") || mode === "wrong");
   const limit = Math.min(
     Math.max(Number(url.searchParams.get("limit")) || DEFAULT_LIMIT, 1),
@@ -104,8 +106,16 @@ export async function GET(req: Request) {
     // 문항을 이론으로 내보내면 채점 POST가 self-grade를 기대해 400으로 막힌다.
     const isTheory = Array.isArray(r.choices) && r.choices.length > 0 && r.answer_idx !== null;
     return isTheory
-      ? // 이론: 정답·해설 숨김 (서버 채점)
-        { id: r.id, type: "theory" as const, stem: r.stem, choices: r.choices, area: r.area, typeTag: r.type_tag }
+      ? // 이론: 시험 모드는 정답·해설 숨김(서버 채점), 공부 모드는 함께 준다
+        {
+          id: r.id,
+          type: "theory" as const,
+          stem: r.stem,
+          choices: r.choices,
+          area: r.area,
+          typeTag: r.type_tag,
+          ...(study ? { answerIdx: r.answer_idx, explanation: r.explanation } : {}),
+        }
       : // 실무: 자가채점이라 답·해설 포함
         {
           id: r.id,
@@ -118,5 +128,5 @@ export async function GET(req: Request) {
         };
   });
 
-  return NextResponse.json({ questions, total });
+  return NextResponse.json({ questions, total, study });
 }

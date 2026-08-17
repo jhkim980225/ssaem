@@ -4,7 +4,8 @@ import Link from "next/link";
 import { useGate } from "@/components/RoleGuard";
 import JournalEntry from "@/components/JournalEntry";
 
-type Theory = { id: string; type: "theory"; stem: string; choices: string[]; area: string; typeTag: string };
+// answerIdx·explanation은 공부 모드에서만 함께 온다
+type Theory = { id: string; type: "theory"; stem: string; choices: string[]; area: string; typeTag: string; answerIdx?: number; explanation?: string | null };
 type Practice = {
   id: string;
   type: "practice";
@@ -38,6 +39,8 @@ export default function BankPage() {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const [score, setScore] = useState({ right: 0, done: 0 });
+  // 공부 모드: 정답·해설을 옆에 두고 넘겨보는 복습 모드 (채점 없음)
+  const [study, setStudy] = useState(false);
 
   // 이론 채점 상태
   const [picked, setPicked] = useState<number | null>(null);
@@ -86,6 +89,7 @@ export default function BankPage() {
     const p = new URLSearchParams({ subject });
     if (category) p.set("category", category);
     if (area) p.set("area", area);
+    if (study) p.set("study", "1");
     const r = await fetch(`/api/bank?${p}`, { headers: { Authorization: `Bearer ${token}` } }).catch(() => null);
     const d = await r?.json().catch(() => null);
     setBusy(false);
@@ -104,7 +108,8 @@ export default function BankPage() {
   }
 
   const q = qs?.[idx];
-  const finished = qs !== null && qs.length > 0 && idx >= qs.length;
+  // 공부 모드엔 결과(점수) 화면이 없다
+  const finished = !study && qs !== null && qs.length > 0 && idx >= qs.length;
 
   // 이론 채점
   async function pick(i: number) {
@@ -142,6 +147,11 @@ export default function BankPage() {
     setIdx((i) => i + 1);
   }
 
+  // 공부 모드 앞뒤 이동
+  function studyGo(delta: number) {
+    setIdx((i) => Math.min(Math.max(i + delta, 0), (qs?.length ?? 1) - 1));
+  }
+
   if (gate) return gate;
 
   return (
@@ -163,6 +173,17 @@ export default function BankPage() {
             <div className="skel h-40 !rounded-[16px]" />
           ) : (
             <>
+              <div className="flex gap-1.5">
+                <button onClick={() => setStudy(false)} className={`chip !text-[13px] ${!study ? "chip-on" : ""}`}>
+                  시험 모드
+                </button>
+                <button onClick={() => setStudy(true)} className={`chip !text-[13px] ${study ? "chip-on" : ""}`}>
+                  공부 모드
+                </button>
+                <span className="self-center text-[12px] text-sub ml-1">
+                  {study ? "정답·풀이를 옆에 두고 익혀요" : "풀고 바로 채점해요"}
+                </span>
+              </div>
               <Filter label="과목" required>
                 {subjects.map((s) => (
                   <Chip
@@ -201,7 +222,7 @@ export default function BankPage() {
                 disabled={!subject || busy}
                 className="btn btn-primary py-3.5 disabled:opacity-50"
               >
-                {busy ? "불러오는 중…" : subject ? "문제 풀기" : "과목을 골라 주세요"}
+                {busy ? "불러오는 중…" : !subject ? "과목을 골라 주세요" : study ? "공부 시작" : "문제 풀기"}
               </button>
             </>
           )}
@@ -220,9 +241,11 @@ export default function BankPage() {
           <span>
             {idx + 1} / {qs.length}문제
           </span>
-          <span className="tabular-nums">
-            맞은 개수 {score.right} / {score.done}
-          </span>
+          {!study && (
+            <span className="tabular-nums">
+              맞은 개수 {score.right} / {score.done}
+            </span>
+          )}
         </div>
       )}
 
@@ -235,8 +258,70 @@ export default function BankPage() {
         </div>
       )}
 
-      {/* 문제 */}
-      {q && !finished && (
+      {/* 공부 모드 — 문제 옆에 정답·풀이 (데스크톱 2단, 모바일 세로) */}
+      {study && q && (
+        <div key={q.id} className="animate-pop grid gap-4 lg:grid-cols-2">
+          <div className="card p-5 lg:p-6 flex flex-col gap-4">
+            <div className="flex gap-1.5 flex-wrap">
+              <span className="chip !py-0.5 !px-2 !text-[11px]">{q.typeTag}</span>
+              <span className="chip !py-0.5 !px-2 !text-[11px]">{q.area}</span>
+              <span className="chip !py-0.5 !px-2 !text-[11px]">{q.type === "theory" ? "이론" : "실무"}</span>
+            </div>
+            <StemView stem={q.stem} />
+            {q.type === "theory" && (
+              <div className="flex flex-col gap-2">
+                {q.choices.map((c, i) => (
+                  <div
+                    key={i}
+                    className="text-left rounded-[14px] border border-line px-4 py-3 text-[14px] leading-relaxed flex items-start gap-2.5"
+                    style={q.answerIdx === i ? { borderColor: "var(--blue)", background: "var(--blue-weak)" } : {}}
+                  >
+                    <span className="shrink-0 grid place-items-center w-5 h-5 mt-0.5 rounded-full border border-current text-[11px] font-extrabold">
+                      {i + 1}
+                    </span>
+                    <span>{c}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          <div className="card p-5 lg:p-6 flex flex-col gap-3 self-start">
+            {q.type === "theory" ? (
+              <>
+                <p className="text-[13px] font-extrabold text-blue">정답 {(q.answerIdx ?? 0) + 1}번</p>
+                <p className="text-[13px] leading-relaxed whitespace-pre-wrap" style={{ color: "var(--sub-2)" }}>
+                  {q.explanation || "이 문제는 해설이 없어요."}
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="text-[12px] font-bold text-blue">정답 (분개)</p>
+                {q.answerText ? <JournalEntry text={q.answerText} /> : <p className="text-sub text-[13px]">정답 없음</p>}
+                {q.explanation && (
+                  <p className="text-[13px] leading-relaxed whitespace-pre-wrap mt-1" style={{ color: "var(--sub-2)" }}>
+                    {q.explanation}
+                  </p>
+                )}
+              </>
+            )}
+            <div className="flex gap-2 mt-1">
+              <button onClick={() => studyGo(-1)} disabled={idx === 0} className="btn btn-gray flex-1 py-3 disabled:opacity-50">
+                이전
+              </button>
+              <button
+                onClick={() => studyGo(1)}
+                disabled={idx >= qs!.length - 1}
+                className="btn btn-primary flex-1 py-3 disabled:opacity-50"
+              >
+                다음
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 시험 모드 — 문제 */}
+      {!study && q && !finished && (
         <div key={q.id} className="animate-pop card p-5 lg:p-6 flex flex-col gap-4">
           <div className="flex gap-1.5 flex-wrap">
             <span className="chip !py-0.5 !px-2 !text-[11px]">{q.typeTag}</span>
