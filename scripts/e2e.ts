@@ -445,6 +445,102 @@ async function main() {
     }
   }
 
+  // ── 7.35 평가 세트 (업로드 → 응시 → 채점 → 1회 제한)
+  section("평가 세트");
+  const hasAs = await tableExists("assessments", "title");
+  if (!hasAs) {
+    skip("평가 전 구간", "assessments 테이블 없음 — supabase/실행할-SQL.sql 미실행");
+  } else {
+    // 업로드용 CSV (엑셀 대신 CSV로 — 파서는 같은 경로를 탄다)
+    const csv = [
+      "문제,보기1,보기2,보기3,보기4,정답,해설",
+      "[E2E] 차변에 오는 것은?,자산의 증가,자산의 감소,부채의 증가,수익의 발생,1,차변은 자산의 증가",
+      "[E2E] 대변에 오는 것은?,비용의 발생,자산의 증가,수익의 발생,자산의 감소,3,대변은 수익의 발생",
+      "[E2E] 깨진 줄,보기만 있음,,,,9,",
+    ].join("\n");
+
+    async function upload(tok: string, title: string) {
+      const fd = new FormData();
+      fd.append("file", new Blob([csv], { type: "text/csv" }), "e2e.csv");
+      fd.append("title", title);
+      const r = await fetch(`${BASE}/api/assessments`, { method: "POST", headers: bearer(tok), body: fd });
+      return { status: r.status, body: await r.json().catch(() => null) };
+    }
+
+    // 학생은 업로드 불가
+    const stuUp = await upload(studentTok, "[E2E] 학생업로드");
+    ok("학생 평가 업로드 403", stuUp.status === 403, `status=${stuUp.status}`);
+
+    const up = await upload(teacherTok, "[E2E] 평가");
+    ok("강사 평가 업로드 200", up.status === 200, `status=${up.status}`);
+    ok("정상 2문항 생성", up.body?.created === 2, `created=${up.body?.created}`);
+    ok("깨진 줄 1건 건너뜀", up.body?.skipped === 1, `skipped=${up.body?.skipped}`);
+
+    const asId: string | undefined = up.body?.id;
+    if (!asId) {
+      skip("평가 응시 구간", "평가 생성 실패");
+    } else {
+      const list = await json(`/api/assessments?teacher=${t0.id}`, { headers: bearer(studentTok) });
+      ok("학생 평가 목록 200", list.status === 200);
+      const mineSet = (list.body?.assessments ?? []).find((a: { id: string }) => a.id === asId);
+      ok("올린 평가가 목록에 보임", Boolean(mineSet), mineSet ? `${mineSet.questions}문항` : "없음");
+
+      const qres = await json(`/api/assessments/${asId}/questions`, { headers: bearer(studentTok) });
+      ok("응시 문항 200", qres.status === 200);
+      const first = qres.body?.questions?.[0];
+      ok(
+        "문항 응답에 정답·해설 미포함",
+        !first || (!("answer" in first) && !("explanation" in first)),
+        first ? Object.keys(first).join(",") : "문항 없음"
+      );
+
+      // 1번 문항은 정답(0), 2번은 오답(0) → 1/2점
+      const answers = (qres.body?.questions ?? []).map((q: { id: string }) => ({ questionId: q.id, chosen: 0 }));
+      const sub = await json(`/api/assessments/${asId}/submit`, {
+        method: "POST",
+        headers: { ...bearer(studentTok), "Content-Type": "application/json" },
+        body: JSON.stringify({ answers, signature: "data:image/png;base64," + "A".repeat(4000) }),
+      });
+      ok("제출 200", sub.status === 200, `status=${sub.status}`);
+      ok("서버 채점 1/2", sub.body?.score === 1 && sub.body?.total === 2, `${sub.body?.score}/${sub.body?.total}`);
+      ok("채점 후 정답·해설 공개", Boolean(sub.body?.results?.[0] && "answer" in sub.body.results[0]));
+      ok("서명 기록됨", Boolean(sub.body?.signedAt), sub.body?.signedAt ?? "없음");
+
+      // 1회 제한
+      const again = await json(`/api/assessments/${asId}/submit`, {
+        method: "POST",
+        headers: { ...bearer(studentTok), "Content-Type": "application/json" },
+        body: JSON.stringify({ answers }),
+      });
+      ok("재응시 409 차단", again.status === 409, `status=${again.status}`);
+      const qAgain = await json(`/api/assessments/${asId}/questions`, { headers: bearer(studentTok) });
+      ok("응시 후 문항 재조회도 409", qAgain.status === 409, `status=${qAgain.status}`);
+
+      // 잘못된 서명은 거부 (형식 검증이 제출 경로에도 걸리는지)
+      const badSig = await json(`/api/assessments/${asId}/submit`, {
+        method: "POST",
+        headers: { ...bearer(studentTok), "Content-Type": "application/json" },
+        body: JSON.stringify({ answers, signature: "data:image/svg+xml;base64,AAAA" }),
+      });
+      ok("PNG 아닌 서명 400", badSig.status === 400, `status=${badSig.status}`);
+
+      // 강사 삭제 (남의 평가는 못 지운다 — 소유권 필터)
+      ok(
+        "학생 평가 삭제 403",
+        (await status(`/api/assessments?id=${asId}`, { method: "DELETE", headers: bearer(studentTok) })) === 403
+      );
+      ok(
+        "강사 본인 평가 삭제 200",
+        (await status(`/api/assessments?id=${asId}`, { method: "DELETE", headers: bearer(teacherTok) })) === 200
+      );
+      const after = await json(`/api/assessments?teacher=${t0.id}`, { headers: bearer(studentTok) });
+      ok(
+        "삭제 후 목록에서 사라짐",
+        !(after.body?.assessments ?? []).some((a: { id: string }) => a.id === asId)
+      );
+    }
+  }
+
   // ── 7.4 전자서명 (평가 본인 확인)
   section("전자서명");
   const hasSig = await tableExists("signatures", "image");

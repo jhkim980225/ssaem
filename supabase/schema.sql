@@ -202,6 +202,62 @@ drop policy if exists quiz_questions_owner_write on quiz_questions;
 drop policy if exists quiz_attempts_party on quiz_attempts;
 drop policy if exists quiz_attempts_self_write on quiz_attempts;
 -- ─────────────────────────────────────────────
+-- 평가 세트 (강사가 올린 시험 — quiz_*와 분리)
+-- ─────────────────────────────────────────────
+-- 마이그레이션 20260818010000_assessments.sql 참조.
+create table if not exists assessments (
+  id uuid primary key default gen_random_uuid(),
+  teacher_id uuid not null references profiles(id) on delete cascade,
+  course_id uuid references courses(id) on delete set null,   -- null = 그 강사 전체 학생
+  title text not null,
+  created_at timestamptz default now()
+);
+create index if not exists assessments_teacher_idx on assessments(teacher_id, created_at desc);
+
+create table if not exists assessment_questions (
+  id uuid primary key default gen_random_uuid(),
+  assessment_id uuid not null references assessments(id) on delete cascade,
+  ord int not null default 0,
+  question text not null,
+  choices jsonb not null,
+  answer int not null check (answer between 0 and 3),
+  explanation text
+);
+create index if not exists assessment_questions_set_idx on assessment_questions(assessment_id, ord);
+
+create table if not exists assessment_attempts (
+  id uuid primary key default gen_random_uuid(),
+  assessment_id uuid not null references assessments(id) on delete cascade,
+  student_id uuid not null references profiles(id) on delete cascade,
+  score int not null,
+  total int not null,
+  synced boolean not null default false,       -- 구글시트 전송 여부 (연동은 보류)
+  submitted_at timestamptz default now(),
+  unique (assessment_id, student_id)           -- 응시 1회 제한
+);
+create index if not exists assessment_attempts_student_idx
+  on assessment_attempts(student_id, submitted_at desc);
+create index if not exists assessment_attempts_set_idx on assessment_attempts(assessment_id);
+
+create table if not exists assessment_responses (
+  id uuid primary key default gen_random_uuid(),
+  attempt_id uuid not null references assessment_attempts(id) on delete cascade,
+  question_id uuid not null references assessment_questions(id) on delete cascade,
+  chosen int not null check (chosen between 0 and 3),
+  correct boolean not null
+);
+create index if not exists assessment_responses_attempt_idx on assessment_responses(attempt_id);
+
+alter table assessments          enable row level security;
+alter table assessment_questions enable row level security;
+alter table assessment_attempts  enable row level security;
+alter table assessment_responses enable row level security;
+drop policy if exists assessments_read          on assessments;
+drop policy if exists assessment_questions_read on assessment_questions;
+drop policy if exists assessment_attempts_self  on assessment_attempts;
+drop policy if exists assessment_responses_self on assessment_responses;
+
+-- ─────────────────────────────────────────────
 -- 전자서명 (평가 응시 본인 확인)
 -- ─────────────────────────────────────────────
 -- 범용 설계(kind + ref_id). 평가 테이블이 아직 없어 FK는 걸지 않는다 —

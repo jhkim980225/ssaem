@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useGate } from "@/components/RoleGuard";
 import { avatarEmoji } from "@/lib/avatar";
+import AssessmentRunner from "@/components/AssessmentRunner";
 
 type Teacher = { id: string; name: string; subject: string | null };
 type Course = { id: string; title: string };
@@ -39,6 +40,8 @@ function QuizInner() {
   const [needLogin, setNeedLogin] = useState(false);
   // 공부 모드: 문제 옆에 정답·해설을 처음부터 보여주는 복습 모드 (채점 없음)
   const [study, setStudy] = useState(false);
+  // 탭: 연습문제(자료로 만든 문제) / 평가(선생님이 올린 시험)
+  const [tab, setTab] = useState<"practice" | "exam">("practice");
 
   // 문제풀이도 로그인 계정에서만 — 채점 기록이 남아야 오답노트가 의미가 있다
   const { session, gate } = useGate("any", { loginMessage: "문제풀이 기록은 계정에 저장돼요." });
@@ -71,7 +74,7 @@ function QuizInner() {
   // 상태 초기화를 await 뒤로 모았다 — 이펙트 본문에서 동기 setState를 하면
   // 렌더가 연쇄로 돌아 react-hooks/set-state-in-effect에 걸린다.
   const load = useCallback(async () => {
-    if (!teacherId) return;
+    if (!teacherId || tab !== "practice") return; // 평가 탭에선 연습문제를 부르지 않는다
     const r = await fetch(
       `/api/quiz?teacher=${teacherId}${courseId ? `&course=${courseId}` : ""}&mode=${mode}${study ? "&study=1" : ""}`,
       { headers: session ? { Authorization: `Bearer ${session.access_token}` } : {} }
@@ -89,7 +92,7 @@ function QuizInner() {
     }
     setErr("");
     setQs(d.questions ?? []);
-  }, [teacherId, courseId, mode, session, study]);
+  }, [teacherId, courseId, mode, session, study, tab]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- load의 setState는 모두 await 이후라 동기 캐스케이드 아님
@@ -156,7 +159,27 @@ function QuizInner() {
         </Link>
       </div>
 
-      {/* 시험/공부 모드 토글 */}
+      {/* 연습문제 / 평가 탭 */}
+      <div className="rise d1 flex gap-1.5">
+        <button
+          onClick={() => setTab("practice")}
+          className={`chip !text-[13px] ${tab === "practice" ? "chip-on" : ""}`}
+        >
+          연습문제
+        </button>
+        <button
+          onClick={() => setTab("exam")}
+          className={`chip !text-[13px] ${tab === "exam" ? "chip-on" : ""}`}
+        >
+          평가
+        </button>
+        <span className="self-center text-[12px] text-sub ml-1">
+          {tab === "exam" ? "선생님이 올린 시험 · 1회만 응시" : "자료로 만든 연습문제"}
+        </span>
+      </div>
+
+      {/* 시험/공부 모드 토글 (연습문제 전용) */}
+      {tab === "practice" && (
       <div className="rise d1 flex gap-1.5">
         <button
           onClick={() => setStudy(false)}
@@ -174,6 +197,7 @@ function QuizInner() {
           {study ? "정답·풀이를 옆에 두고 익혀요" : "풀고 바로 채점해요"}
         </span>
       </div>
+      )}
 
       {/* 선생님·강좌 선택 */}
       <div className="rise d1 card p-4 flex flex-col gap-3">
@@ -212,6 +236,12 @@ function QuizInner() {
         )}
       </div>
 
+      {tab === "exam" && teacherId && (
+        <AssessmentRunner token={session?.access_token} teacherId={teacherId} />
+      )}
+
+      {tab === "practice" && (
+        <>
       {err && (
         <p className="text-[13px] font-bold" style={{ color: "var(--red)" }}>
           {err}
@@ -383,6 +413,8 @@ function QuizInner() {
             </Link>
           </div>
         </div>
+      )}
+        </>
       )}
     </main>
   );

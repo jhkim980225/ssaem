@@ -37,6 +37,14 @@ type Quiz = {
   document_id: string | null;
 };
 
+type Assessment = {
+  id: string;
+  title: string;
+  courseId: string | null;
+  questions: number;
+  createdAt: string;
+};
+
 const PAGE = 20; // 자료 목록 한 번에 보여줄 개수
 
 type DocEvent = {
@@ -108,6 +116,12 @@ function Dashboard({ session }: { session: Session }) {
     setMsgErr(err);
   }, []);
 
+  // 평가 세트 (엑셀/CSV 업로드 시험)
+  const [assessments, setAssessments] = useState<Assessment[]>([]);
+  const [asTitle, setAsTitle] = useState("");
+  const [asCourse, setAsCourse] = useState("");
+  const [asBusy, setAsBusy] = useState(false);
+
   const [courses, setCourses] = useState<Course[]>([]);
   const [newCourse, setNewCourse] = useState("");
   const [courseSel, setCourseSel] = useState(""); // "" = 공용 (모든 강좌에서 검색됨)
@@ -149,6 +163,68 @@ function Dashboard({ session }: { session: Session }) {
       setDocsErr("자료 목록을 불러오지 못했어요 — 새로고침해 주세요.");
     }
   }, [token]);
+
+  const loadAssessments = useCallback(async () => {
+    try {
+      const r = await fetch("/api/assessments", { headers: { Authorization: `Bearer ${token}` } });
+      if (!r.ok) return; // 테이블 미생성 등 — 대시보드 나머지는 그대로 쓴다
+      const d = await r.json();
+      setAssessments(d.assessments ?? []);
+    } catch {
+      /* 목록 로드 실패는 조용히 — 평가는 부가 기능 */
+    }
+  }, [token]);
+
+  async function uploadAssessment(file: File) {
+    if (asBusy) return;
+    const title = asTitle.trim();
+    if (!title) return say("평가 이름을 입력해 주세요.", true);
+    setAsBusy(true);
+    say("평가 문항을 읽는 중…");
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      fd.append("title", title);
+      if (asCourse) fd.append("courseId", asCourse);
+      const r = await fetch("/api/assessments", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: fd,
+      });
+      const d = await r.json().catch(() => null);
+      if (!r.ok) return say(d?.error || "평가를 만들지 못했어요.", true);
+      say(`평가를 만들었어요 — ${d.created}문항${d.skipped ? ` (형식이 안 맞는 ${d.skipped}줄은 건너뜀)` : ""}`);
+      setAsTitle("");
+      loadAssessments();
+    } catch {
+      say("평가를 만들지 못했어요 — 네트워크를 확인해 주세요.", true);
+    } finally {
+      setAsBusy(false);
+    }
+  }
+
+  async function removeAssessment(id: string) {
+    if (!confirm("이 평가를 삭제할까요? 학생 응시 기록도 함께 지워져요.")) return;
+    const r = await fetch(`/api/assessments?id=${id}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
+    }).catch(() => null);
+    if (r?.ok) loadAssessments();
+    else say("평가를 삭제하지 못했어요.", true);
+  }
+
+  /** 업로드 양식(.xlsx) 즉석 생성 — 정적 파일을 따로 관리하지 않는다 */
+  async function downloadTemplate() {
+    const XLSX = await import("xlsx");
+    const rows = [
+      ["문제", "보기1", "보기2", "보기3", "보기4", "정답", "해설"],
+      ["감가상각 정액법 계산식은?", "(취득원가-잔존가치)÷내용연수", "취득원가÷내용연수", "장부가액×상각률", "취득원가×상각률", "1", "정액법은 매기 같은 금액을 상각해요."],
+    ];
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "평가문항");
+    XLSX.writeFile(wb, "평가양식.xlsx");
+  }
 
   async function addCourse() {
     const title = newCourse.trim();
@@ -203,7 +279,8 @@ function Dashboard({ session }: { session: Session }) {
     if (savedProfile !== true) return;
     // eslint-disable-next-line react-hooks/set-state-in-effect -- async 함수라 setState는 await 이후, 동기 캐스케이드 아님
     loadDocs();
-  }, [savedProfile, loadDocs]);
+    loadAssessments();
+  }, [savedProfile, loadDocs, loadAssessments]);
 
   async function saveProfile() {
     say("");
@@ -707,6 +784,77 @@ function Dashboard({ session }: { session: Session }) {
                 {shownDocs.length - docLimit}개 더 보기
               </button>
             )}
+          </div>
+        )}
+      </section>
+
+      {/* 평가 세트 */}
+      <section className="rise d3 card p-5 lg:p-6 flex flex-col gap-3">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h2 className="font-bold text-[17px]">평가</h2>
+            <p className="text-sub text-[13px]">
+              엑셀·CSV로 시험 문항을 올리면 학생이 문제풀이 화면에서 응시해요. 1인 1회만 응시할 수 있어요.
+            </p>
+          </div>
+          <button onClick={downloadTemplate} className="chip shrink-0 !text-[13px]">
+            양식 받기
+          </button>
+        </div>
+
+        <div className="flex flex-col sm:flex-row gap-2">
+          <input
+            className="field flex-1"
+            placeholder="평가 이름 (예: 3월 모의고사)"
+            value={asTitle}
+            onChange={(e) => setAsTitle(e.target.value)}
+            maxLength={80}
+          />
+          <select className="field sm:w-44" value={asCourse} onChange={(e) => setAsCourse(e.target.value)}>
+            <option value="">전체 학생</option>
+            {courses.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.title}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <label className={`btn btn-primary py-3 text-center cursor-pointer ${asBusy ? "opacity-60" : ""}`}>
+          {asBusy ? "읽는 중…" : "엑셀·CSV 올리기"}
+          <input
+            type="file"
+            accept=".xlsx,.xls,.csv"
+            className="hidden"
+            disabled={asBusy}
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              e.target.value = ""; // 같은 파일 다시 올릴 수 있게
+              if (f) uploadAssessment(f);
+            }}
+          />
+        </label>
+
+        {assessments.length > 0 && (
+          <div className="flex flex-col gap-2 mt-1">
+            {assessments.map((a) => (
+              <div key={a.id} className="flex items-center gap-2 rounded-[14px] border border-line p-3">
+                <div className="flex-1 min-w-0">
+                  <p className="text-[14px] font-bold truncate">{a.title}</p>
+                  <p className="text-sub text-[12px]">
+                    {a.questions}문항
+                    {a.courseId ? ` · ${courses.find((c) => c.id === a.courseId)?.title ?? "반"}` : " · 전체 학생"}
+                  </p>
+                </div>
+                <button
+                  onClick={() => removeAssessment(a.id)}
+                  className="chip !text-[12px] shrink-0"
+                  style={{ color: "var(--red)" }}
+                >
+                  삭제
+                </button>
+              </div>
+            ))}
           </div>
         )}
       </section>
