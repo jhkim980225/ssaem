@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import SiteHeader from "@/components/SiteHeader";
 import SiteFooter from "@/components/SiteFooter";
+import StudentProtection from "@/components/StudentProtection";
 
 export const metadata: Metadata = {
   title: "마스터 전산회계 학원",
@@ -49,6 +50,7 @@ export default function RootLayout({
         <SiteHeader />
         {children}
         <SiteFooter />
+        <StudentProtection />
       </body>
     </html>
   );

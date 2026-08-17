@@ -299,3 +299,21 @@ body {
   background: var(--fill); border-radius: 6px; padding: 1px 6px;
   font-size: 0.9em; font-family: ui-monospace, "Cascadia Code", monospace;
 }
+
+/* 학생 계정 유출 억제 — 텍스트 선택·이미지 드래그 차단 (입력창은 예외).
+   스크린샷 자체는 웹에서 못 막음 → StudentProtection.tsx 참고. */
+.student-locked, .student-locked * {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none; /* iOS 길게눌러 저장/복사 메뉴 차단 */
+}
+.student-locked input,
+.student-locked textarea,
+.student-locked [contenteditable="true"] {
+  -webkit-user-select: text;
+  user-select: text;
+}
+.student-locked img {
+  -webkit-user-drag: none;
+  user-drag: none;
+}
