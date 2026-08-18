@@ -218,6 +218,25 @@ function Dashboard({ session }: { session: Session }) {
     }
   }
 
+  /** 평가 결과 CSV 내려받기 — 구글시트에 그대로 붙여넣을 수 있다 */
+  async function downloadResults(id: string, title: string) {
+    try {
+      const r = await fetch(`/api/assessments/${id}/results?csv=1`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!r.ok) return say("결과를 내려받지 못했어요.", true);
+      const blob = await r.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${title}_결과.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      say("결과를 내려받지 못했어요 — 네트워크를 확인해 주세요.", true);
+    }
+  }
+
   async function removeAssessment(id: string) {
     if (!confirm("이 평가를 삭제할까요? 학생 응시 기록도 함께 지워져요.")) return;
     const r = await fetch(`/api/assessments?id=${id}`, {
@@ -891,6 +910,13 @@ function Dashboard({ session }: { session: Session }) {
                     {a.courseId ? ` · ${courses.find((c) => c.id === a.courseId)?.title ?? "반"}` : " · 전체 학생"}
                   </p>
                 </div>
+                <button
+                  onClick={() => downloadResults(a.id, a.title)}
+                  className="chip !text-[12px] shrink-0"
+                  title="응시 결과를 CSV로 받아 구글시트에 붙여넣을 수 있어요"
+                >
+                  결과 CSV
+                </button>
                 <button
                   onClick={() => removeAssessment(a.id)}
                   className="chip !text-[12px] shrink-0"

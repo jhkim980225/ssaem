@@ -524,6 +524,45 @@ async function main() {
       });
       ok("PNG 아닌 서명 400", badSig.status === 400, `status=${badSig.status}`);
 
+      // 결과 조회·CSV (강사·원장만)
+      ok(
+        "학생 결과 조회 403",
+        (await status(`/api/assessments/${asId}/results`, { headers: bearer(studentTok) })) === 403
+      );
+      const res = await json(`/api/assessments/${asId}/results`, { headers: bearer(teacherTok) });
+      ok("강사 결과 조회 200", res.status === 200, `status=${res.status}`);
+      ok("응시 1건 집계", res.body?.attempts === 1, `attempts=${res.body?.attempts}`);
+      const row0 = res.body?.results?.[0];
+      ok("점수·정답률 포함", row0?.score === 1 && row0?.percent === 50, `${row0?.score}/${row0?.total} ${row0?.percent}%`);
+      ok("문항별 정오 문자열", /^[OX-]+$/.test(row0?.marks ?? ""), row0?.marks ?? "없음");
+      ok("서명 시각 포함", Boolean(row0?.signedAt), row0?.signedAt ?? "없음");
+      ok("학생 이름 포함(강사·원장용)", Boolean(row0?.student), row0?.student ?? "없음");
+      ok(
+        "원장도 우리 학원 평가 결과 조회",
+        (await status(`/api/assessments/${asId}/results`, { headers: bearer(adminTok) })) === 200
+      );
+
+      const csvRes = await fetch(`${BASE}/api/assessments/${asId}/results?csv=1`, {
+        headers: bearer(teacherTok),
+      });
+      // Response.text()는 UTF-8 디코딩하며 BOM을 지운다 — BOM 검사는 원시 바이트로 해야 한다
+      const csvBytes = new Uint8Array(await csvRes.clone().arrayBuffer());
+      const csvText = await csvRes.text();
+      ok("CSV 응답 200", csvRes.status === 200);
+      ok(
+        "CSV Content-Type",
+        (csvRes.headers.get("content-type") ?? "").includes("text/csv"),
+        csvRes.headers.get("content-type") ?? ""
+      );
+      ok("CSV 첨부 헤더", (csvRes.headers.get("content-disposition") ?? "").includes("attachment"));
+      ok(
+        "CSV BOM (엑셀 한글 깨짐 방지)",
+        csvBytes[0] === 0xef && csvBytes[1] === 0xbb && csvBytes[2] === 0xbf,
+        `${csvBytes[0]?.toString(16)} ${csvBytes[1]?.toString(16)} ${csvBytes[2]?.toString(16)}`
+      );
+      ok("CSV 한글 헤더", csvText.includes("제출시각") && csvText.includes("문항별정오"));
+      ok("CSV 데이터 행 존재", csvText.trim().split("\r\n").length === 2, `${csvText.trim().split("\r\n").length}줄`);
+
       // 강사 삭제 (남의 평가는 못 지운다 — 소유권 필터)
       ok(
         "학생 평가 삭제 403",
