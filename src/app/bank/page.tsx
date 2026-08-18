@@ -54,6 +54,7 @@ export default function BankPage() {
   const [source, setSource] = useState(""); // "" = 전체 회차 랜덤
   const [count, setCount] = useState<number>(15);
   const [cbtQs, setCbtQs] = useState<CbtQuestion[] | null>(null);
+  const [allRounds, setAllRounds] = useState(false); // 회차 칩 전체 펼침
 
   // 이론 채점 상태
   const [picked, setPicked] = useState<number | null>(null);
@@ -254,20 +255,33 @@ export default function BankPage() {
                     <Chip on={source === ""} onClick={() => setSource("")}>
                       랜덤 출제
                     </Chip>
-                    {sources
-                      .filter((x) => !subject || x.subject === subject)
-                      .sort((a, b) => roundNo(b.source) - roundNo(a.source))
-                      .slice(0, 24)
-                      .map((x) => (
-                        <Chip
-                          key={x.source}
-                          on={source === x.source}
-                          onClick={() => setSource(source === x.source ? "" : x.source)}
-                        >
-                          {roundNo(x.source) ? `${roundNo(x.source)}회` : x.source}{" "}
-                          <b className="opacity-60">{x.count}</b>
-                        </Chip>
-                      ))}
+                    {(() => {
+                      const mine = sources
+                        .filter((x) => !subject || x.subject === subject)
+                        .sort((a, b) => roundNo(b.source) - roundNo(a.source));
+                      // 기본은 최근 회차만 — 과목당 38개를 다 깔면 화면이 칩으로 덮인다
+                      const shown = allRounds ? mine : mine.slice(0, 24);
+                      return (
+                        <>
+                          {shown.map((x) => (
+                            <Chip
+                              key={x.source}
+                              on={source === x.source}
+                              onClick={() => setSource(source === x.source ? "" : x.source)}
+                            >
+                              {roundNo(x.source) ? `${roundNo(x.source)}회` : x.source}{" "}
+                              <b className="opacity-60">{x.count}</b>
+                            </Chip>
+                          ))}
+                          {mine.length > shown.length && (
+                            <Chip onClick={() => setAllRounds(true)}>+{mine.length - shown.length}개 더보기</Chip>
+                          )}
+                          {allRounds && mine.length > 24 && (
+                            <Chip onClick={() => setAllRounds(false)}>접기</Chip>
+                          )}
+                        </>
+                      );
+                    })()}
                   </Filter>
                   <Filter label="문항 수">
                     {COUNTS.map((n) => (
