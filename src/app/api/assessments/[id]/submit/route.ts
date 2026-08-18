@@ -5,12 +5,14 @@ import { sameAcademy } from "@/lib/tenant";
 import { rateLimit, clientIp } from "@/lib/ratelimit";
 import { grade, type SubmitAnswer } from "@/lib/assessment";
 import { checkSignature, looksBlank } from "@/lib/signature";
+import { appendResultRows, sheetsConfigured } from "@/lib/sheets";
 
 // 평가 제출 → 서버 채점 → 응시·응답 저장 → (서명 있으면) 서명 기록.
 // 응시는 1회 — DB unique(assessment_id, student_id)가 최종 방어선이다.
 //
-// 구글시트 전송(C)은 보류 상태라 여기서 하지 않는다. attempts.synced=false로 남으므로
-// 나중에 연동을 켜면 미전송분을 그대로 밀어 넣을 수 있다.
+// 구글시트 전송은 **best-effort**다. 실패해도 응시 결과(DB)는 이미 확정이므로 막지 않고,
+// attempts.synced=false로 남겨 `scripts/resync-sheets.ts`가 나중에 밀어 넣는다.
+// env 미설정이면 아예 건너뛴다.
 export async function POST(req: Request, ctx: { params: Promise<{ id: string }> }) {
   const g = await requireUser(req);
   if ("res" in g) return g.res;
@@ -119,6 +121,45 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
     else signedAt = sig?.signed_at ?? null;
   }
 
+  // ── 구글시트 전송 (best-effort). 학생을 오래 기다리게 하지 않으려고 타임아웃을 짧게 둔다.
+  let synced = false;
+  if (sheetsConfigured()) {
+    const [{ data: teacher }, { data: student }] = await Promise.all([
+      db.from("profiles").select("name, academy_id").eq("id", set.teacher_id).maybeSingle(),
+      db.from("profiles").select("name").eq("id", uid).maybeSingle(),
+    ]);
+    const { data: academy } = teacher?.academy_id
+      ? await db.from("academies").select("name").eq("id", teacher.academy_id).maybeSingle()
+      : { data: null };
+    const marks = qs.map((q) => {
+      const row = g2.rows.find((r) => r.questionId === q.id);
+      return !row || row.chosen < 0 ? "-" : row.correct ? "O" : "X";
+    }).join("");
+
+    const sent = await Promise.race([
+      appendResultRows([
+        {
+          submittedAt: attempt.submitted_at,
+          academy: academy?.name ?? "",
+          teacher: teacher?.name ?? "",
+          assessment: set.title,
+          student: student?.name ?? "",
+          score: g2.score,
+          total: g2.total,
+          percent: g2.total ? Math.round((g2.score / g2.total) * 100) : 0,
+          signedAt: signedAt ?? "",
+          marks,
+        },
+      ]),
+      // 시트가 느려도 제출 응답은 5초 안에 끝낸다 — 미전송분은 재전송 스크립트가 처리
+      new Promise<{ ok: false; error: string }>((res) =>
+        setTimeout(() => res({ ok: false, error: "timeout" }), 5000)
+      ),
+    ]);
+    synced = sent.ok;
+    if (synced) await db.from("assessment_attempts").update({ synced: true }).eq("id", attempt.id);
+  }
+
   const byId = new Map(qs.map((q) => [q.id, q]));
   return NextResponse.json({
     ok: true,
@@ -127,6 +168,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
     total: g2.total,
     submittedAt: attempt.submitted_at,
     signedAt,
+    synced,
     // 채점 후이므로 정답·해설 공개
     results: g2.rows.map((r) => {
       const q = byId.get(r.questionId);
