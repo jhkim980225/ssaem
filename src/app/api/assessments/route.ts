@@ -152,12 +152,34 @@ export async function DELETE(req: Request) {
   if (!/^[0-9a-f-]{36}$/i.test(id))
     return NextResponse.json({ error: "id required" }, { status: 400 });
 
-  // 소유권은 역할과 별개 — 내 평가만 지운다
-  const { error } = await serviceClient()
+  const db = serviceClient();
+  // 소유권은 역할과 별개 — 내 평가인지 먼저 확인한다
+  const { data: mine } = await db
     .from("assessments")
-    .delete()
+    .select("id")
     .eq("id", id)
-    .eq("teacher_id", gate.uid);
+    .eq("teacher_id", gate.uid)
+    .maybeSingle();
+  if (!mine) return NextResponse.json({ error: "not found" }, { status: 404 });
+
+  // 전자서명은 signatures.ref_id로 느슨하게 연결돼 있어(FK 아님) cascade가 안 걸린다.
+  // 평가를 지우면 응시 기록은 사라지는데 **서명 이미지(개인정보)만 남는** 문제가 있어
+  // 삭제 전에 해당 응시의 서명을 먼저 정리한다.
+  const { data: attempts } = await db
+    .from("assessment_attempts")
+    .select("id")
+    .eq("assessment_id", id);
+  const attemptIds = (attempts ?? []).map((a) => a.id);
+  if (attemptIds.length) {
+    const { error: sigErr } = await db
+      .from("signatures")
+      .delete()
+      .eq("kind", "assessment")
+      .in("ref_id", attemptIds);
+    if (sigErr) console.error("signature cleanup:", sigErr.message);
+  }
+
+  const { error } = await db.from("assessments").delete().eq("id", id).eq("teacher_id", gate.uid);
   if (error) return NextResponse.json({ error: "삭제하지 못했어요." }, { status: 500 });
   return NextResponse.json({ ok: true });
 }

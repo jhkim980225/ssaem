@@ -568,9 +568,25 @@ async function main() {
         "학생 평가 삭제 403",
         (await status(`/api/assessments?id=${asId}`, { method: "DELETE", headers: bearer(studentTok) })) === 403
       );
+      // 삭제 전 서명이 실제로 있는지 확인 (아래 회귀 검사가 의미를 가지려면 선행 조건)
+      const { count: sigBefore } = await db
+        .from("signatures")
+        .select("id", { count: "exact", head: true })
+        .eq("kind", "assessment");
       ok(
         "강사 본인 평가 삭제 200",
         (await status(`/api/assessments?id=${asId}`, { method: "DELETE", headers: bearer(teacherTok) })) === 200
+      );
+      // signatures.ref_id는 FK가 아니라 cascade가 안 걸린다 — 라우트가 직접 지워야 한다.
+      // 안 지우면 응시 기록 없는 서명 이미지(개인정보)가 계속 남는다.
+      const { count: sigAfter } = await db
+        .from("signatures")
+        .select("id", { count: "exact", head: true })
+        .eq("kind", "assessment");
+      ok(
+        "평가 삭제 시 서명도 함께 삭제(고아 방지)",
+        (sigAfter ?? 0) < (sigBefore ?? 0),
+        `${sigBefore} → ${sigAfter}`
       );
       const after = await json(`/api/assessments?teacher=${t0.id}`, { headers: bearer(studentTok) });
       ok(
