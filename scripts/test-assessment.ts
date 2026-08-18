@@ -27,6 +27,26 @@ function csvOf(text: string): Uint8Array {
   return new TextEncoder().encode(text);
 }
 
+/** UTF-8 문자열 → cp949(euc-kr) 바이트. Node엔 인코더가 없어 디코더로 역표를 만든다. */
+function encodeEucKr(text: string): Uint8Array {
+  const dec = new TextDecoder("euc-kr");
+  const map = new Map<string, number[]>();
+  for (let hi = 0x81; hi <= 0xfe; hi++) {
+    for (let lo = 0x41; lo <= 0xfe; lo++) {
+      const ch = dec.decode(new Uint8Array([hi, lo]));
+      if (ch.length === 1 && ch !== "\uFFFD" && !map.has(ch)) map.set(ch, [hi, lo]);
+    }
+  }
+  const out: number[] = [];
+  for (const ch of text) {
+    const code = ch.codePointAt(0)!;
+    if (code < 0x80) out.push(code);
+    else if (map.has(ch)) out.push(...map.get(ch)!);
+    else out.push(0x3f);
+  }
+  return new Uint8Array(out);
+}
+
 const HEAD = ["문제", "보기1", "보기2", "보기3", "보기4", "정답", "해설"];
 const ROW = ["차변은?", "자산증가", "자산감소", "부채증가", "수익발생", "1", "차변은 자산의 증가"];
 
@@ -45,6 +65,24 @@ console.log("\n── CSV 파싱");
   const csv = [HEAD.join(","), ROW.join(",")].join("\n");
   const r = parseAssessmentFile(csvOf(csv));
   ok("CSV 1문항 파싱", r.questions.length === 1, `${r.questions.length}문항`);
+}
+
+console.log("\n── CSV 인코딩 (한글 깨짐 회귀 방지)");
+{
+  const csv = [HEAD.join(","), ROW.join(",")].join("\n");
+  const utf8 = parseAssessmentFile(new TextEncoder().encode(csv));
+  ok("UTF-8 CSV 한글 보존", utf8.questions[0]?.question === "차변은?", utf8.questions[0]?.question ?? "");
+  ok("UTF-8 CSV 보기 한글 보존", utf8.questions[0]?.choices[0] === "자산증가");
+  ok("UTF-8 CSV는 헤더를 문항으로 세지 않음", utf8.skipped === 0, `skipped=${utf8.skipped}`);
+
+  // BOM 붙은 UTF-8 (엑셀이 자주 붙인다)
+  const bom = parseAssessmentFile(new TextEncoder().encode("\uFEFF" + csv));
+  ok("BOM 붙은 UTF-8 CSV 파싱", bom.questions[0]?.question === "차변은?" && bom.skipped === 0);
+
+  // 한국 엑셀 "CSV로 저장" = cp949
+  const kr = parseAssessmentFile(encodeEucKr(csv));
+  ok("cp949 CSV 한글 보존", kr.questions[0]?.question === "차변은?", kr.questions[0]?.question ?? "");
+  ok("cp949 CSV도 skipped 0", kr.skipped === 0, `skipped=${kr.skipped}`);
 }
 
 console.log("\n── 깨진 행 스킵");

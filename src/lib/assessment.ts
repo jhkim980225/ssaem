@@ -48,6 +48,27 @@ function findCol(header: string[], names: string[]): number {
   return -1;
 }
 
+/**
+ * 워크북 읽기. 인코딩 때문에 xlsx와 CSV를 다르게 다룬다.
+ *
+ * - xlsx: zip(PK) 컨테이너라 내부가 UTF-8 XML — 바이트 그대로 넘기면 된다.
+ * - CSV : SheetJS의 기본 코드페이지가 UTF-8이 아니라, 바이트로 넘기면 한글이 깨진다.
+ *         그래서 **우리가 직접 디코딩해 문자열로** 넘긴다.
+ *         UTF-8로 읽히면 UTF-8, 아니면 cp949(한국 엑셀 "CSV로 저장"의 기본).
+ */
+function readWorkbook(u8: Uint8Array) {
+  if (u8[0] === 0x50 && u8[1] === 0x4b) return XLSX.read(u8, { type: "array" }); // PK.. = xlsx
+
+  let text: string;
+  try {
+    text = new TextDecoder("utf-8", { fatal: true }).decode(u8);
+  } catch {
+    text = new TextDecoder("euc-kr").decode(u8); // cp949 상위호환
+  }
+  if (text.charCodeAt(0) === 0xfeff) text = text.slice(1); // BOM 제거
+  return XLSX.read(text, { type: "string" });
+}
+
 function cut(s: string): string {
   return s.length > MAX_TEXT ? s.slice(0, MAX_TEXT) : s;
 }
@@ -58,7 +79,8 @@ function cut(s: string): string {
  * 형식이 깨진 행은 버리고 skipped로 센다 — 한 줄 때문에 업로드 전체가 실패하지 않게.
  */
 export function parseAssessmentFile(buf: ArrayBuffer | Uint8Array): ParseResult {
-  const wb = XLSX.read(buf, { type: "array", codepage: 949 });
+  const u8 = buf instanceof Uint8Array ? buf : new Uint8Array(buf);
+  const wb = readWorkbook(u8);
   const sheet = wb.Sheets[wb.SheetNames[0]];
   if (!sheet) return { questions: [], skipped: 0 };
 
@@ -78,7 +100,10 @@ export function parseAssessmentFile(buf: ArrayBuffer | Uint8Array): ParseResult 
   const cCols = ci.map((v, k) => (v >= 0 ? v : k + 1));
   const aCol = ai >= 0 ? ai : 5;
   const eCol = ei >= 0 ? ei : 6;
-  const hasHeader = qi >= 0 || ai >= 0;
+  // 헤더 이름을 못 찾았어도, 첫 행의 정답 칸이 1~4가 아니면 그 행은 헤더로 본다.
+  // (안 그러면 헤더 행이 "깨진 문항"으로 잘못 집계된다)
+  const firstAnswer = norm((rows[0] as unknown[])?.[aCol]);
+  const hasHeader = qi >= 0 || ai >= 0 || !/[1-4]/.test(firstAnswer);
 
   const out: ParsedQuestion[] = [];
   let skipped = 0;
