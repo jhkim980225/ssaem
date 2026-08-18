@@ -37,6 +37,8 @@ type Quiz = {
   document_id: string | null;
 };
 
+type Review = { id: string; rating: number; comment: string | null; updatedAt: string };
+
 type Assessment = {
   id: string;
   title: string;
@@ -116,6 +118,9 @@ function Dashboard({ session }: { session: Session }) {
     setMsgErr(err);
   }, []);
 
+  // 수강평 (학생이 남긴 평가 — 작성자는 서버가 익명 처리해 보낸다)
+  const [reviews, setReviews] = useState<{ count: number; avg: number | null; reviews: Review[] } | null>(null);
+
   // 평가 세트 (엑셀/CSV 업로드 시험)
   const [assessments, setAssessments] = useState<Assessment[]>([]);
   const [asTitle, setAsTitle] = useState("");
@@ -161,6 +166,16 @@ function Dashboard({ session }: { session: Session }) {
     } catch {
       // docs는 그대로 둔다 — 실패를 "자료 없음"으로 오해하게 만들지 않기 위해
       setDocsErr("자료 목록을 불러오지 못했어요 — 새로고침해 주세요.");
+    }
+  }, [token]);
+
+  const loadReviews = useCallback(async () => {
+    try {
+      const r = await fetch("/api/reviews", { headers: { Authorization: `Bearer ${token}` } });
+      if (!r.ok) return; // 테이블 미생성 등 — 대시보드 나머지는 그대로 쓴다
+      setReviews(await r.json());
+    } catch {
+      /* 부가 기능이라 조용히 */
     }
   }, [token]);
 
@@ -280,7 +295,8 @@ function Dashboard({ session }: { session: Session }) {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- async 함수라 setState는 await 이후, 동기 캐스케이드 아님
     loadDocs();
     loadAssessments();
-  }, [savedProfile, loadDocs, loadAssessments]);
+    loadReviews();
+  }, [savedProfile, loadDocs, loadAssessments, loadReviews]);
 
   async function saveProfile() {
     say("");
@@ -787,6 +803,35 @@ function Dashboard({ session }: { session: Session }) {
           </div>
         )}
       </section>
+
+      {/* 수강평 (학생 → 나) */}
+      {reviews && reviews.count > 0 && (
+        <section className="rise d3 card p-5 lg:p-6 flex flex-col gap-3">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h2 className="font-bold text-[17px]">수강평</h2>
+              <p className="text-sub text-[13px]">학생이 남긴 평가예요. 누가 썼는지는 보이지 않아요.</p>
+            </div>
+            <div className="text-right shrink-0">
+              <p className="text-[22px] font-extrabold tabular-nums text-blue">
+                {reviews.avg?.toFixed(1) ?? "-"}
+              </p>
+              <p className="text-sub text-[12px]">{reviews.count}개</p>
+            </div>
+          </div>
+          <div className="flex flex-col gap-2">
+            {reviews.reviews.map((r) => (
+              <div key={r.id} className="rounded-[14px] border border-line p-3.5">
+                <p className="text-[13px]" style={{ color: "var(--blue)" }}>
+                  {"★".repeat(r.rating)}
+                  <span style={{ color: "var(--line)" }}>{"★".repeat(5 - r.rating)}</span>
+                </p>
+                {r.comment && <p className="text-[14px] leading-relaxed mt-1">{r.comment}</p>}
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* 평가 세트 */}
       <section className="rise d3 card p-5 lg:p-6 flex flex-col gap-3">

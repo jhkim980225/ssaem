@@ -145,11 +145,21 @@ function AuthForm() {
   );
 }
 
+type AdminReviews = {
+  reviews: { id: string; teacher: string; student: string; rating: number; comment: string | null; updatedAt: string }[];
+  byTeacher: { teacherId: string; teacher: string; count: number; avg: number }[];
+};
+
 function Dashboard({ session }: { session: Session }) {
   const [data, setData] = useState<AdminData | null>(null);
+  // 수강평 — 원장에게만 작성자 실명이 함께 온다 (강사 화면은 익명)
+  const [rev, setRev] = useState<AdminReviews | null>(null);
   const [days, setDays] = useState(30);
   const [err, setErr] = useState("");
   const [copied, setCopied] = useState(false);
+  // 학생 연락처·메모 — 개인정보라 펼친 학생만 조회한다 (목록에 싣지 않는다)
+  const [openStu, setOpenStu] = useState<string | null>(null);
+  const [stuDetail, setStuDetail] = useState<Record<string, { phone: string; note: string }>>({});
 
   useEffect(() => {
     fetch(`/api/admin?days=${days}`, { headers: { Authorization: `Bearer ${session.access_token}` } })
@@ -157,6 +167,33 @@ function Dashboard({ session }: { session: Session }) {
       .then((d) => (d.academy ? setData(d) : setErr(d.error ?? "불러오기 실패")))
       .catch(() => setErr("불러오기 실패"));
   }, [session, days]);
+
+  useEffect(() => {
+    // 수강평은 기간과 무관 — 한 번만 불러온다. 실패해도 대시보드 나머지는 그대로.
+    fetch("/api/reviews", { headers: { Authorization: `Bearer ${session.access_token}` } })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => d && setRev(d))
+      .catch(() => {});
+  }, [session]);
+
+  async function toggleStudent(studentId: string) {
+    if (openStu === studentId) return setOpenStu(null);
+    setOpenStu(studentId);
+    if (stuDetail[studentId]) return;
+    try {
+      const r = await fetch(`/api/students/detail?student=${studentId}`, {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+      if (!r.ok) return;
+      const d = await r.json();
+      setStuDetail((p) => ({
+        ...p,
+        [studentId]: { phone: d.detail?.phone ?? "", note: d.detail?.note ?? "" },
+      }));
+    } catch {
+      /* 조회 실패는 조용히 — 목록은 그대로 */
+    }
+  }
 
   async function togglePublic(teacherId: string) {
     const r = await fetch("/api/admin", {
@@ -340,26 +377,43 @@ function Dashboard({ session }: { session: Session }) {
         ) : (
           <div className="flex flex-col gap-1.5 mt-1">
             {data.students.map((s) => (
-              <div
-                key={s.id}
-                className="flex items-center gap-3 rounded-[12px] border border-line px-3 py-2.5"
-                style={{ background: "var(--fill-2)" }}
-              >
-                <span className="avatar !w-8 !h-8 !text-[14px]">{avatarEmoji(s.name)}</span>
-                <p className="text-[14px] font-medium min-w-0 flex-1 truncate">{s.name}</p>
-                {s.questions === 0 ? (
-                  <span
-                    className="chip !py-1 !px-2.5 !text-[12px] !cursor-default shrink-0"
-                    style={{ color: "var(--red)" }}
-                  >
-                    미사용
-                  </span>
-                ) : (
-                  <span className="text-[12px] text-sub shrink-0 text-right">
-                    질문 {s.questions}건
-                    <br />
-                    <span className="text-[11px]">최근 {ago(s.lastAt)}</span>
-                  </span>
+              <div key={s.id} className="rounded-[12px] border border-line" style={{ background: "var(--fill-2)" }}>
+                <button
+                  onClick={() => toggleStudent(s.id)}
+                  className="w-full flex items-center gap-3 px-3 py-2.5 text-left"
+                >
+                  <span className="avatar !w-8 !h-8 !text-[14px]">{avatarEmoji(s.name)}</span>
+                  <p className="text-[14px] font-medium min-w-0 flex-1 truncate">{s.name}</p>
+                  {s.questions === 0 ? (
+                    <span
+                      className="chip !py-1 !px-2.5 !text-[12px] !cursor-default shrink-0"
+                      style={{ color: "var(--red)" }}
+                    >
+                      미사용
+                    </span>
+                  ) : (
+                    <span className="text-[12px] text-sub shrink-0 text-right">
+                      질문 {s.questions}건
+                      <br />
+                      <span className="text-[11px]">최근 {ago(s.lastAt)}</span>
+                    </span>
+                  )}
+                </button>
+                {openStu === s.id && (
+                  <div className="animate-pop px-3 pb-3 text-[13px] leading-relaxed">
+                    <p className="text-sub">
+                      연락처 <b style={{ color: "var(--sub-2)" }}>{stuDetail[s.id]?.phone || "—"}</b>
+                    </p>
+                    <p className="text-sub mt-0.5">
+                      메모{" "}
+                      <span style={{ color: "var(--sub-2)" }}>
+                        {stuDetail[s.id]?.note || "—"}
+                      </span>
+                    </p>
+                    <p className="text-[11px] text-sub mt-1.5">
+                      입력·수정은 강사 화면(학생별 리포트)에서 해요.
+                    </p>
+                  </div>
                 )}
               </div>
             ))}
@@ -385,6 +439,47 @@ function Dashboard({ session }: { session: Session }) {
               <p className="mt-2 text-[13px] text-sub leading-relaxed whitespace-pre-wrap">{l.answer}…</p>
             </details>
           ))}
+        </section>
+      )}
+
+      {/* 수강평 (학생 → 강사). 원장은 작성자 실명까지 본다 */}
+      {rev && rev.reviews.length > 0 && (
+        <section className="rise d3 card p-5 lg:p-6 flex flex-col gap-3">
+          <div>
+            <h2 className="font-bold text-[17px]">수강평 {rev.reviews.length}건</h2>
+            <p className="text-sub text-[13px]">
+              학생이 선생님에게 남긴 평가예요. 선생님 화면에는 이름 없이 보여요.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            {rev.byTeacher.map((t) => (
+              <div key={t.teacherId} className="rounded-[14px] border border-line px-4 py-2.5">
+                <p className="text-[13px] font-bold">{t.teacher}</p>
+                <p className="text-[13px]">
+                  <b className="text-blue tabular-nums">{t.avg.toFixed(1)}</b>
+                  <span className="text-sub"> · {t.count}개</span>
+                </p>
+              </div>
+            ))}
+          </div>
+
+          <div className="flex flex-col gap-2">
+            {rev.reviews.slice(0, 20).map((r) => (
+              <div key={r.id} className="rounded-[14px] border border-line p-3.5">
+                <div className="flex items-center gap-2 text-[13px]">
+                  <span style={{ color: "var(--blue)" }}>
+                    {"★".repeat(r.rating)}
+                    <span style={{ color: "var(--line)" }}>{"★".repeat(5 - r.rating)}</span>
+                  </span>
+                  <span className="text-sub">
+                    {r.student} → {r.teacher}
+                  </span>
+                </div>
+                {r.comment && <p className="text-[14px] leading-relaxed mt-1">{r.comment}</p>}
+              </div>
+            ))}
+          </div>
         </section>
       )}
 

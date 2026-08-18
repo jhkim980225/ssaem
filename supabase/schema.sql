@@ -202,6 +202,42 @@ drop policy if exists quiz_questions_owner_write on quiz_questions;
 drop policy if exists quiz_attempts_party on quiz_attempts;
 drop policy if exists quiz_attempts_self_write on quiz_attempts;
 -- ─────────────────────────────────────────────
+-- 수강평 (학생 → 강사) / 학생 상세정보
+-- ─────────────────────────────────────────────
+-- 마이그레이션 20260818020000_reviews_student_details.sql 참조.
+-- ⚠️ message_feedback(AI 답변 1건 평가)과 다른 개념 — 이건 강사에 대한 평가다.
+-- 강사에겐 익명, 원장에겐 실명으로 보인다 (표시 정책은 앱 코드가 강제).
+create table if not exists course_reviews (
+  id uuid primary key default gen_random_uuid(),
+  teacher_id uuid not null references profiles(id) on delete cascade,
+  student_id uuid not null references profiles(id) on delete cascade,
+  rating int not null check (rating between 1 and 5),
+  comment text,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now(),
+  unique (teacher_id, student_id)
+);
+create index if not exists course_reviews_teacher_idx on course_reviews(teacher_id, created_at desc);
+create index if not exists course_reviews_student_idx on course_reviews(student_id);
+
+-- 개인정보는 profiles와 분리한다 — profiles는 여러 경로에서 select되므로
+-- 같은 행에 두면 실수로 흘러나갈 여지가 크다. 별도 테이블이면 의도적 join만 조회된다.
+create table if not exists student_details (
+  student_id uuid primary key references profiles(id) on delete cascade,
+  phone text,
+  note text,
+  updated_by uuid references profiles(id) on delete set null,
+  updated_at timestamptz default now()
+);
+
+alter table course_reviews  enable row level security;
+alter table student_details enable row level security;
+drop policy if exists course_reviews_read   on course_reviews;
+drop policy if exists course_reviews_self   on course_reviews;
+drop policy if exists student_details_read  on student_details;
+drop policy if exists student_details_write on student_details;
+
+-- ─────────────────────────────────────────────
 -- 평가 세트 (강사가 올린 시험 — quiz_*와 분리)
 -- ─────────────────────────────────────────────
 -- 마이그레이션 20260818010000_assessments.sql 참조.

@@ -22,6 +22,11 @@ export default function StudentsPage() {
   const [issued, setIssued] = useState<{ id: string; loginId: string; password: string } | null>(null);
   const [pwErr, setPwErr] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
+  // 학생 연락처·메모 (개인정보라 펼친 학생만 조회한다 — 목록에 싣지 않는다)
+  const [openId, setOpenId] = useState<string | null>(null);
+  const [detail, setDetail] = useState<Record<string, { phone: string; note: string }>>({});
+  const [detailBusy, setDetailBusy] = useState<string | null>(null);
+  const [detailMsg, setDetailMsg] = useState("");
 
   useEffect(() => {
     if (!allowed || !session) return;
@@ -50,6 +55,43 @@ export default function StudentsPage() {
     setBusy(null);
     if (!r.ok) return setPwErr(d?.error ?? "초기화하지 못했어요.");
     setIssued({ id: studentId, loginId: d.loginId, password: d.password });
+  }
+
+  async function toggleDetail(studentId: string) {
+    if (openId === studentId) return setOpenId(null);
+    setOpenId(studentId);
+    setDetailMsg("");
+    if (detail[studentId] || !session) return; // 이미 불러온 학생은 재조회 안 함
+    try {
+      const r = await fetch(`/api/students/detail?student=${studentId}`, {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+      if (!r.ok) return;
+      const d = await r.json();
+      setDetail((p) => ({ ...p, [studentId]: { phone: d.detail?.phone ?? "", note: d.detail?.note ?? "" } }));
+    } catch {
+      /* 조회 실패는 빈 폼으로 — 입력은 계속 가능 */
+    }
+  }
+
+  async function saveDetail(studentId: string) {
+    if (!session) return;
+    const d = detail[studentId] ?? { phone: "", note: "" };
+    setDetailBusy(studentId);
+    setDetailMsg("");
+    try {
+      const r = await fetch("/api/students/detail", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ studentId, phone: d.phone, note: d.note }),
+      });
+      const rd = await r.json().catch(() => null);
+      setDetailMsg(r.ok ? "저장했어요." : rd?.error ?? "저장하지 못했어요.");
+    } catch {
+      setDetailMsg("저장하지 못했어요 — 네트워크를 확인해 주세요.");
+    } finally {
+      setDetailBusy(null);
+    }
   }
 
   if (gate) return gate;
@@ -108,7 +150,13 @@ export default function StudentsPage() {
               </div>
             </div>
 
-            <div className="mt-3 flex items-center justify-end">
+            <div className="mt-3 flex items-center justify-end gap-1.5">
+              <button
+                onClick={() => toggleDetail(s.id)}
+                className={`chip !py-1 !px-2.5 !text-[12px] ${openId === s.id ? "chip-on" : ""}`}
+              >
+                연락처·메모
+              </button>
               <button
                 onClick={() => resetPw(s.id, s.name)}
                 disabled={busy === s.id}
@@ -117,6 +165,42 @@ export default function StudentsPage() {
                 {busy === s.id ? "바꾸는 중…" : "비밀번호 초기화"}
               </button>
             </div>
+
+            {openId === s.id && (
+              <div className="animate-pop mt-3 rounded-[14px] border border-line p-4 flex flex-col gap-2">
+                <p className="text-[12px] text-sub">
+                  학생 개인정보예요. 필요한 것만 적고, 학원 밖으로 공유하지 마세요.
+                </p>
+                <input
+                  className="field"
+                  placeholder="연락처 (예: 010-1234-5678)"
+                  maxLength={30}
+                  value={detail[s.id]?.phone ?? ""}
+                  onChange={(e) =>
+                    setDetail((p) => ({ ...p, [s.id]: { phone: e.target.value, note: p[s.id]?.note ?? "" } }))
+                  }
+                />
+                <textarea
+                  className="field min-h-20"
+                  placeholder="메모 (특이사항·상담 내용)"
+                  maxLength={500}
+                  value={detail[s.id]?.note ?? ""}
+                  onChange={(e) =>
+                    setDetail((p) => ({ ...p, [s.id]: { phone: p[s.id]?.phone ?? "", note: e.target.value } }))
+                  }
+                />
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => saveDetail(s.id)}
+                    disabled={detailBusy === s.id}
+                    className="btn btn-primary py-2.5 px-5 text-[14px] disabled:opacity-60"
+                  >
+                    {detailBusy === s.id ? "저장 중…" : "저장"}
+                  </button>
+                  {detailMsg && <span className="text-[13px] text-sub">{detailMsg}</span>}
+                </div>
+              </div>
+            )}
 
             {issued?.id === s.id && (
               <div

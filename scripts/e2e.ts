@@ -602,6 +602,115 @@ async function main() {
     if (saved.body?.id) await db.from("signatures").delete().eq("id", saved.body.id);
   }
 
+  // ── 7.5 수강평 (D) + 학생 상세정보 (E)
+  section("수강평 · 학생정보");
+  const hasRev = await tableExists("course_reviews", "rating");
+  const hasDetail = await tableExists("student_details", "phone");
+  if (!hasRev || !hasDetail) {
+    skip("수강평·학생정보 전 구간", "테이블 없음 — supabase/실행할-SQL-2.sql 미실행");
+  } else {
+    // 강사는 수강평을 못 쓴다 (자기 평점 조작 차단)
+    ok(
+      "강사 수강평 작성 403",
+      (await status("/api/reviews", {
+        method: "POST",
+        headers: { ...bearer(teacherTok), "Content-Type": "application/json" },
+        body: JSON.stringify({ teacherId: t0.id, rating: 5 }),
+      })) === 403
+    );
+    ok(
+      "비로그인 수강평 401",
+      (await status("/api/reviews", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ teacherId: t0.id, rating: 5 }),
+      })) === 401
+    );
+    // 별점 범위 검증
+    ok(
+      "별점 범위 밖 400",
+      (await status("/api/reviews", {
+        method: "POST",
+        headers: { ...bearer(studentTok), "Content-Type": "application/json" },
+        body: JSON.stringify({ teacherId: t0.id, rating: 9 }),
+      })) === 400
+    );
+
+    const wrote = await json("/api/reviews", {
+      method: "POST",
+      headers: { ...bearer(studentTok), "Content-Type": "application/json" },
+      body: JSON.stringify({ teacherId: t0.id, rating: 4, comment: "[E2E] 설명이 이해하기 쉬웠어요" }),
+    });
+    ok("학생 수강평 작성 200", wrote.status === 200, `status=${wrote.status}`);
+
+    // 같은 강사에 다시 쓰면 수정(upsert) — 중복 생성 아님
+    const again = await json("/api/reviews", {
+      method: "POST",
+      headers: { ...bearer(studentTok), "Content-Type": "application/json" },
+      body: JSON.stringify({ teacherId: t0.id, rating: 5, comment: "[E2E] 수정본" }),
+    });
+    ok("같은 강사 재작성은 수정", again.status === 200);
+    const mineRes = await json("/api/reviews", { headers: bearer(studentTok) });
+    const mineRows = (mineRes.body?.mine ?? []).filter((m: { teacherId: string }) => m.teacherId === t0.id);
+    ok("내 수강평 1건만 유지(중복 없음)", mineRows.length === 1, `${mineRows.length}건`);
+    ok("수정된 별점 반영", mineRows[0]?.rating === 5, `rating=${mineRows[0]?.rating}`);
+
+    // 강사 조회 — 작성자 익명이어야 한다
+    const tRev = await json("/api/reviews", { headers: bearer(teacherTok) });
+    ok("강사 수강평 조회 200", tRev.status === 200);
+    ok("강사 평균 별점 계산", typeof tRev.body?.avg === "number", `avg=${tRev.body?.avg}`);
+    const tRow = (tRev.body?.reviews ?? [])[0];
+    ok(
+      "강사 응답에 작성자 정보 없음(익명)",
+      !tRow || (!("student" in tRow) && !("studentId" in tRow) && !("student_id" in tRow)),
+      tRow ? Object.keys(tRow).join(",") : "없음"
+    );
+    ok("강사 응답 전체에 학생 이름 미포함", !JSON.stringify(tRev.body ?? {}).includes("테스트 학생"));
+
+    // 원장 조회 — 작성자 실명 포함
+    const aRev = await json("/api/reviews", { headers: bearer(adminTok) });
+    ok("원장 수강평 조회 200", aRev.status === 200);
+    const aRow = (aRev.body?.reviews ?? []).find((r: { comment: string | null }) =>
+      (r.comment ?? "").includes("[E2E]")
+    );
+    ok("원장 응답엔 작성자 실명 포함", Boolean(aRow?.student), aRow?.student ?? "없음");
+    ok("원장 강사별 집계 제공", Array.isArray(aRev.body?.byTeacher) && aRev.body.byTeacher.length > 0);
+
+    // ── 학생 상세정보 (E)
+    const stuList = await json("/api/students", { headers: bearer(teacherTok) });
+    const stu = (stuList.body?.students ?? [])[0];
+    if (!stu) {
+      skip("학생 상세정보", "강사에게 연결된 학생 없음");
+    } else {
+      ok(
+        "학생이 남의 상세정보 조회 403",
+        (await status(`/api/students/detail?student=${stu.id}`, { headers: bearer(studentTok) })) === 403
+      );
+      ok(
+        "비로그인 상세정보 401",
+        (await status(`/api/students/detail?student=${stu.id}`)) === 401
+      );
+      const saved = await json("/api/students/detail", {
+        method: "POST",
+        headers: { ...bearer(teacherTok), "Content-Type": "application/json" },
+        body: JSON.stringify({ studentId: stu.id, phone: "010-0000-0000", note: "[E2E] 메모" }),
+      });
+      ok("강사 상세정보 저장 200", saved.status === 200, `status=${saved.status}`);
+      const got = await json(`/api/students/detail?student=${stu.id}`, { headers: bearer(teacherTok) });
+      ok("강사 상세정보 조회", got.body?.detail?.phone === "010-0000-0000", got.body?.detail?.phone ?? "없음");
+      const gotAdmin = await json(`/api/students/detail?student=${stu.id}`, { headers: bearer(adminTok) });
+      ok("원장도 같은 학원 학생 열람", gotAdmin.body?.detail?.note === "[E2E] 메모");
+      // 학생 목록(공용 조회)에는 연락처가 실리면 안 된다
+      ok(
+        "학생 목록 응답에 연락처 미포함",
+        !JSON.stringify(stuList.body ?? {}).includes("010-0000-0000")
+      );
+      await db.from("student_details").delete().eq("student_id", stu.id);
+    }
+
+    await db.from("course_reviews").delete().eq("teacher_id", t0.id).ilike("comment", "%[E2E]%");
+  }
+
   // ── 8. 요금제 문의
   section("요금제 문의");
   const hasInq = await tableExists("plan_inquiries", "contact");
