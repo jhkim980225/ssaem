@@ -338,6 +338,55 @@ async function main() {
         !theory || (!("answer_idx" in theory) && !("explanation" in theory)),
         theory ? Object.keys(theory).join(",") : "이론 없음"
       );
+      // ── CBT 모드: 회차 목록 · 문항 수 · 일괄 채점
+      ok("트리 응답에 회차 목록 포함", Array.isArray(tree.body?.sources), `${(tree.body?.sources ?? []).length}개`);
+      const src = (tree.body?.sources ?? []).find((x: { subject: string }) => x.subject === subj);
+      if (src) {
+        const bySrc = await json(
+          `/api/bank?subject=${encodeURIComponent(subj)}&source=${encodeURIComponent(src.source)}&limit=30`,
+          { headers: bearer(studentTok) }
+        );
+        ok("회차 지정 조회 200", bySrc.status === 200);
+        ok(
+          "회차 문항 수가 집계와 일치",
+          (bySrc.body?.total ?? 0) === src.count,
+          `${bySrc.body?.total} vs ${src.count}`
+        );
+      }
+      // 문항 수 선택이 실제로 반영되는지
+      const five = await json(`/api/bank?subject=${encodeURIComponent(subj)}&category=이론&limit=5`, {
+        headers: bearer(studentTok),
+      });
+      ok("limit=5 반영", (five.body?.questions ?? []).length === 5, `${(five.body?.questions ?? []).length}문항`);
+
+      // 일괄 채점 (CBT): 한 번의 요청으로 여러 문항
+      const batchQs = (five.body?.questions ?? []).filter((q: { type: string }) => q.type === "theory");
+      if (batchQs.length >= 2) {
+        const batch = await json("/api/bank/attempt", {
+          method: "POST",
+          headers: { ...bearer(studentTok), "Content-Type": "application/json" },
+          body: JSON.stringify({
+            answers: batchQs.map((q: { id: string }) => ({ questionId: q.id, chosen: 0 })),
+          }),
+        });
+        ok("배치 채점 200", batch.status === 200, `status=${batch.status}`);
+        ok(
+          "배치 결과 수 일치",
+          (batch.body?.results ?? []).length === batchQs.length,
+          `${(batch.body?.results ?? []).length}/${batchQs.length}`
+        );
+        ok("배치 응답에 정답·해설 포함", "answerIdx" in ((batch.body?.results ?? [])[0] ?? {}));
+        ok("배치 기록 저장", batch.body?.saved === true);
+        ok(
+          "잘못된 배치는 400",
+          (await status("/api/bank/attempt", {
+            method: "POST",
+            headers: { ...bearer(studentTok), "Content-Type": "application/json" },
+            body: JSON.stringify({ answers: [{ questionId: "nope", chosen: 9 }] }),
+          })) === 400
+        );
+      }
+
       // 공부 모드는 이론도 정답(answerIdx)·해설 포함
       const studySet = await json(`/api/bank?subject=${encodeURIComponent(subj)}&limit=10&study=1`, {
         headers: bearer(studentTok),

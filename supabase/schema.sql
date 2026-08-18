@@ -415,3 +415,11 @@ group by subject, area, category, type_tag;
 
 alter table bank_questions enable row level security;
 alter table bank_attempts  enable row level security;
+
+-- 회차별 문항 수 (CBT 모드 회차 선택용). 마이그레이션 20260819000000 참조.
+create or replace view bank_source_counts
+with (security_invoker = true) as
+select subject, source, count(*)::int as count
+from bank_questions
+where source is not null and source <> ''
+group by subject, source;

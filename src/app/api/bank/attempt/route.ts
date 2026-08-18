@@ -17,6 +17,11 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "too many requests" }, { status: 429 });
 
   const body = await req.json().catch(() => null);
+
+  // ── 배치 채점 (CBT 모드): { answers: [{questionId, chosen}] } 한 번에.
+  // 15문항을 15번 호출하면 느리고 rate limit도 잡아먹는다.
+  if (Array.isArray(body?.answers)) return gradeBatch(serviceClient(), g.uid, body.answers);
+
   const questionId = (body?.questionId ?? "").toString();
   if (!/^[0-9a-f-]{36}$/i.test(questionId))
     return NextResponse.json({ error: "questionId required" }, { status: 400 });
@@ -58,6 +63,66 @@ export async function POST(req: Request) {
       ? { ok: true, correct, answer_idx: q.answer_idx, explanation: q.explanation ?? "", saved: !error }
       : { ok: true, correct, saved: !error }
   );
+}
+
+/**
+ * 이론 문항 일괄 채점. 정답은 **서버 DB 값만** 쓴다.
+ * 미응답(chosen 없음)은 오답으로 기록하지 않고 건너뛴다 — 시도하지 않은 문제까지
+ * 오답노트에 넣으면 "틀린 문제"의 의미가 흐려진다.
+ */
+async function gradeBatch(
+  db: ReturnType<typeof serviceClient>,
+  uid: string,
+  answers: unknown[]
+) {
+  const picked = new Map<string, number>();
+  for (const a of answers) {
+    const o = a as { questionId?: unknown; chosen?: unknown };
+    const id = (o?.questionId ?? "").toString();
+    const n = Number(o?.chosen);
+    if (/^[0-9a-f-]{36}$/i.test(id) && Number.isInteger(n) && n >= 0 && n <= 3) picked.set(id, n);
+  }
+  if (!picked.size) return NextResponse.json({ error: "answers required" }, { status: 400 });
+  if (picked.size > 50) return NextResponse.json({ error: "한 번에 50문항까지" }, { status: 400 });
+
+  const ids = [...picked.keys()];
+  const { data: qs } = await db
+    .from("bank_questions")
+    .select("id, choices, answer_idx, explanation")
+    .in("id", ids);
+  if (!qs?.length) return NextResponse.json({ error: "not found" }, { status: 404 });
+
+  const rows: { question_id: string; user_id: string; chosen_idx: number; is_correct: boolean }[] = [];
+  const results = qs.map((q) => {
+    const chosen = picked.get(q.id)!;
+    const isTheory = Array.isArray(q.choices) && q.choices.length > 0 && q.answer_idx !== null;
+    const correct = isTheory && chosen === q.answer_idx;
+    if (isTheory)
+      rows.push({ question_id: q.id, user_id: uid, chosen_idx: chosen, is_correct: correct });
+    return {
+      questionId: q.id,
+      chosen,
+      correct,
+      answerIdx: q.answer_idx,
+      explanation: q.explanation ?? "",
+    };
+  });
+
+  // 기록 실패는 점수에 영향 없다 (채점은 이미 끝났다)
+  let saved = false;
+  if (rows.length) {
+    const { error } = await db.from("bank_attempts").insert(rows);
+    if (error) console.error("bank batch insert:", error.message);
+    else saved = true;
+  }
+
+  return NextResponse.json({
+    ok: true,
+    score: results.filter((r) => r.correct).length,
+    total: results.length,
+    saved,
+    results,
+  });
 }
 
 // 오답노트 — 본인 마지막 시도가 오답인 문항. 이론은 정답 포함(이미 시도했으므로 노출 무방).

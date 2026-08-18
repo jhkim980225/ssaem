@@ -12,7 +12,7 @@ import { lastWrongBankIds } from "./shared";
 // 실무·결산은 자가채점이라 answer_text·explanation을 함께 준다(클라가 '정답 보기'로 공개).
 
 const DEFAULT_LIMIT = 15;
-const MAX_LIMIT = 30;
+const MAX_LIMIT = 50; // 회차 전체(최대 25문항)도 담을 수 있게
 
 export async function GET(req: Request) {
   const g = await requireUser(req);
@@ -23,6 +23,8 @@ export async function GET(req: Request) {
   const category = (url.searchParams.get("category") ?? "").trim();
   const area = (url.searchParams.get("area") ?? "").trim();
   const typeTag = (url.searchParams.get("type_tag") ?? "").trim();
+  // 회차 (예: "전산회계1급 125회"). 고르면 그 회차 문항만 — 실제 시험처럼 풀 수 있다.
+  const source = (url.searchParams.get("source") ?? "").trim();
   const mode = url.searchParams.get("mode") === "wrong" ? "wrong" : "all";
   // 공부 모드: 이론 문항도 정답·해설을 처음부터 함께 준다 (복습용). 실무는 원래 포함.
   const study = url.searchParams.get("study") === "1";
@@ -36,11 +38,13 @@ export async function GET(req: Request) {
 
   // 파라미터 없으면 필터 트리 (뷰 집계 — 1000행 캡 무관)
   if (!hasFilter) {
-    const { data, error } = await db
-      .from("bank_tag_counts")
-      .select("subject, area, category, type_tag, count");
+    const [{ data, error }, { data: srcs }] = await Promise.all([
+      db.from("bank_tag_counts").select("subject, area, category, type_tag, count"),
+      // 회차 목록. 뷰가 없는 배포(마이그레이션 전)에서도 트리는 살아야 하므로 에러는 무시한다
+      db.from("bank_source_counts").select("subject, source, count"),
+    ]);
     if (error) return NextResponse.json({ error: "불러오지 못했어요." }, { status: 500 });
-    return NextResponse.json({ tree: data ?? [] });
+    return NextResponse.json({ tree: data ?? [], sources: srcs ?? [] });
   }
 
   type Row = {
@@ -60,11 +64,12 @@ export async function GET(req: Request) {
   //   ① 400문항 초과 과목(전 과목 644~719문항)은 고정된 일부만 출제됐고
   //   ② mode=wrong이 그 400 안에 없는 오답을 놓쳐 오답노트 재풀이가 불완전했다.
   const filteredIds = () => {
-    let q = db.from("bank_questions").select("id");
+    let q = db.from("bank_questions").select("id").order("created_at", { ascending: true });
     if (subject) q = q.eq("subject", subject);
     if (category) q = q.eq("category", category);
     if (area) q = q.eq("area", area);
     if (typeTag) q = q.eq("type_tag", typeTag);
+    if (source) q = q.eq("source", source);
     return q;
   };
   let ids: string[] = [];
@@ -82,10 +87,13 @@ export async function GET(req: Request) {
     ids = ids.filter((id) => wrong.has(id));
   }
 
-  // 셔플 후 limit (Fisher-Yates)
-  for (let i = ids.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [ids[i], ids[j]] = [ids[j], ids[i]];
+  // 회차를 지정하면 **실제 시험처럼 원래 순서**로 낸다 (셔플하지 않는다).
+  // 그 외(랜덤 연습)는 매번 다른 문제가 나오도록 섞는다.
+  if (!source) {
+    for (let i = ids.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [ids[i], ids[j]] = [ids[j], ids[i]];
+    }
   }
   const total = ids.length;
   const pickedIds = ids.slice(0, limit);

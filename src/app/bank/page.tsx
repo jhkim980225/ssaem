@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useGate } from "@/components/RoleGuard";
 import JournalEntry from "@/components/JournalEntry";
+import CbtRunner, { type CbtQuestion } from "@/components/CbtRunner";
 
 // answerIdx·explanation은 공부 모드에서만 함께 온다
 type Theory = { id: string; type: "theory"; stem: string; choices: string[]; area: string; typeTag: string; answerIdx?: number; explanation?: string | null };
@@ -17,6 +18,12 @@ type Practice = {
 };
 type Q = Theory | Practice;
 type TreeRow = { subject: string; area: string; category: string; type_tag: string; count: number };
+type SourceRow = { subject: string; source: string; count: number };
+
+// 한 세션에 풀 문항 수 — 빠른 선택
+const COUNTS = [5, 10, 15, 20, 30] as const;
+// 회차 문자열에서 숫자만 뽑아 정렬용으로 (예: "전산회계1급 125회" → 125)
+const roundNo = (s: string) => Number((s.match(/(\d+)\s*회/) ?? [])[1] ?? 0);
 
 const CATEGORIES = ["이론", "실무분개", "결산"] as const;
 
@@ -41,6 +48,12 @@ export default function BankPage() {
   const [score, setScore] = useState({ right: 0, done: 0 });
   // 공부 모드: 정답·해설을 옆에 두고 넘겨보는 복습 모드 (채점 없음)
   const [study, setStudy] = useState(false);
+  // CBT 모드 — 실제 시험처럼 번호판 보며 풀고 마지막에 일괄 채점 (이론 문항만)
+  const [cbt, setCbt] = useState(true);
+  const [sources, setSources] = useState<SourceRow[]>([]);
+  const [source, setSource] = useState(""); // "" = 전체 회차 랜덤
+  const [count, setCount] = useState<number>(15);
+  const [cbtQs, setCbtQs] = useState<CbtQuestion[] | null>(null);
 
   // 이론 채점 상태
   const [picked, setPicked] = useState<number | null>(null);
@@ -56,7 +69,10 @@ export default function BankPage() {
     if (!token) return;
     fetch("/api/bank", { headers: { Authorization: `Bearer ${token}` } })
       .then((r) => r.json())
-      .then((d) => setTree(d.tree ?? []))
+      .then((d) => {
+        setTree(d.tree ?? []);
+        setSources(d.sources ?? []);
+      })
       .catch(() => setTree([]));
   }, [token]);
 
@@ -86,14 +102,26 @@ export default function BankPage() {
     setBusy(true);
     setErr("");
     setQs(null);
+    setCbtQs(null);
     const p = new URLSearchParams({ subject });
-    if (category) p.set("category", category);
+    // CBT는 4지선다(이론)만 다룬다 — 실무 분개는 프로그램으로 푸는 것이라 번호판 채점에 맞지 않는다
+    if (cbt) p.set("category", "이론");
+    else if (category) p.set("category", category);
     if (area) p.set("area", area);
-    if (study) p.set("study", "1");
+    if (cbt && source) p.set("source", source);
+    if (!cbt && study) p.set("study", "1");
+    p.set("limit", String(cbt ? count : 15));
     const r = await fetch(`/api/bank?${p}`, { headers: { Authorization: `Bearer ${token}` } }).catch(() => null);
     const d = await r?.json().catch(() => null);
     setBusy(false);
     if (!r?.ok) return setErr(d?.error ?? "문제를 불러오지 못했어요.");
+
+    if (cbt) {
+      const theory = (d.questions ?? []).filter((x: Q) => x.type === "theory") as CbtQuestion[];
+      if (!theory.length) return setErr("조건에 맞는 4지선다 문제가 없어요.");
+      setCbtQs(theory);
+      return;
+    }
     setQs(d.questions ?? []);
     setIdx(0);
     setScore({ right: 0, done: 0 });
@@ -167,23 +195,45 @@ export default function BankPage() {
       </div>
 
       {/* 필터 */}
-      {!qs && (
+      {!qs && !cbtQs && (
         <div className="rise d1 card p-5 flex flex-col gap-4">
           {tree === null ? (
             <div className="skel h-40 !rounded-[16px]" />
           ) : (
             <>
-              <div className="flex gap-1.5">
-                <button onClick={() => setStudy(false)} className={`chip !text-[13px] ${!study ? "chip-on" : ""}`}>
-                  시험 모드
+              <div className="flex gap-1.5 flex-wrap">
+                <button
+                  onClick={() => setCbt(true)}
+                  className={`chip !text-[13px] ${cbt ? "chip-on" : ""}`}
+                >
+                  CBT 모의고사
                 </button>
-                <button onClick={() => setStudy(true)} className={`chip !text-[13px] ${study ? "chip-on" : ""}`}>
+                <button
+                  onClick={() => {
+                    setCbt(false);
+                    setStudy(false);
+                  }}
+                  className={`chip !text-[13px] ${!cbt && !study ? "chip-on" : ""}`}
+                >
+                  한 문제씩
+                </button>
+                <button
+                  onClick={() => {
+                    setCbt(false);
+                    setStudy(true);
+                  }}
+                  className={`chip !text-[13px] ${!cbt && study ? "chip-on" : ""}`}
+                >
                   공부 모드
                 </button>
-                <span className="self-center text-[12px] text-sub ml-1">
-                  {study ? "정답·풀이를 옆에 두고 익혀요" : "풀고 바로 채점해요"}
-                </span>
               </div>
+              <p className="text-[12px] text-sub -mt-2">
+                {cbt
+                  ? "실제 시험처럼 번호판으로 오가며 풀고 마지막에 한 번에 채점해요. (4지선다만)"
+                  : study
+                    ? "정답·풀이를 옆에 두고 익혀요."
+                    : "한 문제 풀 때마다 바로 채점해요."}
+              </p>
               <Filter label="과목" required>
                 {subjects.map((s) => (
                   <Chip
@@ -198,6 +248,37 @@ export default function BankPage() {
                   </Chip>
                 ))}
               </Filter>
+              {cbt && (
+                <>
+                  <Filter label="회차 (선택)">
+                    <Chip on={source === ""} onClick={() => setSource("")}>
+                      랜덤 출제
+                    </Chip>
+                    {sources
+                      .filter((x) => !subject || x.subject === subject)
+                      .sort((a, b) => roundNo(b.source) - roundNo(a.source))
+                      .slice(0, 24)
+                      .map((x) => (
+                        <Chip
+                          key={x.source}
+                          on={source === x.source}
+                          onClick={() => setSource(source === x.source ? "" : x.source)}
+                        >
+                          {roundNo(x.source) ? `${roundNo(x.source)}회` : x.source}{" "}
+                          <b className="opacity-60">{x.count}</b>
+                        </Chip>
+                      ))}
+                  </Filter>
+                  <Filter label="문항 수">
+                    {COUNTS.map((n) => (
+                      <Chip key={n} on={count === n} onClick={() => setCount(n)}>
+                        {n}문항
+                      </Chip>
+                    ))}
+                  </Filter>
+                </>
+              )}
+              {!cbt && (
               <Filter label="유형 (선택)">
                 {CATEGORIES.map((c) => {
                   const n = countFor({ subject, category: c });
@@ -208,6 +289,7 @@ export default function BankPage() {
                   );
                 })}
               </Filter>
+              )}
               {subject && areas.length > 1 && (
                 <Filter label="영역 (선택)">
                   {areas.map((a) => (
@@ -222,11 +304,30 @@ export default function BankPage() {
                 disabled={!subject || busy}
                 className="btn btn-primary py-3.5 disabled:opacity-50"
               >
-                {busy ? "불러오는 중…" : !subject ? "과목을 골라 주세요" : study ? "공부 시작" : "문제 풀기"}
+                {busy
+                  ? "불러오는 중…"
+                  : !subject
+                    ? "과목을 골라 주세요"
+                    : cbt
+                      ? source
+                        ? `${roundNo(source) || ""}회 시험 시작`
+                        : `${count}문항 시험 시작`
+                      : study
+                        ? "공부 시작"
+                        : "문제 풀기"}
               </button>
             </>
           )}
         </div>
+      )}
+
+      {cbtQs && (
+        <CbtRunner
+          token={token}
+          questions={cbtQs}
+          title={source || `${subject} 랜덤 ${cbtQs.length}문항`}
+          onExit={() => setCbtQs(null)}
+        />
       )}
 
       {err && (
