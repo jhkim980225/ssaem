@@ -15,7 +15,7 @@ const NOTE_RE = /^\s*[(（]?\s*단[,，]/;
 // 파이프라인(hwp)이 직렬화한 표: [[표]]셀|셀∥셀|셀[[/표]] — 행 ∥, 셀 |
 const TABLE_RE = /\[\[표\]\](.*?)\[\[\/표\]\]/;
 
-function TableBlock({ data }: { data: string }) {
+function TableBlock({ data, highlight }: { data: string; highlight?: string }) {
   const rows = data.split("∥").map((r) => r.split("|"));
   return (
     <div className="overflow-x-auto mt-1">
@@ -29,7 +29,7 @@ function TableBlock({ data }: { data: string }) {
                   className="border border-line px-3 py-1.5 text-center whitespace-nowrap tabular-nums"
                   style={i === 0 ? { background: "var(--fill-2)", fontWeight: 700 } : undefined}
                 >
-                  {c}
+                  <Hi text={c} kw={highlight} />
                 </td>
               ))}
             </tr>
@@ -40,7 +40,27 @@ function TableBlock({ data }: { data: string }) {
   );
 }
 
-export function StemView({ stem, images }: { stem: string; images?: string[] | null }) {
+// 검색어 강조 — 문제검색에서 지문 속 키워드를 빨간색으로 표시
+export function Hi({ text, kw }: { text: string; kw?: string }) {
+  if (!kw || !text.includes(kw)) return <>{text}</>;
+  const parts = text.split(kw);
+  return (
+    <>
+      {parts.map((p, i) => (
+        <span key={i}>
+          {p}
+          {i < parts.length - 1 && (
+            <mark className="font-extrabold" style={{ background: "transparent", color: "var(--red)" }}>
+              {kw}
+            </mark>
+          )}
+        </span>
+      ))}
+    </>
+  );
+}
+
+export function StemView({ stem, images, highlight }: { stem: string; images?: string[] | null; highlight?: string }) {
   const { body, form } = splitStem(stem);
   return (
     <div className="flex flex-col gap-1.5 break-keep">
@@ -50,12 +70,12 @@ export function StemView({ stem, images }: { stem: string; images?: string[] | n
           return (
             <div key={i} className="flex flex-col gap-1">
               {line.slice(0, tm.index).trim() && (
-                <p className="text-[15px] leading-[1.7] whitespace-pre-wrap">{line.slice(0, tm.index).trim()}</p>
+                <p className="text-[15px] leading-[1.7] whitespace-pre-wrap"><Hi text={line.slice(0, tm.index).trim()} kw={highlight} /></p>
               )}
-              <TableBlock data={tm[1]} />
+              <TableBlock data={tm[1]} highlight={highlight} />
               {line.slice((tm.index ?? 0) + tm[0].length).trim() && (
                 <p className="text-[15px] leading-[1.7] whitespace-pre-wrap">
-                  {line.slice((tm.index ?? 0) + tm[0].length).trim()}
+                  <Hi text={line.slice((tm.index ?? 0) + tm[0].length).trim()} kw={highlight} />
                 </p>
               )}
             </div>
@@ -65,21 +85,23 @@ export function StemView({ stem, images }: { stem: string; images?: string[] | n
           return (
             <div key={i} className="mt-1.5 pl-3 border-l-2" style={{ borderColor: "var(--line)" }}>
               <p className="text-[15px] font-medium leading-[1.65] whitespace-pre-wrap" style={{ color: "var(--text-2)" }}>
-                {item[1]}
+                <Hi text={item[1]} kw={highlight} />
               </p>
-              <p className="text-[16px] lg:text-[17px] font-bold tabular-nums mt-0.5">{item[2]}</p>
+              <p className="text-[16px] lg:text-[17px] font-bold tabular-nums mt-0.5">
+                <Hi text={item[2]} kw={highlight} />
+              </p>
             </div>
           );
         if (NOTE_RE.test(line))
           return (
             <p key={i} className="text-[15px] leading-[1.7] mt-1 whitespace-pre-wrap" style={{ color: "var(--sub-2)" }}>
-              {line}
+              <Hi text={line} kw={highlight} />
             </p>
           );
         if (!line.trim()) return <div key={i} className="h-1" />;
         return (
           <p key={i} className="text-[17px] lg:text-[18px] font-semibold leading-[1.7] whitespace-pre-wrap">
-            {line}
+            <Hi text={line} kw={highlight} />
           </p>
         );
       })}

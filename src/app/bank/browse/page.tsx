@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useGate } from "@/components/RoleGuard";
 import BackButton from "@/components/BackButton";
 import JournalEntry from "@/components/JournalEntry";
-import { StemView, ExplanationView } from "@/components/BankQuestion";
+import { StemView, ExplanationView, Hi } from "@/components/BankQuestion";
 
 type Q = {
   id: string;
@@ -164,7 +164,7 @@ export default function BankBrowsePage() {
                     const show = answered === n.id;
                     return (
                     <div className="px-4 lg:px-5 pb-5 flex flex-col gap-4 border-t border-line pt-4">
-                      <StemView stem={n.stem} images={n.images} />
+                      <StemView stem={n.stem} images={n.images} highlight={result.q} />
                       {isTheory && (
                         <div className="flex flex-col gap-2.5">
                           {n.choices!.map((c, i) => (
@@ -176,7 +176,7 @@ export default function BankBrowsePage() {
                               <span className="shrink-0 grid place-items-center w-5 h-5 mt-0.5 rounded-full border border-current text-[11px] font-extrabold">
                                 {i + 1}
                               </span>
-                              <span className="flex-1 min-w-0">{c}</span>
+                              <span className="flex-1 min-w-0"><Hi text={c} kw={result.q} /></span>
                               {show && n.answerIdx === i && <span className="text-blue text-[11px] font-bold shrink-0">정답</span>}
                             </div>
                           ))}

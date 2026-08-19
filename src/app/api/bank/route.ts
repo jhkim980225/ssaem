@@ -14,6 +14,9 @@ import { lastWrongBankIds } from "./shared";
 const DEFAULT_LIMIT = 15;
 const MAX_LIMIT = 50; // 회차 전체(최대 25문항)도 담을 수 있게
 
+// 필터 트리 캐시 (5분). 문항은 적재 스크립트로만 바뀌므로 신선도 요구가 낮다.
+let treeCache: { at: number; body: { tree: unknown[]; sources: unknown[] } } | null = null;
+
 export async function GET(req: Request) {
   const g = await requireUser(req);
   if ("res" in g) return g.res;
@@ -38,13 +41,18 @@ export async function GET(req: Request) {
 
   // 파라미터 없으면 필터 트리 (뷰 집계 — 1000행 캡 무관)
   if (!hasFilter) {
+    // 집계는 적재 때만 변한다 — 5분 인메모리 캐시로 첫 로딩 왕복(뷰 집계 2회)을 줄인다.
+    // ponytail: 인스턴스별 캐시 — 다중 인스턴스 무효화가 필요해지면 revalidateTag로
+    if (treeCache && Date.now() - treeCache.at < 300_000) return NextResponse.json(treeCache.body);
     const [{ data, error }, { data: srcs }] = await Promise.all([
       db.from("bank_tag_counts").select("subject, area, category, type_tag, count"),
       // 회차 목록. 뷰가 없는 배포(마이그레이션 전)에서도 트리는 살아야 하므로 에러는 무시한다
       db.from("bank_source_counts").select("subject, source, count"),
     ]);
     if (error) return NextResponse.json({ error: "불러오지 못했어요." }, { status: 500 });
-    return NextResponse.json({ tree: data ?? [], sources: srcs ?? [] });
+    const body = { tree: data ?? [], sources: srcs ?? [] };
+    treeCache = { at: Date.now(), body };
+    return NextResponse.json(body);
   }
 
   type Row = {
