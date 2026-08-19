@@ -265,6 +265,24 @@ function Dashboard({ session }: { session: Session }) {
     XLSX.writeFile(wb, "평가양식.xlsx");
   }
 
+  // 강좌 이름 변경 — ROOM 헤더에서 바로 고친다
+  const [renaming, setRenaming] = useState(false);
+  const [renameText, setRenameText] = useState("");
+
+  async function renameCourse(id: string) {
+    const title = renameText.trim();
+    if (!title) return;
+    const r = await fetch("/api/courses", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ id, title }),
+    });
+    if (r.ok) {
+      setRenaming(false);
+      ping(); // 사이드바·본문 강좌 목록 갱신
+    } else say("강좌 이름을 바꾸지 못했어요 — 다시 시도해 주세요.", true);
+  }
+
   async function removeCourse(id: string) {
     if (!confirm("강좌를 삭제할까요? 담겨 있던 자료는 공용으로 바뀌어요.")) return;
     const r = await fetch(`/api/courses?id=${id}`, {
@@ -317,6 +335,7 @@ function Dashboard({ session }: { session: Session }) {
     setCourseSel(room && room !== "none" ? room : "");
     setDocQuery("");
     setDocLimit(PAGE);
+    setRenaming(false);
   }, [room]);
 
   const roomCourse = room && room !== "none" ? courses.find((c) => c.id === room) ?? null : null;
@@ -442,9 +461,32 @@ function Dashboard({ session }: { session: Session }) {
               ← 전체 자료
             </Link>
           )}
-          <h1 className="text-[24px] lg:text-[28px] font-extrabold">
-            {room === "none" ? "공용 자료" : roomCourse ? roomCourse.title : inRoom ? "강좌" : "강사 대시보드"}
-          </h1>
+          {roomCourse && renaming ? (
+            <div className="flex gap-2 items-center mt-1">
+              <input
+                autoFocus
+                aria-label="강좌 이름"
+                className="field !py-2.5 !text-[16px] font-bold"
+                value={renameText}
+                maxLength={100}
+                onChange={(e) => setRenameText(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.nativeEvent.isComposing) renameCourse(roomCourse.id);
+                  if (e.key === "Escape") setRenaming(false);
+                }}
+              />
+              <button onClick={() => renameCourse(roomCourse.id)} className="btn btn-primary px-4 py-2.5 !text-[13px] shrink-0">
+                저장
+              </button>
+              <button onClick={() => setRenaming(false)} className="btn btn-gray px-4 py-2.5 !text-[13px] shrink-0">
+                취소
+              </button>
+            </div>
+          ) : (
+            <h1 className="text-[24px] lg:text-[28px] font-extrabold">
+              {room === "none" ? "공용 자료" : roomCourse ? roomCourse.title : inRoom ? "강좌" : "강사 대시보드"}
+            </h1>
+          )}
           {inRoom && (
             <p className="text-sub text-[13px] mt-0.5">
               {room === "none"
@@ -453,10 +495,21 @@ function Dashboard({ session }: { session: Session }) {
             </p>
           )}
         </div>
-        {roomCourse && (
-          <button onClick={() => removeCourse(roomCourse.id)} className="chip !text-[13px]" style={{ color: "var(--red)" }}>
-            강좌 삭제
-          </button>
+        {roomCourse && !renaming && (
+          <div className="flex gap-2">
+            <button
+              onClick={() => {
+                setRenameText(roomCourse.title);
+                setRenaming(true);
+              }}
+              className="chip !text-[13px]"
+            >
+              이름 바꾸기
+            </button>
+            <button onClick={() => removeCourse(roomCourse.id)} className="chip !text-[13px]" style={{ color: "var(--red)" }}>
+              강좌 삭제
+            </button>
+          </div>
         )}
       </div>
 

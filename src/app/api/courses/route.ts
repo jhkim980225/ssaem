@@ -7,6 +7,7 @@ import { sameAcademy } from "@/lib/tenant";
 // GET ?teacher=<id> → 공개용: 그 강사의 강좌 목록 (학생 필터 칩)
 // GET (인증)       → 내 강좌 목록 (자료 수 포함)
 // POST {title}     → 강좌 생성
+// PATCH {id,title} → 강좌 이름 변경
 // DELETE ?id=      → 강좌 삭제 (자료는 course_id null로 남음 — 공용 전환)
 export async function GET(req: Request) {
   const db = serviceClient();
@@ -69,6 +70,25 @@ export async function POST(req: Request) {
     .single();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ ok: true, id: data.id });
+}
+
+// 강좌 이름 변경
+export async function PATCH(req: Request) {
+  const gate = await requireRole(req, "teacher");
+  if ("res" in gate) return gate.res;
+  const uid = gate.uid;
+
+  const body = await req.json().catch(() => null);
+  const id = (body?.id ?? "").toString();
+  const title = (body?.title ?? "").toString().trim().slice(0, 100);
+  if (!id || !/^[0-9a-f-]{36}$/i.test(id))
+    return NextResponse.json({ error: "id required" }, { status: 400 });
+  if (!title) return NextResponse.json({ error: "title required" }, { status: 400 });
+
+  const db = serviceClient();
+  const { error } = await db.from("courses").update({ title }).eq("id", id).eq("teacher_id", uid);
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  return NextResponse.json({ ok: true });
 }
 
 export async function DELETE(req: Request) {

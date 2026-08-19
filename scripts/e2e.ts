@@ -127,6 +127,53 @@ async function main() {
   ok("원장 → /api/admin 200", (await status("/api/admin", { headers: bearer(adminTok) })) === 200);
   ok("학생 → /api/conversations 200", (await status("/api/conversations", { headers: bearer(studentTok) })) === 200);
 
+  section("강좌 CRUD — 생성·이름 변경·삭제");
+  const jsonHdr = { ...bearer(teacherTok), "Content-Type": "application/json" };
+  const cRes = await json("/api/courses", {
+    method: "POST",
+    headers: jsonHdr,
+    body: JSON.stringify({ title: "[E2E] 강좌" }),
+  });
+  ok("강좌 생성", Boolean(cRes.body?.id));
+  if (cRes.body?.id) {
+    const cid = cRes.body.id as string;
+    ok(
+      "강좌 이름 변경 200",
+      (await status("/api/courses", {
+        method: "PATCH",
+        headers: jsonHdr,
+        body: JSON.stringify({ id: cid, title: "[E2E] 강좌 개명" }),
+      })) === 200
+    );
+    const list = await json("/api/courses", { headers: bearer(teacherTok) });
+    ok(
+      "바뀐 이름이 목록에 반영",
+      ((list.body?.courses ?? []) as { id: string; title: string }[]).some(
+        (c) => c.id === cid && c.title === "[E2E] 강좌 개명"
+      )
+    );
+    ok(
+      "학생 → 강좌 이름 변경 403",
+      (await status("/api/courses", {
+        method: "PATCH",
+        headers: { ...bearer(studentTok), "Content-Type": "application/json" },
+        body: JSON.stringify({ id: cid, title: "x" }),
+      })) === 403
+    );
+    ok(
+      "빈 이름 400",
+      (await status("/api/courses", {
+        method: "PATCH",
+        headers: jsonHdr,
+        body: JSON.stringify({ id: cid, title: "  " }),
+      })) === 400
+    );
+    ok(
+      "강좌 삭제 200",
+      (await status(`/api/courses?id=${cid}`, { method: "DELETE", headers: bearer(teacherTok) })) === 200
+    );
+  }
+
   // ── 3. 학생 공용 엔드포인트 (전부 로그인 필수)
   section("학생 공용 엔드포인트");
   for (const p of ["/api/teachers", "/api/popular", "/api/quiz?teacher=x"]) {
