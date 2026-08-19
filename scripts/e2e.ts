@@ -547,6 +547,17 @@ async function main() {
           Object.keys(graded.body ?? {}).join(",")
         );
         ok("이론 기록 저장", graded.body?.saved === true);
+
+        // "몰라요" — 오답 기록 + 정답·해설 공개
+        const gu = await json("/api/bank/attempt", {
+          method: "POST",
+          headers: { ...bearer(studentTok), "Content-Type": "application/json" },
+          body: JSON.stringify({ questionId: theory.id, giveUp: true }),
+        });
+        ok(
+          "몰라요 — 오답 기록·정답 반환",
+          gu.status === 200 && gu.body?.correct === false && "answer_idx" in (gu.body ?? {}) && gu.body?.saved === true
+        );
       }
       if (practice) {
         const self = await json("/api/bank/attempt", {

@@ -158,6 +158,20 @@ export default function BankPage() {
     setScore((s) => ({ right: s.right + (d.correct ? 1 : 0), done: s.done + 1 }));
   }
 
+  // "몰라요, 못 풀겠어요" — 오답으로 기록하고 정답·해설을 바로 본다 (오답노트에 남음)
+  async function giveUp() {
+    if (!q || q.type !== "theory" || graded || !token) return;
+    const r = await fetch("/api/bank/attempt", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ questionId: q.id, giveUp: true }),
+    }).catch(() => null);
+    const d = await r?.json().catch(() => null);
+    if (!r?.ok || !d) return setErr("정답을 불러오지 못했어요. 다시 시도해 주세요.");
+    setGraded({ correct: false, answer: d.answer_idx, explanation: d.explanation ?? "" });
+    setScore((s) => ({ right: s.right, done: s.done + 1 }));
+  }
+
   // 실무 자가채점
   async function selfMark(correct: boolean) {
     if (!q || q.type !== "practice" || selfDone || !token) return;
@@ -476,6 +490,11 @@ export default function BankPage() {
                   </button>
                 );
               })}
+              {!graded && (
+                <button onClick={giveUp} className="self-center text-sub text-[13px] py-1.5 hover:text-blue transition-colors">
+                  몰라요, 못 풀겠어요 — 정답 보기
+                </button>
+              )}
             </div>
           )}
 
@@ -527,7 +546,11 @@ export default function BankPage() {
           {graded && (
             <div className="flex flex-col gap-2">
               <p className="text-[14px] font-bold" style={{ color: graded.correct ? "var(--blue)" : "var(--red)" }}>
-                {graded.correct ? "정답이에요" : `아쉬워요, 정답은 ${graded.answer + 1}번`}
+                {graded.correct
+                  ? "정답이에요"
+                  : picked === null
+                    ? `정답은 ${graded.answer + 1}번이에요 — 오답노트에 담아뒀어요`
+                    : `아쉬워요, 정답은 ${graded.answer + 1}번`}
               </p>
               {graded.explanation && (
                 <div className="rounded-[14px] border border-line p-4">

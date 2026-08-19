@@ -5,6 +5,7 @@ import { rateLimit, clientIp } from "@/lib/ratelimit";
 
 // 문제은행 채점·기록.
 // POST 이론:  { questionId, chosen: 0~3 } → 서버 채점, { correct, answer_idx, explanation } 반환
+//             { questionId, giveUp: true } → 몰라요(오답 기록) + 정답·해설 반환
 // POST 실무:  { questionId, correct: bool } → 자가채점 결과만 기록 (답은 목록에서 이미 받음)
 // GET:       오답노트 (본인 마지막 시도 오답 + 문항)
 //
@@ -40,11 +41,17 @@ export async function POST(req: Request) {
   let correct: boolean;
 
   if (isTheory) {
-    const chosen = Number(body?.chosen);
-    if (!Number.isInteger(chosen) || chosen < 0 || chosen > 3)
-      return NextResponse.json({ error: "chosen(0~3) required" }, { status: 400 });
-    chosenIdx = chosen;
-    correct = chosen === q.answer_idx;
+    if (body?.giveUp === true) {
+      // "몰라요, 못 풀겠어요" — 오답으로 기록(오답노트에 남게)하고 정답·해설을 보여준다
+      chosenIdx = null;
+      correct = false;
+    } else {
+      const chosen = Number(body?.chosen);
+      if (!Number.isInteger(chosen) || chosen < 0 || chosen > 3)
+        return NextResponse.json({ error: "chosen(0~3) required" }, { status: 400 });
+      chosenIdx = chosen;
+      correct = chosen === q.answer_idx;
+    }
   } else {
     // 실무 자가채점 — 학생이 스스로 맞음/틀림을 표시
     if (typeof body?.correct !== "boolean")
