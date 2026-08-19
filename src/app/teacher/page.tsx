@@ -560,12 +560,15 @@ function Dashboard({ session }: { session: Session }) {
         </section>
       )}
 
-      {/* 학생 초대 — 전체 대시보드에서만. ROOM은 자료 관리에 집중 */}
-      {!inRoom && savedProfile && invite && (
+      {/* 학생 초대는 각 ROOM 안에 — 강좌가 하나도 없을 때만 여기서 기본반 초대를 보여준다
+          (안 그러면 신규 강사가 초대할 방법이 없다) */}
+      {/* docs !== null: 강좌 목록이 로드되기 전 잠깐 나타났다 사라지는 깜빡임 방지 */}
+      {!inRoom && savedProfile && invite && docs !== null && courses.length === 0 && (
         <section className="rise d2 card p-5 lg:p-6 flex flex-col gap-3">
           <h2 className="font-bold text-[17px]">학생 초대</h2>
           <p className="text-sub text-[13px] -mt-1">
             QR을 보여주거나 링크를 공유하세요. 학생이 접속하면 가입과 동시에 내 기본반에 등록돼요.
+            강좌 ROOM을 만들면 <b>ROOM별 초대 코드</b>가 각 ROOM 안에 생겨요.
           </p>
           <InviteBox
             url={invite.url}
@@ -577,27 +580,22 @@ function Dashboard({ session }: { session: Session }) {
 
       {/* ROOM 초대 — 이 코드로 가입한 학생은 이 강좌에 바로 등록된다. 학생은 여러 ROOM에 등록 가능 */}
       {roomCourse && savedProfile && (
-        <details className="rise d1 card p-5 lg:p-6">
-          <summary className="font-bold text-[17px] cursor-pointer select-none flex items-center justify-between gap-2">
-            <span>이 ROOM으로 학생 초대</span>
-            <span className="text-sub text-[13px] font-normal shrink-0">펼치기</span>
-          </summary>
-          <p className="text-sub text-[13px] mt-2">
+        <section className="rise d1 card p-5 lg:p-6 flex flex-col gap-3">
+          <h2 className="font-bold text-[17px]">학생 초대</h2>
+          <p className="text-sub text-[13px] -mt-1">
             이 링크·코드로 가입한 학생은 <b>{roomCourse.title}</b>에 바로 등록돼요. 다른 ROOM 코드로 또
             등록하면 여러 ROOM에 함께 들어가요.
           </p>
-          <div className="mt-3">
-            {roomInvite?.courseId === roomCourse.id ? (
-              <InviteBox
-                url={roomInvite.url}
-                qrSvg={roomInvite.qrSvg}
-                hint="학생이 회원가입 때 초대코드 칸에 넣어요"
-              />
-            ) : (
-              <div className="skel h-24 !rounded-[16px]" />
-            )}
-          </div>
-        </details>
+          {roomInvite?.courseId === roomCourse.id ? (
+            <InviteBox
+              url={roomInvite.url}
+              qrSvg={roomInvite.qrSvg}
+              hint="학생이 회원가입 때 초대코드 칸에 넣어요"
+            />
+          ) : (
+            <div className="skel h-24 !rounded-[16px]" />
+          )}
+        </section>
       )}
 
       {/* 수업 달력 — 강좌 ROOM 전용. 날짜별로 그 날 수업 자료를 묶는다 */}
