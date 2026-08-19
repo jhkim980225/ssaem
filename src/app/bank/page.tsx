@@ -8,7 +8,7 @@ import CbtRunner, { type CbtQuestion } from "@/components/CbtRunner";
 import { StemView, ExplanationView } from "@/components/BankQuestion";
 
 // answerIdx·explanation은 공부 모드에서만 함께 온다
-type Theory = { id: string; type: "theory"; stem: string; choices: string[]; area: string; typeTag: string; answerIdx?: number; explanation?: string | null };
+type Theory = { id: string; type: "theory"; stem: string; choices: string[]; area: string; typeTag: string; images?: string[] | null; answerIdx?: number; explanation?: string | null };
 type Practice = {
   id: string;
   type: "practice";
@@ -17,6 +17,7 @@ type Practice = {
   explanation: string | null;
   area: string;
   typeTag: string;
+  images?: string[] | null;
 };
 type Q = Theory | Practice;
 type TreeRow = { subject: string; area: string; category: string; type_tag: string; count: number };
@@ -412,7 +413,7 @@ export default function BankPage() {
               <span className="chip !py-0.5 !px-2 !text-[11px]">{q.area}</span>
               <span className="chip !py-0.5 !px-2 !text-[11px]">{q.type === "theory" ? "이론" : "실무"}</span>
             </div>
-            <StemView stem={q.stem} />
+            <StemView stem={q.stem} images={q.images} />
             {q.type === "theory" && (
               <div className="flex flex-col gap-2.5">
                 {q.choices.map((c, i) => (
@@ -490,7 +491,7 @@ export default function BankPage() {
             </span>
           </div>
 
-          <StemView stem={q.stem} />
+          <StemView stem={q.stem} images={q.images} />
 
           {/* 이론 4지선다 */}
           {q.type === "theory" && (

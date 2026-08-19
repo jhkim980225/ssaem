@@ -16,6 +16,7 @@ type Note = {
   answerIdx: number | null;
   answerText: string | null;
   explanation: string | null;
+  images?: string[] | null;
   chosen: number | null;
   at: string;
 };
@@ -101,7 +102,7 @@ export default function BankNotesPage() {
 
               {isOpen && (
                 <div className="px-4 lg:px-5 pb-5 flex flex-col gap-4 border-t border-line pt-4">
-                  <StemView stem={n.stem} />
+                  <StemView stem={n.stem} images={n.images} />
                   {isTheory ? (
                     <div className="flex flex-col gap-2.5">
                       {n.choices!.map((c, i) => {

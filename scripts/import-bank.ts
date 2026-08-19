@@ -55,7 +55,9 @@ async function main() {
   }
   console.log(`소스 ${raw.length}건`);
 
-  // stem 중복 제거 (소스는 unique 제약. 배치 안 충돌도 방지) + 유효성
+  // (source, stem) 중복 제거 — 기출은 같은 문제가 여러 회차에 재출제되므로
+  // stem 단독으로 걸면 재출제 문제가 첫 회차에만 남아 회차 CBT가 빈다.
+  // 규칙: docs/문제은행-적재-규칙.md
   const seen = new Set<string>();
   const rows: Row[] = [];
   let dup = 0;
@@ -66,11 +68,12 @@ async function main() {
       continue;
     }
     const stem = r.stem.trim();
-    if (seen.has(stem)) {
+    const key = `${r.source ?? ""}|${stem}`;
+    if (seen.has(key)) {
       dup++;
       continue;
     }
-    seen.add(stem);
+    seen.add(key);
     rows.push({
       subject: r.subject,
       category: r.category,
@@ -90,7 +93,7 @@ async function main() {
     const chunk = rows.slice(i, i + BATCH);
     const { error } = await db
       .from("bank_questions")
-      .upsert(chunk, { onConflict: "stem", ignoreDuplicates: false });
+      .upsert(chunk, { onConflict: "source,stem", ignoreDuplicates: false });
     if (error) {
       console.error(`❌ 배치 ${i}~${i + chunk.length}: ${error.message}`);
       process.exit(1);
@@ -107,6 +110,19 @@ async function main() {
     cat[r.category] = (cat[r.category] ?? 0) + r.count;
   console.log(`✅ bank_questions 총 ${total}건`);
   console.log(`   카테고리: ${JSON.stringify(cat)}`);
+
+  // 회차 완전성 검증 — 전산회계·세무 이론은 회차당 15문항이 정상 (docs/문제은행-적재-규칙.md)
+  const { data: bySrc } = await db.from("bank_source_counts").select("subject, source, count");
+  const short = ((bySrc ?? []) as { source: string; count: number }[])
+    .filter((r) => r.count < 15)
+    .sort((a, b) => a.count - b.count);
+  if (short.length) {
+    console.warn(`⚠️  이론 15문항 미만 회차 ${short.length}개 — 소스 파이프라인(acct_quiz) 유실 의심:`);
+    for (const s of short.slice(0, 10)) console.warn(`   ${s.source}: ${s.count}문항`);
+    if (short.length > 10) console.warn(`   … 외 ${short.length - 10}개`);
+  } else {
+    console.log("   회차별 이론 15문항 검증 통과");
+  }
 }
 
 main().catch((e) => {

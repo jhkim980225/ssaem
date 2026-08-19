@@ -13,7 +13,7 @@ function splitStem(stem: string): { body: string; form: string | null } {
 const ITEM_RE = /^\s*[·•‧\-]\s*(.+?)\s*[:：]\s*(.+)$/;
 const NOTE_RE = /^\s*[(（]?\s*단[,，]/;
 
-export function StemView({ stem }: { stem: string }) {
+export function StemView({ stem, images }: { stem: string; images?: string[] | null }) {
   const { body, form } = splitStem(stem);
   return (
     <div className="flex flex-col gap-1.5 break-keep">
@@ -49,6 +49,17 @@ export function StemView({ stem }: { stem: string }) {
           {form}
         </pre>
       )}
+      {/* 그림 자료 (증빙 캡처 등) — PDF에서 잘라 온 문제 첨부 이미지 */}
+      {(images ?? []).map((src) => (
+        // eslint-disable-next-line @next/next/no-img-element -- Supabase Storage 외부 URL, 크기 미상이라 next/image 부적합
+        <img
+          key={src}
+          src={src}
+          alt="문제 그림 자료"
+          className="max-w-full rounded-[12px] border border-line mt-1 self-start"
+          style={{ background: "#fff" }}
+        />
+      ))}
     </div>
   );
 }

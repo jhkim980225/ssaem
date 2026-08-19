@@ -9,7 +9,7 @@ import { StemView, ExplanationView } from "@/components/BankQuestion";
 //
 // 즉시채점(기존 방식)과 달리 중간에 답을 바꿀 수 있다 — 시험이니까.
 
-export type CbtQuestion = { id: string; type: "theory"; stem: string; choices: string[]; area: string; typeTag: string };
+export type CbtQuestion = { id: string; type: "theory"; stem: string; choices: string[]; area: string; typeTag: string; images?: string[] | null };
 type Graded = { questionId: string; chosen: number; correct: boolean; answerIdx: number; explanation: string };
 
 export default function CbtRunner({
@@ -98,7 +98,7 @@ export default function CbtRunner({
               <span className="chip !py-0.5 !px-2 !text-[11px] !cursor-default">{q.area}</span>
             </div>
 
-            <StemView stem={q.stem} />
+            <StemView stem={q.stem} images={q.images} />
 
             <div className="flex flex-col gap-2.5">
               {q.choices.map((c, ci) => {

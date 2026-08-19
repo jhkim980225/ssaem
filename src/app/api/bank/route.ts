@@ -57,6 +57,7 @@ export async function GET(req: Request) {
     explanation: string | null;
     area: string;
     type_tag: string;
+    images?: string[] | null;
   };
 
   // 문제 세트 — 후보 id를 **전부** 모은 뒤 셔플·추출하고 본문은 그때 가져온다.
@@ -102,7 +103,7 @@ export async function GET(req: Request) {
   const { data: rowData, error } = await db
     .from("bank_questions")
     // answer_idx는 isTheory 판별에만 쓰고 응답엔 넣지 않는다 (이론 정답 미노출 유지)
-    .select("id, stem, category, choices, answer_idx, answer_text, explanation, area, type_tag")
+    .select("id, stem, category, choices, answer_idx, answer_text, explanation, area, type_tag, images")
     .in("id", pickedIds);
   if (error) return NextResponse.json({ error: "불러오지 못했어요." }, { status: 500 });
   // .in()은 순서를 보장하지 않으니 셔플 순서대로 재정렬
@@ -122,6 +123,7 @@ export async function GET(req: Request) {
           choices: r.choices,
           area: r.area,
           typeTag: r.type_tag,
+          images: r.images ?? null,
           ...(study ? { answerIdx: r.answer_idx, explanation: r.explanation } : {}),
         }
       : // 실무: 자가채점이라 답·해설 포함
@@ -133,6 +135,7 @@ export async function GET(req: Request) {
           explanation: r.explanation,
           area: r.area,
           typeTag: r.type_tag,
+          images: r.images ?? null,
         };
   });
 
