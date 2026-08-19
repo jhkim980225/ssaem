@@ -52,6 +52,12 @@ export default function BankPage() {
   const [count, setCount] = useState<number>(15);
   const [cbtQs, setCbtQs] = useState<CbtQuestion[] | null>(null);
 
+  // 오답노트 다시 풀기 세션 (기록은 subject "오답노트"로 남긴다 — 과목이 섞이므로)
+  const [retryMode, setRetryMode] = useState(false);
+  const retryStartedRef = useRef(false);
+  // 완주 기록 중복 방지 (결과 화면 리렌더마다 저장되지 않게)
+  const recordedRef = useRef(false);
+
   // 시험 기록 이름 검색 (같은 학원만 — 서버에서 테넌트 경계 강제)
   type Rec = { name?: string; subject: string; source: string | null; total: number; score: number; at: string };
   const [recName, setRecName] = useState("");
@@ -115,12 +121,45 @@ export default function BankPage() {
       .reduce((s, t) => s + t.count, 0);
   }
 
+  async function startWrong() {
+    if (!token) return;
+    setBusy(true);
+    setErr("");
+    const r = await fetch("/api/bank?mode=wrong&limit=15", {
+      headers: { Authorization: `Bearer ${token}` },
+    }).catch(() => null);
+    const d = await r?.json().catch(() => null);
+    setBusy(false);
+    if (!r?.ok) return setErr(d?.error ?? "오답을 불러오지 못했어요.");
+    if (!(d.questions ?? []).length) return setErr("다시 풀 오답이 없어요. 전부 맞혔거나 아직 푼 기록이 없어요.");
+    setCbt(false);
+    setStudy(false);
+    setRetryMode(true);
+    setQs(d.questions ?? []);
+    setIdx(0);
+    setScore({ right: 0, done: 0 });
+    resetQ();
+    recordedRef.current = false;
+    enterRun();
+  }
+
+  // 오답노트에서 "다시 풀기"로 진입 (/bank?retry=wrong) — 틀린 문제만 한 문제씩 모드로
+  useEffect(() => {
+    if (!token || retryStartedRef.current) return;
+    if (new URLSearchParams(window.location.search).get("retry") !== "wrong") return;
+    retryStartedRef.current = true;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- async 함수라 setState는 await 이후, 동기 캐스케이드 아님
+    startWrong();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 진입 1회 트리거
+  }, [token]);
+
   async function start() {
     if (!token || !subject) return;
     setBusy(true);
     setErr("");
     setQs(null);
     setCbtQs(null);
+    setRetryMode(false);
     const p = new URLSearchParams({ subject });
     // CBT는 4지선다(이론)만 다룬다 — 실무 분개는 프로그램으로 푸는 것이라 번호판 채점에 맞지 않는다
     if (cbt) p.set("category", "이론");
@@ -182,17 +221,19 @@ export default function BankPage() {
   const finished = !study && qs !== null && qs.length > 0 && idx >= qs.length;
 
   // "한 문제씩" 완주 시 세션 기록 — CBT는 서버 배치 채점이 직접 기록하므로 여기서만.
-  // ref 가드: 결과 화면 리렌더마다 중복 저장되지 않게 (새 세션 시작 때 리셋)
-  const recordedRef = useRef(false);
   useEffect(() => {
     if (!finished || recordedRef.current || !token || score.done === 0) return;
     recordedRef.current = true;
     fetch("/api/bank/records", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ subject, total: score.done, score: score.right }),
+      body: JSON.stringify({
+        subject: retryMode ? "오답노트" : subject,
+        total: score.done,
+        score: score.right,
+      }),
     }).catch(() => {});
-  }, [finished, token, subject, score]);
+  }, [finished, token, subject, score, retryMode]);
 
   // 이론 채점
   async function pick(i: number) {
@@ -447,7 +488,7 @@ export default function BankPage() {
                 <div key={i} className="flex items-center gap-2 rounded-[12px] border border-line px-3 py-2 text-[13px]">
                   <span className="font-bold shrink-0">{r.name}</span>
                   <span className="truncate flex-1 text-sub">
-                    {r.source ? r.source : `${r.subject} 랜덤`}
+                    {r.subject === "오답노트" ? "오답노트 다시 풀기" : r.source ? r.source : `${r.subject} 랜덤`}
                   </span>
                   <span className="font-bold tabular-nums shrink-0">
                     {r.score}/{r.total}

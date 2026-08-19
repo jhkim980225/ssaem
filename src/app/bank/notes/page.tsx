@@ -51,6 +51,13 @@ export default function BankNotesPage() {
         </Link>
       </div>
 
+      {/* 틀린 문제가 있으면 바로 재도전 — 완주하면 시험 기록(subject 오답노트)으로 남는다 */}
+      {data && data.notes.length > 0 && (
+        <Link href="/bank?retry=wrong" className="rise d1 btn btn-primary py-3.5 text-center">
+          오답 다시 풀기 ({data.totals.wrong}문제 중 최대 15문제)
+        </Link>
+      )}
+
       {data === null && <div className="skel h-40 !rounded-[20px]" />}
 
       {data && (

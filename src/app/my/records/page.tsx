@@ -70,7 +70,7 @@ export default function MyRecordsPage() {
           return (
             <div key={i} className="rise card flex items-center gap-3 p-4">
               <div className="flex-1 min-w-0">
-                <p className="text-[14px] font-bold truncate">{r.source ? r.source : `${r.subject} 랜덤`}</p>
+                <p className="text-[14px] font-bold truncate">{r.subject === "오답노트" ? "오답노트 다시 풀기" : r.source ? r.source : `${r.subject} 랜덤`}</p>
                 <p className="text-sub text-[12px]">
                   {new Date(r.at).toLocaleString("ko-KR", {
                     year: "numeric",
