@@ -19,9 +19,13 @@ export async function POST(req: Request) {
 
   const body = await req.json().catch(() => null);
 
-  // ── 배치 채점 (CBT 모드): { answers: [{questionId, chosen}] } 한 번에.
+  // ── 배치 채점 (CBT 모드): { answers: [{questionId, chosen}], subject?, source? } 한 번에.
   // 15문항을 15번 호출하면 느리고 rate limit도 잡아먹는다.
-  if (Array.isArray(body?.answers)) return gradeBatch(serviceClient(), g.uid, body.answers);
+  if (Array.isArray(body?.answers))
+    return gradeBatch(serviceClient(), g.uid, body.answers, {
+      subject: (body?.subject ?? "").toString().slice(0, 40),
+      source: (body?.source ?? "").toString().slice(0, 60) || null,
+    });
 
   const questionId = (body?.questionId ?? "").toString();
   if (!/^[0-9a-f-]{36}$/i.test(questionId))
@@ -80,7 +84,8 @@ export async function POST(req: Request) {
 async function gradeBatch(
   db: ReturnType<typeof serviceClient>,
   uid: string,
-  answers: unknown[]
+  answers: unknown[],
+  meta: { subject: string; source: string | null }
 ) {
   const picked = new Map<string, number>();
   for (const a of answers) {
@@ -121,6 +126,19 @@ async function gradeBatch(
     const { error } = await db.from("bank_attempts").insert(rows);
     if (error) console.error("bank batch insert:", error.message);
     else saved = true;
+  }
+
+  // 시험(세션) 기록 — 마이페이지·이름 검색 조회용. subject 없으면 문항에서 유추
+  if (meta.subject || meta.source) {
+    const score = results.filter((r) => r.correct).length;
+    const { error: serr } = await db.from("bank_sessions").insert({
+      user_id: uid,
+      subject: meta.subject || "기출",
+      source: meta.source,
+      total: results.length,
+      score,
+    });
+    if (serr) console.error("bank session insert:", serr.message);
   }
 
   return NextResponse.json({

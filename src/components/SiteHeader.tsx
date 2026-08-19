@@ -14,11 +14,12 @@ function navFor(role: Role | undefined, signedIn: boolean) {
   if (!signedIn) return [...pricing, { href: "/login", label: "로그인" }];
   // 기출문제는 전역 공용(학원·강사 무관)이라 전 역할에 노출. 좁은 화면에선 내비가 가로 스크롤된다.
   const bank = { href: "/bank", label: "기출문제" };
-  if (role === "admin") return [...pricing, { href: "/admin", label: "학원장" }, bank];
+  const browse = { href: "/bank/browse", label: "문제모음" };
+  if (role === "admin") return [...pricing, { href: "/admin", label: "학원장" }, bank, browse];
   if (role === "teacher" || role === null)
-    return [...pricing, { href: "/teacher", label: "강사 공간" }, { href: "/ask", label: "질문하기" }, bank];
+    return [...pricing, { href: "/teacher", label: "강사 공간" }, { href: "/ask", label: "질문하기" }, bank, browse];
   if (role === "student")
-    return [...pricing, { href: "/ask", label: "질문하기" }, { href: "/quiz", label: "문제풀이" }, bank];
+    return [...pricing, { href: "/ask", label: "질문하기" }, { href: "/quiz", label: "문제풀이" }, bank, browse];
   return pricing; // 역할 조회 중 — 확정되면 채운다
 }
 

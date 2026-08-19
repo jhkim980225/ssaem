@@ -500,6 +500,8 @@ async function main() {
           headers: { ...bearer(studentTok), "Content-Type": "application/json" },
           body: JSON.stringify({
             answers: batchQs.map((q: { id: string }) => ({ questionId: q.id, chosen: 0 })),
+            subject: subj,
+            source: "[E2E] 세션",
           }),
         });
         ok("배치 채점 200", batch.status === 200, `status=${batch.status}`);
@@ -518,6 +520,47 @@ async function main() {
             body: JSON.stringify({ answers: [{ questionId: "nope", chosen: 9 }] }),
           })) === 400
         );
+
+        // 시험 기록: 배치 채점이 bank_sessions에 남고 → 내 기록·이름 검색으로 조회
+        const myRec = await json("/api/bank/records", { headers: bearer(studentTok) });
+        ok(
+          "내 시험 기록 조회",
+          (myRec.body?.records ?? []).some((r: { source: string | null }) => r.source === "[E2E] 세션")
+        );
+        const byName = await json(`/api/bank/records?name=${encodeURIComponent("테스트")}`, {
+          headers: bearer(teacherTok),
+        });
+        ok(
+          "이름 검색으로 기록 조회 (같은 학원)",
+          (byName.body?.records ?? []).some(
+            (r: { source: string | null; name?: string }) => r.source === "[E2E] 세션"
+          )
+        );
+        ok("비인증 → 기록 401", (await status("/api/bank/records")) === 401);
+        // 정리 — [E2E] 세션 기록 삭제
+        {
+          const stUid2 = JSON.parse(Buffer.from(studentTok.split(".")[1], "base64").toString()).sub as string;
+          await db.from("bank_sessions").delete().eq("user_id", stUid2).eq("source", "[E2E] 세션");
+        }
+
+        // 문제모음 검색
+        const bs = await json(
+          `/api/bank/search?subject=${encodeURIComponent(subj)}&q=${encodeURIComponent("재무")}`,
+          { headers: bearer(studentTok) }
+        );
+        ok(
+          "문제모음 검색 — 키워드 포함 문제 반환",
+          bs.status === 200 &&
+            (bs.body?.questions ?? []).length > 0 &&
+            (bs.body.questions as { stem: string }[]).every((x) => x.stem.includes("재무"))
+        );
+        ok(
+          "문제모음 검색 — 한 글자 400",
+          (await status(`/api/bank/search?subject=${encodeURIComponent(subj)}&q=재`, {
+            headers: bearer(studentTok),
+          })) === 400
+        );
+        ok("비인증 → 문제모음 401", (await status("/api/bank/search?subject=x&q=재무")) === 401);
       }
 
       // 공부 모드는 이론도 정답(answerIdx)·해설 포함

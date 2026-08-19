@@ -52,6 +52,27 @@ export default function BankPage() {
   const [count, setCount] = useState<number>(15);
   const [cbtQs, setCbtQs] = useState<CbtQuestion[] | null>(null);
 
+  // 시험 기록 이름 검색 (같은 학원만 — 서버에서 테넌트 경계 강제)
+  type Rec = { name?: string; subject: string; source: string | null; total: number; score: number; at: string };
+  const [recName, setRecName] = useState("");
+  const [recs, setRecs] = useState<Rec[] | null>(null);
+  const [recBusy, setRecBusy] = useState(false);
+
+  async function searchRecords() {
+    const nm = recName.trim();
+    if (!nm || recBusy || !token) return;
+    setRecBusy(true);
+    try {
+      const r = await fetch(`/api/bank/records?name=${encodeURIComponent(nm)}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const d = await r.json().catch(() => null);
+      setRecs(r.ok ? (d.records ?? []) : []);
+    } finally {
+      setRecBusy(false);
+    }
+  }
+
   // 이론 채점 상태
   const [picked, setPicked] = useState<number | null>(null);
   const [graded, setGraded] = useState<{ correct: boolean; answer: number; explanation: string } | null>(null);
@@ -228,9 +249,17 @@ export default function BankPage() {
           <h1 className="text-[24px] lg:text-[28px] font-extrabold">기출문제</h1>
           <p className="text-sub text-[14px]">전산회계·세무 기출 {tree ? countFor({}).toLocaleString() : "…"}문항</p>
         </div>
-        <Link href="/bank/notes" className="chip shrink-0 !text-[13px]">
-          오답노트
-        </Link>
+        <div className="flex gap-1.5 shrink-0">
+          <Link href="/bank/browse" className="chip !text-[13px]">
+            문제모음
+          </Link>
+          <Link href="/my/records" className="chip !text-[13px]">
+            내 기록
+          </Link>
+          <Link href="/bank/notes" className="chip !text-[13px]">
+            오답노트
+          </Link>
+        </div>
       </div>
 
       {/* 필터 */}
@@ -316,6 +345,20 @@ export default function BankPage() {
                         {n}문항
                       </Chip>
                     ))}
+                    {/* 직접 입력 — 칩에 없는 문항 수 (1~50) */}
+                    <input
+                      type="number"
+                      min={1}
+                      max={50}
+                      placeholder="직접 입력"
+                      aria-label="문항 수 직접 입력"
+                      className="field !py-1.5 !px-3 !text-[13px] w-[92px]"
+                      value={(COUNTS as readonly number[]).includes(count) ? "" : count}
+                      onChange={(e) => {
+                        const n = Math.min(Math.max(Number(e.target.value) || 0, 0), 50);
+                        if (n > 0) setCount(n);
+                      }}
+                    />
                   </Filter>
                   )}
                 </>
@@ -363,11 +406,55 @@ export default function BankPage() {
         </div>
       )}
 
+      {/* 시험 기록 조회 — 이름으로 같은 학원 사용자의 CBT 기록 검색 (학원 공용 PC 확인용) */}
+      {!qs && !cbtQs && (
+        <details className="rise d2 card p-5">
+          <summary className="font-bold text-[15px] cursor-pointer select-none">
+            시험 기록 조회 <span className="text-sub text-[13px] font-normal">· 이름으로 검색</span>
+          </summary>
+          <div className="flex gap-2 mt-3">
+            <input
+              className="field !py-2.5 flex-1"
+              placeholder="이름 (예: 김학생)"
+              value={recName}
+              onChange={(e) => setRecName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.nativeEvent.isComposing) searchRecords();
+              }}
+            />
+            <button onClick={searchRecords} disabled={recBusy} className="btn btn-primary px-5 shrink-0 disabled:opacity-50">
+              {recBusy ? "검색 중…" : "검색"}
+            </button>
+          </div>
+          {recs !== null && (
+            <div className="flex flex-col gap-1.5 mt-3">
+              {recs.length === 0 && <p className="text-sub text-[13px]">기록이 없어요. (같은 학원만 검색돼요)</p>}
+              {recs.map((r, i) => (
+                <div key={i} className="flex items-center gap-2 rounded-[12px] border border-line px-3 py-2 text-[13px]">
+                  <span className="font-bold shrink-0">{r.name}</span>
+                  <span className="truncate flex-1 text-sub">
+                    {r.source ? r.source : `${r.subject} 랜덤`}
+                  </span>
+                  <span className="font-bold tabular-nums shrink-0">
+                    {r.score}/{r.total}
+                  </span>
+                  <span className="text-sub text-[11px] shrink-0">
+                    {new Date(r.at).toLocaleDateString("ko-KR", { month: "numeric", day: "numeric" })}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </details>
+      )}
+
       {cbtQs && (
         <CbtRunner
           token={token}
           questions={cbtQs}
           title={source || `${subject} 랜덤 ${cbtQs.length}문항`}
+          subject={subject}
+          source={source || null}
           onExit={exitRun}
         />
       )}

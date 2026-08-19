@@ -16,11 +16,15 @@ export default function CbtRunner({
   token,
   questions,
   title,
+  subject,
+  source,
   onExit,
 }: {
   token: string | undefined;
   questions: CbtQuestion[];
   title: string;
+  subject: string;
+  source: string | null;
   onExit: () => void;
 }) {
   const [idx, setIdx] = useState(0);
@@ -52,6 +56,9 @@ export default function CbtRunner({
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
         body: JSON.stringify({
           answers: Object.entries(picked).map(([questionId, chosen]) => ({ questionId, chosen })),
+          // 시험 기록(bank_sessions)용 — 마이페이지·이름 검색에서 조회
+          subject,
+          source,
         }),
       });
       const d = await r.json().catch(() => null);
