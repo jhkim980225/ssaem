@@ -441,6 +441,18 @@ async function main() {
     });
     ok("휴대폰만으로 학생 가입 200", su.status === 200, `status=${su.status}`);
 
+    // 가입은 아이디만 — 이메일 주소는 전 역할에서 거부한다
+    for (const role of ["student", "teacher", "admin"]) {
+      ok(
+        `${role} 이메일 가입 400`,
+        (await status("/api/signup", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ role, email: `x${Date.now()}@gmail.com`, password: "e2epass1234", name: "x", phone }),
+        })) === 400
+      );
+    }
+
     const phTok = await login(`${phId}@ssaem.kr`, tail);
     ok("휴대폰 뒷자리로 로그인됨", Boolean(phTok));
 

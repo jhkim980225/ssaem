@@ -93,8 +93,9 @@ async function main() {
   ok(convs.status === 200 && convs.data.role === "teacher", "강사 이력 role");
 
   console.log("7) 학생 가입/이력");
-  const email = `e2e-${Date.now()}@a.test`;
-  const su = await json("POST", "/api/signup", { role: "student", name: "E2E학생", email, password: "e2epass1234" });
+  const sid = `e2e-${Date.now()}`;
+  const email = `${sid}@ssaem.kr`; // 로그인용 내부 이메일
+  const su = await json("POST", "/api/signup", { role: "student", name: "E2E학생", email: sid, password: "e2epass1234" });
   ok(su.status === 200 && su.data.ok, "학생 가입");
   const stoken = await login(email, "e2epass1234");
   ok(!!stoken, "학생 로그인");
@@ -119,9 +120,10 @@ async function main() {
   if (!invite) {
     console.log("  - INVITE_CODE 없음 → 스킵");
   } else {
-    const temail = `e2e-teacher-${Date.now()}@a.test`;
+    const tid = `e2e-teacher-${Date.now()}`;
+    const temail = `${tid}@ssaem.kr`;
     const tsu = await json("POST", "/api/signup", {
-      email: temail,
+      email: tid,
       password: "e2epass1234",
       inviteCode: invite,
       academySlug: "e2e-academy",
@@ -159,8 +161,9 @@ async function main() {
     );
     const pinv = await json("GET", "/api/invite", undefined, ntoken!);
     ok(pinv.status === 200 && pinv.data.code, "비공개 강사 초대 코드 발급");
-    const jemail = `e2e-priv-${Date.now()}@a.test`;
-    await json("POST", "/api/signup", { role: "student", name: "E2E초대학생", email: jemail, password: "e2epass1234" });
+    const jid = `e2e-priv-${Date.now()}`;
+    const jemail = `${jid}@ssaem.kr`;
+    await json("POST", "/api/signup", { role: "student", name: "E2E초대학생", email: jid, password: "e2epass1234" });
     const jtoken = await login(jemail, "e2epass1234");
     const joined = await json("POST", "/api/join", { code: pinv.data.code }, jtoken!);
     ok(joined.status === 200 && joined.data.ok, "초대 코드로 수강 연결");
@@ -193,11 +196,12 @@ async function main() {
   const tprev = await json("GET", `/api/join-teacher?code=${encodeURIComponent(tcode)}`);
   ok(tprev.status === 200 && tprev.data.academy === "E2E학원", "강사 초대 코드 검증 → 학원 미리보기");
 
-  const temail2 = `e2e-tjoin-${Date.now()}@a.test`;
+  const tid2 = `e2e-tjoin-${Date.now()}`;
+  const temail2 = `${tid2}@ssaem.kr`;
   const tsu2 = await json("POST", "/api/signup", {
     role: "teacher",
     teacherInviteCode: tcode,
-    email: temail2,
+    email: tid2,
     password: "e2epass1234",
   });
   ok(tsu2.status === 200 && tsu2.data.ok, "초대 코드로 강사 가입 (전역 INVITE_CODE 불필요)");

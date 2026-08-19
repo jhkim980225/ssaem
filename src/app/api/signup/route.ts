@@ -13,11 +13,13 @@ export async function POST(req: Request) {
   const body = await req.json().catch(() => null);
   // 아이디 또는 이메일 — 아이디면 내부 이메일로 매핑 (@ 없으면 아이디로 취급)
   const rawId = (body?.email ?? body?.id ?? "").toString().trim();
-  if (rawId && !rawId.includes("@") && !isValidId(rawId))
+  // 가입은 **아이디만** 받는다 (전 역할). 이메일 주소를 그대로 계정으로 쓰면
+  // 화면 문구·검증이 두 갈래로 갈라지고, 학원 현장에선 이메일 없는 학생이 많다.
+  // 로그인은 기존 이메일 계정도 계속 되도록 toEmail()이 @ 유무를 그대로 통과시킨다.
+  if (rawId.includes("@"))
+    return NextResponse.json({ error: "이메일이 아니라 아이디로 가입해 주세요 (영문·숫자 2~30자)" }, { status: 400 });
+  if (rawId && !isValidId(rawId))
     return NextResponse.json({ error: "아이디는 영문·숫자와 . _ - 를 써서 2~30자로 지어 주세요" }, { status: 400 });
-  // 원장 계정은 이메일 가입 불가 — 아이디 형식만 (내부 이메일로 매핑)
-  if (body?.role === "admin" && rawId.includes("@"))
-    return NextResponse.json({ error: "원장 계정은 이메일이 아니라 아이디 형식으로 가입해 주세요" }, { status: 400 });
   const email = rawId ? toEmail(rawId) : "";
   const inviteCode = (body?.inviteCode ?? "").toString().trim();
   const teacherInviteCode = (body?.teacherInviteCode ?? "").toString().trim();

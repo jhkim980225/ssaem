@@ -89,7 +89,7 @@ export default function JoinTeacherPage({ params }: { params: Promise<{ code: st
           <div className="rise card p-6 flex flex-col gap-3">
             <input className="field" placeholder="이름 (학생에게 표시)" value={name} onChange={(e) => setName(e.target.value)} />
             <input className="field" placeholder="과목 (예: 전산회계 2급)" value={subject} onChange={(e) => setSubject(e.target.value)} />
-            <input className="field" placeholder="아이디 (이메일도 가능)" value={email} onChange={(e) => setEmail(e.target.value)} />
+            <input className="field" placeholder="아이디 (영문·숫자 2~30자)" value={email} onChange={(e) => setEmail(e.target.value)} />
             <input
               className="field"
               type="password"

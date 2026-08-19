@@ -65,7 +65,10 @@ function LoginInner() {
     if (!id.trim()) return setErr("아이디를 입력해 주세요.");
     if (!phoneSignup && !pw) return setErr("비밀번호를 입력해 주세요.");
     if (mode === "signup") {
-      if (!id.includes("@") && !isValidId(id.trim()))
+      // 가입은 아이디만 — 이메일 주소는 받지 않는다 (로그인은 기존 이메일 계정도 가능)
+      if (id.includes("@"))
+        return setErr("이메일이 아니라 아이디로 가입해 주세요. (영문·숫자 2~30자)");
+      if (!isValidId(id.trim()))
         return setErr("아이디는 영문·숫자와 . _ - 를 써서 2~30자로 지어 주세요.");
       if (phoneSignup) {
         if (phone.replace(/[^0-9]/g, "").length < 4)
@@ -186,7 +189,7 @@ function LoginInner() {
       <div className="rise d2 mt-6 flex flex-col gap-3">
         <input
           className="field"
-          placeholder="아이디 (이메일도 가능)"
+          placeholder="아이디 (영문·숫자 2~30자)"
           autoCapitalize="none"
           autoCorrect="off"
           value={id}

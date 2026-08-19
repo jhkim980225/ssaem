@@ -138,7 +138,7 @@ export default function JoinPage({ params }: { params: Promise<{ code: string }>
               {mode === "signup" && (
                 <input className="field" placeholder="이름" value={name} onChange={(e) => setName(e.target.value)} />
               )}
-              <input className="field" placeholder="아이디 (이메일도 가능)" value={email} onChange={(e) => setEmail(e.target.value)} />
+              <input className="field" placeholder="아이디 (영문·숫자 2~30자)" value={email} onChange={(e) => setEmail(e.target.value)} />
               <input
                 className="field"
                 type="password"
