@@ -23,6 +23,8 @@ export type AuthSnapshot = {
   session: Session | null;
   /** undefined = 역할 조회 중, null = 프로필 없음(강사 가입 직후) */
   role: Role | undefined;
+  /** 초기 비밀번호(휴대폰 뒷자리) 상태 — true면 바꾸기 전까지 앱을 못 쓴다 */
+  mustChangePassword?: boolean;
 };
 
 // 로그인 지속 상한. Supabase 세션 자체는 만료가 없어(refresh token 무기한) 브라우저를
@@ -68,7 +70,8 @@ function emit(next: AuthSnapshot) {
   if (
     next.status === snapshot.status &&
     next.session === snapshot.session &&
-    next.role === snapshot.role
+    next.role === snapshot.role &&
+    next.mustChangePassword === snapshot.mustChangePassword
   )
     return;
   snapshot = next;
@@ -77,6 +80,9 @@ function emit(next: AuthSnapshot) {
 
 /** 401 = 인증 실패. 200 + profile:null(강사 가입 직후)과 반드시 구분해야 한다. */
 export type RoleResult = Role | "unauthorized";
+
+/** 마지막 조회에서 받은 비밀번호 변경 필요 여부 (역할과 같은 요청으로 함께 온다) */
+let lastMustChange = false;
 
 // 진행 중인 조회를 uid별로 공유한다. 로그인 직후엔 onAuthStateChange(스토어)와
 // /login 화면이 거의 동시에 역할을 필요로 하는데, 각자 부르면 /api/profile이 2번 나간다.
@@ -89,6 +95,7 @@ async function fetchRole(session: Session): Promise<RoleResult> {
   if (!r) return null; // 네트워크 실패 — 권한 없음으로 본다
   if (r.status === 401) return "unauthorized";
   const d = await r.json().catch(() => null);
+  lastMustChange = d?.profile?.mustChangePassword === true;
   return (d?.profile?.role as Role) ?? null;
 }
 
@@ -124,7 +131,12 @@ function applySession(session: Session | null) {
   const sameUser = snapshot.session?.user.id === session.user.id;
   // 토큰 갱신(TOKEN_REFRESHED)은 세션 객체만 바뀔 뿐 사람은 그대로다 → 역할을 다시 묻지 않는다.
   const role = sameUser ? snapshot.role : undefined;
-  emit({ status: "signed-in", session, role });
+  emit({
+    status: "signed-in",
+    session,
+    role,
+    mustChangePassword: sameUser ? snapshot.mustChangePassword : undefined,
+  });
   if (role !== undefined) return;
 
   ensureRole(session).then((r) => {
@@ -134,7 +146,7 @@ function applySession(session: Session | null) {
       supabase.auth.signOut();
       return;
     }
-    emit({ status: "signed-in", session: snapshot.session, role: r });
+    emit({ status: "signed-in", session: snapshot.session, role: r, mustChangePassword: lastMustChange });
   });
 }
 
@@ -156,6 +168,12 @@ function subscribe(cb: () => void) {
 const getSnapshot = () => snapshot;
 // 서버 렌더와 하이드레이션 첫 렌더는 항상 loading — 여기서 갈리면 hydration 불일치가 난다.
 const getServerSnapshot = () => LOADING;
+
+/** 비밀번호를 바꾼 뒤 호출 — 강제 화면을 즉시 내린다 (재로그인 없이) */
+export function clearMustChangePassword() {
+  lastMustChange = false;
+  if (snapshot.mustChangePassword) emit({ ...snapshot, mustChangePassword: false });
+}
 
 export function useAuth(): AuthSnapshot {
   return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);

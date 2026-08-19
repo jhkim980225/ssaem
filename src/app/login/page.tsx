@@ -33,6 +33,8 @@ function LoginInner() {
   const [id, setId] = useState("");
   const [pw, setPw] = useState("");
   const [pw2, setPw2] = useState("");
+  // 학생 가입은 비밀번호 대신 휴대폰을 받는다 (뒷 4자리가 첫 비밀번호 → 첫 로그인에서 변경 강제)
+  const [phone, setPhone] = useState("");
   const [name, setName] = useState("");
   const [invite, setInvite] = useState("");
   const [busy, setBusy] = useState(false);
@@ -53,16 +55,25 @@ function LoginInner() {
     router.replace(next ?? homeFor(auth.role));
   }, [auth.status, auth.role, busy, err, next, router]);
 
+  // 학생 가입만 휴대폰 방식 — 강사·원장은 기존대로 비밀번호를 직접 정한다
+  const phoneSignup = mode === "signup" && role === "student";
+
   async function submit() {
     // 버튼 disabled만으로는 Enter 연타를 못 막는다 (onKeyDown이 직접 submit을 부른다).
     if (busy) return;
     setErr("");
-    if (!id.trim() || !pw) return setErr("아이디와 비밀번호를 입력해 주세요.");
+    if (!id.trim()) return setErr("아이디를 입력해 주세요.");
+    if (!phoneSignup && !pw) return setErr("비밀번호를 입력해 주세요.");
     if (mode === "signup") {
       if (!id.includes("@") && !isValidId(id.trim()))
         return setErr("아이디는 영문·숫자와 . _ - 를 써서 2~30자로 지어 주세요.");
-      if (pw.length < 8) return setErr("비밀번호는 8자 이상이어야 해요.");
-      if (pw !== pw2) return setErr("두 비밀번호가 서로 달라요.");
+      if (phoneSignup) {
+        if (phone.replace(/[^0-9]/g, "").length < 4)
+          return setErr("휴대폰 번호를 입력해 주세요. 뒷 4자리가 첫 비밀번호가 돼요.");
+      } else {
+        if (pw.length < 8) return setErr("비밀번호는 8자 이상이어야 해요.");
+        if (pw !== pw2) return setErr("두 비밀번호가 서로 달라요.");
+      }
     }
     setBusy(true);
     // 네트워크 throw 시 '처리 중…'으로 영구 잠기던 것 방지 — finally에서 busy 해제
@@ -76,7 +87,8 @@ function LoginInner() {
         body: JSON.stringify({
           role,
           email: id.trim(),
-          password: pw,
+          // 학생 휴대폰 가입은 password를 보내지 않는다 — 서버가 뒷 4자리로 만든다
+          ...(phoneSignup ? { phone: phone.trim() } : { password: pw }),
           name: name.trim() || id.trim(),
           // 같은 칸을 역할별로 다르게 쓴다.
           // 강사 탭은 전역 코드와 원장 초대코드를 둘 다 받는데 서버 필드가 다르다 —
@@ -96,9 +108,11 @@ function LoginInner() {
       }
     }
 
+    // 학생 휴대폰 가입은 서버가 뒷 4자리를 비밀번호로 만들었으므로 그 값으로 로그인한다
+    const loginPw = phoneSignup ? phone.replace(/[^0-9]/g, "").slice(-4) : pw;
     const { data: signed, error } = await supabase.auth.signInWithPassword({
       email: toEmail(id),
-      password: pw,
+      password: loginPw,
     });
     if (error) {
       setBusy(false);
@@ -181,16 +195,35 @@ function LoginInner() {
             setErr("");
           }}
         />
-        <input
-          className="field"
-          type="password"
-          placeholder="비밀번호"
-          value={pw}
-          onChange={(e) => setPw(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && submit()}
-        />
+        {!phoneSignup && (
+          <input
+            className="field"
+            type="password"
+            placeholder="비밀번호"
+            value={pw}
+            onChange={(e) => setPw(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && submit()}
+          />
+        )}
+        {phoneSignup && (
+          <>
+            <input
+              className="field"
+              type="tel"
+              inputMode="numeric"
+              placeholder="휴대폰 번호 (예: 010-1234-5678)"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && submit()}
+            />
+            <p className="text-sub text-[12px] -mt-1.5 leading-relaxed">
+              첫 비밀번호는 <b>휴대폰 뒷 4자리</b>예요. 로그인하면 바로 바꾸게 안내해 드려요.
+            </p>
+          </>
+        )}
         {mode === "signup" && (
           <>
+            {!phoneSignup && (
             <input
               className="field"
               type="password"
@@ -199,6 +232,7 @@ function LoginInner() {
               onChange={(e) => setPw2(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && submit()}
             />
+            )}
             <input
               className="field"
               placeholder="이름"

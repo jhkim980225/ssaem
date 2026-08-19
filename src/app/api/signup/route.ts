@@ -19,12 +19,19 @@ export async function POST(req: Request) {
   if (body?.role === "admin" && rawId.includes("@"))
     return NextResponse.json({ error: "원장 계정은 이메일이 아니라 아이디 형식으로 가입해 주세요" }, { status: 400 });
   const email = rawId ? toEmail(rawId) : "";
-  const password = (body?.password ?? "").toString();
   const inviteCode = (body?.inviteCode ?? "").toString().trim();
   const teacherInviteCode = (body?.teacherInviteCode ?? "").toString().trim();
   // 학생이 강사에게 받은 초대코드 (선택). 넣으면 그 강사의 학원으로 소속이 정해진다
   const studentInviteCode = (body?.studentInviteCode ?? "").toString().trim();
   const role = body?.role === "student" ? "student" : body?.role === "admin" ? "admin" : "teacher";
+  // 학생 가입 간소화: 비밀번호 대신 휴대폰을 받으면 **뒷 4자리**를 초기 비밀번호로 쓴다.
+  // 4자리 숫자는 같은 반 친구도 아는 정보라 그대로 두면 위험하다 →
+  // must_change_password=true로 표시해 첫 로그인에서 반드시 바꾸게 한다.
+  const phone = (body?.phone ?? "").toString().trim().slice(0, 30);
+  const phoneDigits = phone.replace(/\D/g, "");
+  const usePhonePw = role === "student" && !body?.password && phoneDigits.length >= 4;
+  const password = usePhonePw ? phoneDigits.slice(-4) : (body?.password ?? "").toString();
+
   const name = (body?.name ?? "").toString().trim();
   const academyName = (body?.academyName ?? "").toString().trim().slice(0, 50);
   const academySlug = (body?.academySlug ?? "").toString().trim() || null;
@@ -39,8 +46,13 @@ export async function POST(req: Request) {
 
   if (!email || !password)
     return NextResponse.json({ error: "이메일과 비밀번호를 입력하세요" }, { status: 400 });
-  if (password.length < 8)
+  if (!usePhonePw && password.length < 8)
     return NextResponse.json({ error: "비밀번호는 8자 이상" }, { status: 400 });
+  if (role === "student" && !body?.password && !usePhonePw)
+    return NextResponse.json(
+      { error: "휴대폰 번호를 입력해 주세요 (뒷 4자리가 첫 비밀번호가 돼요)" },
+      { status: 400 }
+    );
 
   const db = serviceClient();
 
@@ -148,10 +160,24 @@ export async function POST(req: Request) {
     const academyId = invitedTeacherAcademyId ?? (await resolveAcademy(db, academySlug));
     const { error: perr } = await db
       .from("profiles")
-      .upsert({ id: uid, academy_id: academyId, role: "student", name });
+      .upsert({
+        id: uid,
+        academy_id: academyId,
+        role: "student",
+        name,
+        // 휴대폰 뒷자리로 시작한 계정만 변경을 강제한다
+        must_change_password: usePhonePw,
+      });
     if (perr) {
       console.error("signup student profile:", perr.message);
       return NextResponse.json({ error: "계정을 만들지 못했어요." }, { status: 500 });
+    }
+    // 받은 휴대폰은 학생 상세정보로 — 강사가 따로 입력하지 않아도 되게
+    if (phone) {
+      const { error: derr } = await db
+        .from("student_details")
+        .upsert({ student_id: uid, phone, updated_by: uid }, { onConflict: "student_id" });
+      if (derr) console.error("signup student phone:", derr.message);
     }
     // 학원 강사들에게 자동 수강 연결 — 가입 직후 빈 강사 목록을 보지 않게
     await enrollToAcademyTeachers(db, uid, academyId);

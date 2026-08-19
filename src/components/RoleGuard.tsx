@@ -1,11 +1,11 @@
 "use client";
-import { type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
 import { homeFor, type Role } from "@/lib/role";
-import { useAuth } from "@/lib/auth-store";
+import { useAuth, clearMustChangePassword } from "@/lib/auth-store";
 
 const LABEL: Record<"teacher" | "admin" | "student", string> = {
   teacher: "강사",
@@ -30,7 +30,7 @@ export function useGate(
     loginRender?: ReactNode;
   } = {}
 ): { session: Session | null; role: Role | undefined; gate: ReactNode | null; allowed: boolean } {
-  const { status, session, role } = useAuth();
+  const { status, session, role, mustChangePassword } = useAuth();
 
   const loginAs = opts.loginAs ?? (need === "teacher" || need === "admin" ? "teacher" : "student");
 
@@ -42,6 +42,9 @@ export function useGate(
     gate = opts.loginRender ?? <NeedLogin as={loginAs} message={opts.loginMessage} />;
   else if (need !== "any" && role !== need && !(role === null && opts.allowNoProfile))
     gate = <WrongRole need={need} role={role} />;
+  // 초기 비밀번호(휴대폰 뒷자리)를 쓰는 계정은 바꾸기 전까지 어떤 화면도 못 쓴다.
+  // 여기(공통 게이트)에 두면 모든 보호 페이지가 한 번에 막힌다.
+  else if (mustChangePassword && session) gate = <ChangePassword session={session} />;
 
   // 데이터 페치 이펙트는 이걸 보고 돌아야 한다. session만 보면 권한 없는 사용자도 요청을 쏴서
   // 403이 콘솔에 찍힌다 (거부 화면이 뜨는 것과 별개로 불필요한 요청).
@@ -50,7 +53,76 @@ export function useGate(
 
 // 역할 조회 중 자리. 화면 한가운데 스피너는 "빈 화면"처럼 보여서,
 // 실제 콘텐츠와 비슷한 형태의 스켈레톤으로 자리를 잡아둔다.
-export function RoleLoading() {
+export // 첫 로그인 비밀번호 변경. 학생 가입이 휴대폰 뒷자리로 시작하므로 반드시 거쳐야 한다.
+function ChangePassword({ session }: { session: Session }) {
+  const [pw, setPw] = useState("");
+  const [pw2, setPw2] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+
+  async function save() {
+    if (busy) return;
+    if (pw.length < 8) return setErr("비밀번호는 8자 이상으로 정해 주세요.");
+    if (/^\d+$/.test(pw)) return setErr("숫자만으로는 안 돼요. 영문을 섞어 주세요.");
+    if (pw !== pw2) return setErr("두 비밀번호가 서로 달라요.");
+    setBusy(true);
+    setErr("");
+    try {
+      const r = await fetch("/api/password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ password: pw }),
+      });
+      const d = await r.json().catch(() => null);
+      if (!r.ok) return setErr(d?.error ?? "비밀번호를 바꾸지 못했어요.");
+      clearMustChangePassword(); // 재로그인 없이 바로 앱으로
+    } catch {
+      setErr("네트워크 오류로 바꾸지 못했어요. 다시 시도해 주세요.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <main className="flex-1 w-full max-w-sm mx-auto px-5 py-14">
+      <div className="animate-pop flex flex-col gap-3">
+        <h1 className="text-[24px] font-extrabold">비밀번호를 바꿔 주세요</h1>
+        <p className="text-sub text-[14px] mb-2">
+          지금은 휴대폰 뒷자리를 쓰고 있어요. 다른 사람이 알 수 있으니 나만 아는 비밀번호로 바꿔야
+          시작할 수 있어요.
+        </p>
+        <input
+          className="field"
+          type="password"
+          placeholder="새 비밀번호 (8자 이상, 영문 포함)"
+          value={pw}
+          onChange={(e) => setPw(e.target.value)}
+        />
+        <input
+          className="field"
+          type="password"
+          placeholder="새 비밀번호 확인"
+          value={pw2}
+          onChange={(e) => setPw2(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && save()}
+        />
+        <button onClick={save} disabled={busy} className="btn btn-primary py-3.5 disabled:opacity-60">
+          {busy ? "바꾸는 중…" : "바꾸고 시작하기"}
+        </button>
+        {err && (
+          <p className="text-[13px] font-bold" style={{ color: "var(--red)" }}>
+            {err}
+          </p>
+        )}
+        <button onClick={() => supabase.auth.signOut()} className="text-sub text-[13px] mt-1">
+          로그아웃
+        </button>
+      </div>
+    </main>
+  );
+}
+
+function RoleLoading() {
   return (
     <main className="flex-1 w-full max-w-lg lg:max-w-3xl mx-auto px-5 py-8 flex flex-col gap-3">
       <div className="skel h-7 w-40" />

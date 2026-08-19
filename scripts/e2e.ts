@@ -428,6 +428,84 @@ async function main() {
     }
   }
 
+  // ── 7.45 휴대폰 뒷자리 가입 + 비밀번호 변경 강제
+  section("휴대폰 가입 · 비밀번호 변경");
+  {
+    const phId = `e2e-ph-${Date.now()}`;
+    const phone = "010-1234-9876";
+    const tail = "9876"; // 뒷 4자리 = 초기 비밀번호
+    const su = await json("/api/signup", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ role: "student", email: phId, name: "[E2E] 폰가입", phone }),
+    });
+    ok("휴대폰만으로 학생 가입 200", su.status === 200, `status=${su.status}`);
+
+    const phTok = await login(`${phId}@ssaem.kr`, tail);
+    ok("휴대폰 뒷자리로 로그인됨", Boolean(phTok));
+
+    if (phTok) {
+      const prof = await json("/api/profile", { headers: bearer(phTok) });
+      ok("변경 필요 플래그 on", prof.body?.profile?.mustChangePassword === true);
+
+      // 받은 휴대폰이 학생 상세정보로 저장됐는지 (강사가 따로 입력 안 해도 되게)
+      const stuId = su.body?.userId;
+      if (stuId) {
+        const det = await json(`/api/students/detail?student=${stuId}`, { headers: bearer(teacherTok) });
+        ok("가입 시 받은 연락처 자동 저장", det.body?.detail?.phone === phone, det.body?.detail?.phone ?? "없음");
+      }
+
+      // 약한 비밀번호 거부
+      ok(
+        "짧은 비밀번호 400",
+        (await status("/api/password", {
+          method: "POST",
+          headers: { ...bearer(phTok), "Content-Type": "application/json" },
+          body: JSON.stringify({ password: "abc123" }),
+        })) === 400
+      );
+      ok(
+        "숫자만 비밀번호 400",
+        (await status("/api/password", {
+          method: "POST",
+          headers: { ...bearer(phTok), "Content-Type": "application/json" },
+          body: JSON.stringify({ password: "12345678" }),
+        })) === 400
+      );
+      ok(
+        "비로그인 비밀번호 변경 401",
+        (await status("/api/password", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ password: "newpass2026" }),
+        })) === 401
+      );
+
+      const changed = await json("/api/password", {
+        method: "POST",
+        headers: { ...bearer(phTok), "Content-Type": "application/json" },
+        body: JSON.stringify({ password: "e2epass2026" }),
+      });
+      ok("비밀번호 변경 200", changed.status === 200, `status=${changed.status}`);
+
+      // 비밀번호를 바꾸면 기존 access token은 무효가 된다 — 새 토큰으로 확인해야 한다
+      const newTok = await login(`${phId}@ssaem.kr`, "e2epass2026");
+      ok("새 비밀번호로 로그인", Boolean(newTok));
+      const prof2 = await json("/api/profile", { headers: bearer(newTok!) });
+      ok(
+        "변경 후 플래그 해제",
+        prof2.body?.profile?.mustChangePassword === false,
+        `status=${prof2.status} flag=${prof2.body?.profile?.mustChangePassword}`
+      );
+      ok("옛 비밀번호(뒷자리)는 막힘", !(await login(`${phId}@ssaem.kr`, tail)));
+
+      if (stuId) {
+        await db.from("student_details").delete().eq("student_id", stuId);
+        await db.auth.admin.deleteUser(stuId);
+      }
+    }
+  }
+
   // ── 7.5 학생 가입 초대코드
   section("학생 가입 초대코드");
   {

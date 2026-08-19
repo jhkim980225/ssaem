@@ -21,6 +21,9 @@ create table if not exists profiles (
   academy_id uuid references academies(id) on delete set null,
   role text not null default 'student' check (role in ('teacher', 'student', 'admin')),
   name text not null,
+  -- 초기 비밀번호(휴대폰 뒷자리)를 쓴 계정은 첫 로그인에서 반드시 바꾸게 한다.
+  -- 마이그레이션 20260819010000 참조.
+  must_change_password boolean not null default false,
   created_at timestamptz default now()
 );
 create index if not exists profiles_academy_idx on profiles(academy_id, role);
