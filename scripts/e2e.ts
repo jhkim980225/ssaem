@@ -669,7 +669,12 @@ async function main() {
       const stuId = su.body?.userId;
       if (stuId) {
         const det = await json(`/api/students/detail?student=${stuId}`, { headers: bearer(teacherTok) });
-        ok("가입 시 받은 연락처 자동 저장", det.body?.detail?.phone === phone, det.body?.detail?.phone ?? "없음");
+        // 서버가 하이픈을 벗겨 숫자만 저장한다 (v0.28.2)
+        ok(
+          "가입 시 받은 연락처 자동 저장 (숫자만)",
+          det.body?.detail?.phone === phone.replace(/\D/g, ""),
+          det.body?.detail?.phone ?? "없음"
+        );
       }
 
       // 약한 비밀번호 거부

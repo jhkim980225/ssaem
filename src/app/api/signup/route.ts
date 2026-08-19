@@ -176,10 +176,11 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "계정을 만들지 못했어요." }, { status: 500 });
     }
     // 받은 휴대폰은 학생 상세정보로 — 강사가 따로 입력하지 않아도 되게
-    if (phone) {
+    if (phoneDigits) {
       const { error: derr } = await db
         .from("student_details")
-        .upsert({ student_id: uid, phone, updated_by: uid }, { onConflict: "student_id" });
+        // 하이픈 등 서식이 섞여 와도 숫자만 저장 — 검색·중복 확인이 일관되게
+        .upsert({ student_id: uid, phone: phoneDigits, updated_by: uid }, { onConflict: "student_id" });
       if (derr) console.error("signup student phone:", derr.message);
     }
     // 학원 강사들에게 자동 수강 연결 — 가입 직후 빈 강사 목록을 보지 않게

@@ -214,9 +214,10 @@ function LoginInner() {
               className="field"
               type="tel"
               inputMode="numeric"
-              placeholder="휴대폰 번호 (예: 010-1234-5678)"
+              placeholder="휴대폰 번호 (숫자만, 예: 01012345678)"
+              maxLength={11}
               value={phone}
-              onChange={(e) => setPhone(e.target.value)}
+              onChange={(e) => setPhone(e.target.value.replace(/\D/g, ""))}
               onKeyDown={(e) => e.key === "Enter" && submit()}
             />
             <p className="text-sub text-[12px] -mt-1.5 leading-relaxed">
