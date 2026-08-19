@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useGate } from "@/components/RoleGuard";
 import JournalEntry from "@/components/JournalEntry";
+import { StemView, ExplanationView } from "@/components/BankQuestion";
 
 type Note = {
   id: string;
@@ -36,7 +37,7 @@ export default function BankNotesPage() {
   if (gate) return gate;
 
   return (
-    <main className="flex-1 w-full max-w-2xl mx-auto px-5 py-8 flex flex-col gap-4">
+    <main className="flex-1 w-full max-w-3xl mx-auto px-5 py-8 flex flex-col gap-4">
       <div className="rise flex items-start justify-between gap-3">
         <div>
           <h1 className="text-[24px] lg:text-[28px] font-extrabold">기출 오답노트</h1>
@@ -91,16 +92,16 @@ export default function BankNotesPage() {
                     <span className="chip !py-0.5 !px-2 !text-[11px]">{n.subject}</span>
                     <span className="chip !py-0.5 !px-2 !text-[11px]">{n.typeTag}</span>
                   </div>
-                  <p className="text-[14px] font-medium line-clamp-2">{n.stem.split("\n")[0]}</p>
+                  <p className="text-[14px] font-medium line-clamp-2 break-keep">{n.stem.split("\n")[0]}</p>
                 </div>
                 <span className="text-sub text-[13px] shrink-0">{isOpen ? "접기" : "보기"}</span>
               </button>
 
               {isOpen && (
-                <div className="px-4 pb-4 flex flex-col gap-3 border-t border-line pt-3">
-                  <p className="text-[14px] leading-relaxed whitespace-pre-wrap">{n.stem}</p>
+                <div className="px-4 lg:px-5 pb-5 flex flex-col gap-4 border-t border-line pt-4">
+                  <StemView stem={n.stem} />
                   {isTheory ? (
-                    <div className="flex flex-col gap-1.5">
+                    <div className="flex flex-col gap-2.5">
                       {n.choices!.map((c, i) => {
                         const isAnswer = n.answerIdx === i;
                         const isMine = n.chosen === i;
@@ -110,31 +111,37 @@ export default function BankNotesPage() {
                             ? { borderColor: "var(--red)", background: "var(--red-weak)" }
                             : {};
                         return (
-                          <div key={i} style={style} className="rounded-[12px] border border-line px-3 py-2 text-[13px] flex items-start gap-2">
-                            <span className="shrink-0 grid place-items-center mt-0.5 rounded-full border border-current text-[10px] font-extrabold" style={{ width: 18, height: 18 }}>
+                          <div
+                            key={i}
+                            style={style}
+                            className="rounded-[14px] border border-line px-4 py-3.5 min-h-[54px] text-[15px] leading-[1.65] break-keep flex items-start gap-3"
+                          >
+                            <span className="shrink-0 grid place-items-center w-5 h-5 mt-0.5 rounded-full border border-current text-[11px] font-extrabold">
                               {i + 1}
                             </span>
-                            <span>
-                              {c}
-                              {isAnswer && <span className="text-blue text-[11px] ml-1.5 font-bold">정답</span>}
-                              {isMine && !isAnswer && <span className="text-[11px] ml-1.5 font-bold" style={{ color: "var(--red)" }}>내 답</span>}
-                            </span>
+                            <span className="flex-1 min-w-0">{c}</span>
+                            {isAnswer && <span className="text-blue text-[11px] font-bold shrink-0">정답</span>}
+                            {isMine && !isAnswer && (
+                              <span className="text-[11px] font-bold shrink-0" style={{ color: "var(--red)" }}>
+                                내 답
+                              </span>
+                            )}
                           </div>
                         );
                       })}
                     </div>
                   ) : (
                     n.answerText && (
-                      <div className="rounded-[12px] border border-line p-3" style={{ background: "var(--blue-weak)" }}>
+                      <div className="rounded-[14px] border border-line p-4" style={{ background: "var(--blue-weak)" }}>
                         <p className="text-[12px] font-bold text-blue mb-1.5">정답 (분개)</p>
                         <JournalEntry text={n.answerText} />
                       </div>
                     )
                   )}
                   {n.explanation && (
-                    <div className="rounded-[12px] border border-line p-3">
-                      <p className="text-[12px] font-bold text-sub mb-1">해설</p>
-                      <p className="text-[13px] leading-relaxed whitespace-pre-wrap">{n.explanation}</p>
+                    <div className="rounded-[14px] border border-line p-4">
+                      <p className="text-[12px] font-bold text-sub mb-1.5">해설</p>
+                      <ExplanationView text={n.explanation} />
                     </div>
                   )}
                 </div>
