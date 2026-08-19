@@ -23,6 +23,8 @@ export default function JoinPage({ params }: { params: Promise<{ code: string }>
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [pw, setPw] = useState("");
+  // 학생 가입은 일반 회원가입과 동일하게 휴대폰을 받는다 (뒷 4자리가 첫 비밀번호)
+  const [phone, setPhone] = useState("");
   const [msg, setMsg] = useState("");
 
   useEffect(() => {
@@ -63,7 +65,7 @@ export default function JoinPage({ params }: { params: Promise<{ code: string }>
         headers: { "Content-Type": "application/json" },
         // 초대코드를 안 넘기면 서버가 학원을 못 찾아 "기본 학원"으로 프로필을 만든다.
         // 그러면 학생의 academy_id와 실제 수강 강사의 학원이 어긋난다 (테넌트 경계 깨짐).
-        body: JSON.stringify({ role: "student", name, email, password: pw, studentInviteCode: code }),
+        body: JSON.stringify({ role: "student", name, email, phone, studentInviteCode: code }),
       });
       const d = await r.json();
       if (!r.ok) {
@@ -71,8 +73,10 @@ export default function JoinPage({ params }: { params: Promise<{ code: string }>
         return;
       }
     }
-    // 가입은 아이디를 내부 이메일로 매핑해 저장하므로 로그인도 같은 매핑을 거쳐야 한다
-    const { data, error } = await supabase.auth.signInWithPassword({ email: toEmail(email), password: pw });
+    // 가입은 아이디를 내부 이메일로 매핑해 저장하므로 로그인도 같은 매핑을 거쳐야 한다.
+    // 가입 직후엔 서버가 만든 초기 비밀번호(휴대폰 뒷 4자리)로 들어간다.
+    const loginPw = mode === "signup" ? phone.replace(/[^0-9]/g, "").slice(-4) : pw;
+    const { data, error } = await supabase.auth.signInWithPassword({ email: toEmail(email), password: loginPw });
     if (error || !data.session) {
       setMsg(error?.message ?? "로그인 실패");
       return;
@@ -139,16 +143,35 @@ export default function JoinPage({ params }: { params: Promise<{ code: string }>
                 <input className="field" placeholder="이름" value={name} onChange={(e) => setName(e.target.value)} />
               )}
               <input className="field" placeholder="아이디 (영문·숫자 2~30자)" value={email} onChange={(e) => setEmail(e.target.value)} />
-              <input
-                className="field"
-                type="password"
-                placeholder="비밀번호 (8자 이상)"
-                value={pw}
-                onChange={(e) => setPw(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && !e.nativeEvent.isComposing) submit();
-                }}
-              />
+              {mode === "signup" ? (
+                <>
+                  <input
+                    className="field"
+                    type="tel"
+                    inputMode="numeric"
+                    placeholder="휴대폰 번호 (예: 010-1234-5678)"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && !e.nativeEvent.isComposing) submit();
+                    }}
+                  />
+                  <p className="text-sub text-[12px] -mt-1 leading-relaxed">
+                    첫 비밀번호는 <b>휴대폰 뒷 4자리</b>예요. 들어가면 바로 바꾸게 안내해 드려요.
+                  </p>
+                </>
+              ) : (
+                <input
+                  className="field"
+                  type="password"
+                  placeholder="비밀번호"
+                  value={pw}
+                  onChange={(e) => setPw(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.nativeEvent.isComposing) submit();
+                  }}
+                />
+              )}
               <button onClick={submit} disabled={busy} className="btn btn-primary py-3.5 disabled:opacity-60">
                 {busy ? "처리 중…" : mode === "signup" ? "가입하고 등록하기" : "로그인하고 등록하기"}
               </button>
