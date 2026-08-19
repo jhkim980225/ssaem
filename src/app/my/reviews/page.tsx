@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { avatarEmoji } from "@/lib/avatar";
 import { useGate } from "@/components/RoleGuard";
+import BackButton from "@/components/BackButton";
 
 type Teacher = { id: string; name: string; subject: string | null };
 type Mine = { teacherId: string; rating: number; comment: string | null };
@@ -83,7 +84,8 @@ export default function MyReviewsPage() {
   return (
     <main className="flex-1 w-full max-w-2xl mx-auto px-5 py-8 flex flex-col gap-4">
       <div className="rise flex items-start justify-between gap-3">
-        <div>
+        <div className="flex flex-col gap-1">
+          <BackButton fallback="/ask" />
           <h1 className="text-[24px] lg:text-[28px] font-extrabold">선생님 평가</h1>
           <p className="text-sub text-[14px]">
             수업이 어땠는지 알려주세요. <b>선생님께는 이름 없이</b> 전달돼요.

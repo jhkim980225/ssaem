@@ -163,7 +163,26 @@ export default function AskPage() {
     setCourseId("");
     setLessonDate(null);
     setNonce((n) => n + 1);
+    // 강사 선택을 히스토리에 쌓는다 — 뒤로가기가 페이지 이탈이 아니라 목록 복귀가 되게
+    window.history.pushState({}, "", `/ask?teacher=${t.id}`);
   }
+
+  // 뒤로/앞으로 이동 시 URL의 teacher 파라미터에 맞춰 화면 복원
+  useEffect(() => {
+    const h = () => {
+      const tid = new URLSearchParams(window.location.search).get("teacher");
+      if (!tid) return setChat(null);
+      const t = teachers?.find((x) => x.id === tid);
+      if (t) {
+        setChat({ teacherId: t.id, teacherName: t.name });
+        setCourseId("");
+        setLessonDate(null);
+        setNonce((n) => n + 1);
+      }
+    };
+    window.addEventListener("popstate", h);
+    return () => window.removeEventListener("popstate", h);
+  }, [teachers]);
 
   async function openConv(c: Conv) {
     if (!session) return;

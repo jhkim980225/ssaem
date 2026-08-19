@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useGate } from "@/components/RoleGuard";
+import BackButton from "@/components/BackButton";
 import JournalEntry from "@/components/JournalEntry";
 import CbtRunner, { type CbtQuestion } from "@/components/CbtRunner";
 import { StemView, ExplanationView } from "@/components/BankQuestion";
@@ -105,7 +106,8 @@ export default function BankPage() {
     if (area) p.set("area", area);
     if (cbt && source) p.set("source", source);
     if (!cbt && study) p.set("study", "1");
-    p.set("limit", String(cbt ? count : 15));
+    // 회차를 골랐으면 그 회차 이론 전체를 낸다 (문항 수 선택은 랜덤 출제 전용)
+    p.set("limit", String(cbt ? (source ? 50 : count) : 15));
     const r = await fetch(`/api/bank?${p}`, { headers: { Authorization: `Bearer ${token}` } }).catch(() => null);
     const d = await r?.json().catch(() => null);
     setBusy(false);
@@ -115,12 +117,14 @@ export default function BankPage() {
       const theory = (d.questions ?? []).filter((x: Q) => x.type === "theory") as CbtQuestion[];
       if (!theory.length) return setErr("조건에 맞는 4지선다 문제가 없어요.");
       setCbtQs(theory);
+      enterRun();
       return;
     }
     setQs(d.questions ?? []);
     setIdx(0);
     setScore({ right: 0, done: 0 });
     resetQ();
+    enterRun();
   }
 
   function resetQ() {
@@ -129,6 +133,26 @@ export default function BankPage() {
     setRevealed(false);
     setSelfDone(false);
   }
+
+  // 세션 시작/종료를 브라우저 히스토리에 반영 — 뒤로가기가 "페이지 이탈"이 아니라 "필터로 복귀"가 되게
+  useEffect(() => {
+    const h = () => {
+      setQs(null);
+      setCbtQs(null);
+      setErr("");
+    };
+    window.addEventListener("popstate", h);
+    return () => window.removeEventListener("popstate", h);
+  }, []);
+  const enterRun = () => window.history.pushState({ bankRun: true }, "", "?run");
+  const exitRun = () => {
+    // 세션 진입 때 쌓은 항목을 되감아 주소와 상태를 함께 되돌린다 (안 쌓였으면 상태만)
+    if (window.history.state?.bankRun) window.history.back();
+    else {
+      setQs(null);
+      setCbtQs(null);
+    }
+  };
 
   const q = qs?.[idx];
   // 공부 모드엔 결과(점수) 화면이 없다
@@ -198,7 +222,8 @@ export default function BankPage() {
   return (
     <main className={`flex-1 w-full ${width} mx-auto px-5 lg:px-6 py-8 flex flex-col gap-4`}>
       <div className="rise flex items-start justify-between gap-3">
-        <div>
+        <div className="flex flex-col gap-1">
+          <BackButton fallback="/" />
           <h1 className="text-[24px] lg:text-[28px] font-extrabold">기출문제</h1>
           <p className="text-sub text-[14px]">전산회계·세무 기출 {tree ? countFor({}).toLocaleString() : "…"}문항</p>
         </div>
@@ -282,6 +307,8 @@ export default function BankPage() {
                         ))}
                     </select>
                   </Filter>
+                  {/* 회차를 고르면 그 회차 전체가 나가므로 문항 수 선택은 랜덤에서만 */}
+                  {!source && (
                   <Filter label="문항 수">
                     {COUNTS.map((n) => (
                       <Chip key={n} on={count === n} onClick={() => setCount(n)}>
@@ -289,6 +316,7 @@ export default function BankPage() {
                       </Chip>
                     ))}
                   </Filter>
+                  )}
                 </>
               )}
               {!cbt && (
@@ -339,7 +367,7 @@ export default function BankPage() {
           token={token}
           questions={cbtQs}
           title={source || `${subject} 랜덤 ${cbtQs.length}문항`}
-          onExit={() => setCbtQs(null)}
+          onExit={exitRun}
         />
       )}
 
@@ -366,7 +394,7 @@ export default function BankPage() {
       {qs?.length === 0 && (
         <div className="rise card p-10 text-center">
           <p className="text-[15px] font-bold mb-1">조건에 맞는 문제가 없어요</p>
-          <button onClick={() => setQs(null)} className="btn btn-gray py-2.5 px-5 mt-3 text-[14px]">
+          <button onClick={exitRun} className="btn btn-gray py-2.5 px-5 mt-3 text-[14px]">
             다시 고르기
           </button>
         </div>
@@ -585,7 +613,7 @@ export default function BankPage() {
             </p>
           </div>
           <div className="flex flex-col gap-2">
-            <button onClick={() => setQs(null)} className="btn btn-primary py-3">
+            <button onClick={exitRun} className="btn btn-primary py-3">
               다른 문제 풀기
             </button>
             <Link href="/bank/notes" className="btn btn-gray py-3">

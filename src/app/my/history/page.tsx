@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { avatarEmoji } from "@/lib/avatar";
 import { useGate } from "@/components/RoleGuard";
+import BackButton from "@/components/BackButton";
 
 type Conv = {
   id: string;
@@ -50,7 +51,8 @@ export default function MyHistoryPage() {
   return (
     <main className="flex-1 w-full max-w-2xl mx-auto px-5 py-8 flex flex-col gap-4">
       <div className="rise flex items-start justify-between gap-3">
-        <div>
+        <div className="flex flex-col gap-1">
+          <BackButton fallback="/ask" />
           <h1 className="text-[24px] lg:text-[28px] font-extrabold">내 대화내역</h1>
           <p className="text-sub text-[14px]">지금까지 선생님께 물어본 내용이에요.</p>
         </div>

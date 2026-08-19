@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useGate } from "@/components/RoleGuard";
+import BackButton from "@/components/BackButton";
 
 type Note = {
   id: string;
@@ -45,7 +46,8 @@ export default function NotesPage() {
   return (
     <main className="flex-1 w-full max-w-2xl mx-auto px-5 py-8 flex flex-col gap-4">
       <div className="rise flex items-start justify-between gap-3">
-        <div>
+        <div className="flex flex-col gap-1">
+          <BackButton fallback="/quiz" />
           <h1 className="text-[24px] lg:text-[28px] font-extrabold">오답노트</h1>
           <p className="text-sub text-[14px]">틀렸던 문제를 모아뒀어요. 다시 맞히면 없어져요.</p>
         </div>

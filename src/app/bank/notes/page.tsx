@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useGate } from "@/components/RoleGuard";
+import BackButton from "@/components/BackButton";
 import JournalEntry from "@/components/JournalEntry";
 import { StemView, ExplanationView } from "@/components/BankQuestion";
 
@@ -39,7 +40,8 @@ export default function BankNotesPage() {
   return (
     <main className="flex-1 w-full max-w-3xl mx-auto px-5 py-8 flex flex-col gap-4">
       <div className="rise flex items-start justify-between gap-3">
-        <div>
+        <div className="flex flex-col gap-1">
+          <BackButton fallback="/bank" />
           <h1 className="text-[24px] lg:text-[28px] font-extrabold">기출 오답노트</h1>
           <p className="text-sub text-[14px]">틀렸던 기출문제만 모았어요. 다시 맞히면 빠져요.</p>
         </div>
