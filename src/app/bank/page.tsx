@@ -196,8 +196,12 @@ export default function BankPage() {
 
   if (gate) return gate;
 
+  // 화면 폭: 필터·CBT는 기존(2xl), 한 문제씩은 살짝 넓게(3xl),
+  // 공부 모드는 2단(문제 65:해설 35)이라 PC에서 넓게 써야 줄바꿈 지옥이 없다
+  const width = qs ? (study ? "max-w-[1240px]" : "max-w-3xl") : "max-w-2xl";
+
   return (
-    <main className="flex-1 w-full max-w-2xl mx-auto px-5 py-8 flex flex-col gap-4">
+    <main className={`flex-1 w-full ${width} mx-auto px-5 lg:px-6 py-8 flex flex-col gap-4`}>
       <div className="rise flex items-start justify-between gap-3">
         <div>
           <h1 className="text-[24px] lg:text-[28px] font-extrabold">기출문제</h1>
@@ -373,10 +377,13 @@ export default function BankPage() {
         </div>
       )}
 
-      {/* 공부 모드 — 문제 옆에 정답·풀이 (데스크톱 2단, 모바일 세로) */}
+      {/* 공부 모드 — 문제 옆에 정답·풀이. PC(lg~) 65:35 2단 + 해설 sticky, 그 아래는 세로 1단 */}
       {study && q && (
-        <div key={q.id} className="animate-pop grid gap-4 lg:grid-cols-2">
-          <div className="card p-5 lg:p-6 flex flex-col gap-4">
+        <div
+          key={q.id}
+          className="animate-pop grid gap-4 lg:gap-6 lg:items-start lg:grid-cols-[minmax(0,1.55fr)_minmax(340px,0.85fr)]"
+        >
+          <div className="card p-5 lg:p-7 flex flex-col gap-4 min-w-0">
             <div className="flex gap-1.5 flex-wrap">
               <span className="chip !py-0.5 !px-2 !text-[11px]">{q.typeTag}</span>
               <span className="chip !py-0.5 !px-2 !text-[11px]">{q.area}</span>
@@ -384,49 +391,63 @@ export default function BankPage() {
             </div>
             <StemView stem={q.stem} />
             {q.type === "theory" && (
-              <div className="flex flex-col gap-2">
+              <div className="flex flex-col gap-2.5">
                 {q.choices.map((c, i) => (
                   <div
                     key={i}
-                    className="text-left rounded-[14px] border border-line px-4 py-3 text-[14px] leading-relaxed flex items-start gap-2.5"
+                    className="text-left rounded-[14px] border border-line px-4 py-3.5 min-h-[54px] text-[15px] leading-[1.65] break-keep flex items-start gap-3"
                     style={q.answerIdx === i ? { borderColor: "var(--blue)", background: "var(--blue-weak)" } : {}}
                   >
                     <span className="shrink-0 grid place-items-center w-5 h-5 mt-0.5 rounded-full border border-current text-[11px] font-extrabold">
                       {i + 1}
                     </span>
-                    <span>{c}</span>
+                    <span className="min-w-0">{c}</span>
                   </div>
                 ))}
               </div>
             )}
           </div>
-          <div className="card p-5 lg:p-6 flex flex-col gap-3 self-start">
+          {/* 해설 — PC에선 스크롤해도 따라오게 sticky (헤더 60px + 여백) */}
+          <div className="card p-5 lg:p-6 flex flex-col gap-3 self-start min-w-0 lg:sticky lg:top-[76px]">
             {q.type === "theory" ? (
               <>
-                <p className="text-[13px] font-extrabold text-blue">정답 {(q.answerIdx ?? 0) + 1}번</p>
-                <p className="text-[13px] leading-relaxed whitespace-pre-wrap" style={{ color: "var(--sub-2)" }}>
-                  {q.explanation || "이 문제는 해설이 없어요."}
+                <p className="text-[15px] font-bold text-blue">정답 {(q.answerIdx ?? 0) + 1}번</p>
+                <p className="text-[19px] lg:text-[20px] font-extrabold leading-snug break-keep">
+                  {q.choices[q.answerIdx ?? 0]}
                 </p>
+                {q.explanation ? (
+                  <>
+                    <p className="text-[12px] font-bold text-sub mt-1">해설</p>
+                    <ExplanationView text={q.explanation} />
+                  </>
+                ) : (
+                  <p className="text-sub text-[13px]">이 문제는 해설이 없어요.</p>
+                )}
               </>
             ) : (
               <>
-                <p className="text-[12px] font-bold text-blue">정답 (분개)</p>
+                <p className="text-[13px] font-bold text-blue">정답 (분개)</p>
                 {q.answerText ? <JournalEntry text={q.answerText} /> : <p className="text-sub text-[13px]">정답 없음</p>}
                 {q.explanation && (
-                  <p className="text-[13px] leading-relaxed whitespace-pre-wrap mt-1" style={{ color: "var(--sub-2)" }}>
-                    {q.explanation}
-                  </p>
+                  <>
+                    <p className="text-[12px] font-bold text-sub mt-1">해설</p>
+                    <ExplanationView text={q.explanation} />
+                  </>
                 )}
               </>
             )}
-            <div className="flex gap-2 mt-1">
-              <button onClick={() => studyGo(-1)} disabled={idx === 0} className="btn btn-gray flex-1 py-3 disabled:opacity-50">
+            <div className="grid grid-cols-2 gap-2.5 mt-1">
+              <button
+                onClick={() => studyGo(-1)}
+                disabled={idx === 0}
+                className="btn btn-gray py-3.5 min-h-[52px] disabled:opacity-50"
+              >
                 이전
               </button>
               <button
                 onClick={() => studyGo(1)}
                 disabled={idx >= qs!.length - 1}
-                className="btn btn-primary flex-1 py-3 disabled:opacity-50"
+                className="btn btn-primary py-3.5 min-h-[52px] disabled:opacity-50"
               >
                 다음
               </button>
@@ -467,12 +488,12 @@ export default function BankPage() {
                     onClick={() => pick(i)}
                     disabled={!!graded}
                     style={style}
-                    className="text-left rounded-[14px] border border-line px-4 py-3 text-[14px] leading-relaxed transition-colors disabled:cursor-default hover:border-[var(--blue)] flex items-start gap-2.5"
+                    className="text-left rounded-[14px] border border-line px-4 py-3.5 min-h-[54px] text-[15px] leading-[1.65] break-keep transition-colors disabled:cursor-default hover:border-[var(--blue)] flex items-start gap-3"
                   >
                     <span className="shrink-0 grid place-items-center w-5 h-5 mt-0.5 rounded-full border border-current text-[11px] font-extrabold">
                       {i + 1}
                     </span>
-                    <span>{c}</span>
+                    <span className="min-w-0">{c}</span>
                   </button>
                 );
               })}
@@ -500,7 +521,7 @@ export default function BankPage() {
                   {q.explanation && (
                     <div className="rounded-[14px] border border-line p-4">
                       <p className="text-[12px] font-bold text-sub mb-1.5">해설</p>
-                      <p className="text-[13px] leading-relaxed whitespace-pre-wrap">{q.explanation}</p>
+                      <ExplanationView text={q.explanation} />
                     </div>
                   )}
                   {!selfDone ? (
@@ -541,7 +562,7 @@ export default function BankPage() {
               {graded.explanation && (
                 <div className="rounded-[14px] border border-line p-4">
                   <p className="text-[12px] font-bold text-sub mb-1.5">해설</p>
-                  <p className="text-[13px] leading-relaxed whitespace-pre-wrap">{graded.explanation}</p>
+                  <ExplanationView text={graded.explanation} />
                 </div>
               )}
             </div>
@@ -582,16 +603,71 @@ export default function BankPage() {
   );
 }
 
+// 문제 본문 표현 구조화 — 데이터는 그대로 두고 줄 단위로 역할만 나눈다.
+// "· 항목 : 값" 줄 → 라벨+값 블록(값 강조), "단, …" 줄 → 부가 조건 톤, 나머지 → 질문 본문.
+const ITEM_RE = /^\s*[·•‧\-]\s*(.+?)\s*[:：]\s*(.+)$/;
+const NOTE_RE = /^\s*[(（]?\s*단[,，]/;
+
 function StemView({ stem }: { stem: string }) {
   const { body, form } = splitStem(stem);
   return (
-    <div className="flex flex-col gap-2">
-      <p className="text-[16px] font-bold leading-relaxed whitespace-pre-wrap">{body}</p>
+    <div className="flex flex-col gap-1.5 break-keep">
+      {body.split("\n").map((line, i) => {
+        const item = line.match(ITEM_RE);
+        if (item)
+          return (
+            <div key={i} className="mt-1.5 pl-3 border-l-2" style={{ borderColor: "var(--line)" }}>
+              <p className="text-[15px] font-medium leading-[1.65] whitespace-pre-wrap" style={{ color: "var(--text-2)" }}>
+                {item[1]}
+              </p>
+              <p className="text-[16px] lg:text-[17px] font-bold tabular-nums mt-0.5">{item[2]}</p>
+            </div>
+          );
+        if (NOTE_RE.test(line))
+          return (
+            <p key={i} className="text-[15px] leading-[1.7] mt-1 whitespace-pre-wrap" style={{ color: "var(--sub-2)" }}>
+              {line}
+            </p>
+          );
+        if (!line.trim()) return <div key={i} className="h-1" />;
+        return (
+          <p key={i} className="text-[17px] lg:text-[18px] font-semibold leading-[1.7] whitespace-pre-wrap">
+            {line}
+          </p>
+        );
+      })}
       {form && (
-        <pre className="text-[12px] leading-snug overflow-x-auto rounded-[12px] border border-line p-3" style={{ background: "var(--fill-2)" }}>
+        <pre className="text-[12px] leading-snug overflow-x-auto rounded-[12px] border border-line p-3 mt-1" style={{ background: "var(--fill-2)" }}>
           {form}
         </pre>
       )}
+    </div>
+  );
+}
+
+// 해설 표현 구조화 — "라벨 : 금액" 줄은 계산 근거 행(라벨 좌·금액 우)으로, 나머지는 문단으로.
+// 내용은 무변형, 표현만 나눈다.
+function ExplanationView({ text }: { text: string }) {
+  return (
+    <div className="flex flex-col gap-1 break-keep">
+      {text.split("\n").map((line, i) => {
+        const m = line.match(/^\s*[·•‧\-]?\s*(.+?)\s*[:：=]\s*([\d,]+\s*원?)\s*$/);
+        if (m)
+          return (
+            <div key={i} className="flex items-baseline justify-between gap-3 py-0.5">
+              <span className="text-[14px] leading-[1.7] min-w-0" style={{ color: "var(--text-2)" }}>
+                {m[1]}
+              </span>
+              <span className="text-[15px] font-bold tabular-nums shrink-0">{m[2]}</span>
+            </div>
+          );
+        if (!line.trim()) return <div key={i} className="h-1.5" />;
+        return (
+          <p key={i} className="text-[15px] leading-[1.75] whitespace-pre-wrap" style={{ color: "var(--text-2)" }}>
+            {line}
+          </p>
+        );
+      })}
     </div>
   );
 }
