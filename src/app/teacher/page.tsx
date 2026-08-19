@@ -1,12 +1,12 @@
 "use client";
-import { useEffect, useState, useCallback } from "react";
+import { Suspense, useEffect, useState, useCallback } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useGate } from "@/components/RoleGuard";
 import type { Session } from "@supabase/supabase-js";
-import { supabase } from "@/lib/supabase";
 import ChatPanel from "@/components/ChatPanel";
 import InviteBox from "@/components/InviteBox";
+import { TEACHER_REFRESH } from "@/components/TeacherSidebar";
 
 type Doc = {
   id: string;
@@ -61,7 +61,7 @@ type DocEvent = {
 };
 
 export default function TeacherPage() {
-  // allowNoProfile: 강사 가입 직후(프로필 저장 전)엔 role이 없다 — 대시보드에서 프로필을 만들어야 하므로 통과
+  // allowNoProfile: 강사 가입 직후(프로필 저장 전)엔 role이 없다 — 설정에서 프로필을 만들어야 하므로 통과
   const { session, gate } = useGate("teacher", {
     allowNoProfile: true,
     loginRender: (
@@ -73,8 +73,11 @@ export default function TeacherPage() {
   if (gate) return gate;
 
   return (
-    <main className="flex-1 w-full mx-auto px-5 lg:px-8 py-8 max-w-lg lg:max-w-[1600px]">
-      <Dashboard session={session!} />
+    <main className="flex-1 w-full mx-auto px-5 lg:px-8 py-8 max-w-lg lg:max-w-[1300px]">
+      {/* useSearchParams(강좌 ROOM 선택)를 쓰므로 Suspense 필수 */}
+      <Suspense fallback={null}>
+        <Dashboard session={session!} />
+      </Suspense>
     </main>
   );
 }
@@ -95,11 +98,12 @@ function AuthForm() {
 function Dashboard({ session }: { session: Session }) {
   const token = session.access_token;
   const uid = session.user.id;
+  const router = useRouter();
+
+  // 사이드바에서 고른 강좌 ROOM. null=전체, "none"=공용, 그 외=강좌 id
+  const room = useSearchParams().get("room");
 
   const [name, setName] = useState("");
-  const [subject, setSubject] = useState("");
-  const [toneNote, setToneNote] = useState("");
-  const [isPublic, setIsPublic] = useState(true);
   // null = /api/profile 응답 전. false로 두면 이미 저장된 강사에게도 "먼저 저장하세요"가 잠깐 뜬다
   const [savedProfile, setSavedProfile] = useState<boolean | null>(null);
   const [invite, setInvite] = useState<{ url: string; qrSvg: string } | null>(null);
@@ -128,12 +132,13 @@ function Dashboard({ session }: { session: Session }) {
   const [asBusy, setAsBusy] = useState(false);
 
   const [courses, setCourses] = useState<Course[]>([]);
-  const [newCourse, setNewCourse] = useState("");
-  const [courseSel, setCourseSel] = useState(""); // "" = 공용 (모든 강좌에서 검색됨)
+  const [courseSel, setCourseSel] = useState(""); // 업로드 대상 강좌. "" = 공용
   // 목록 전용 상태. 자료가 수십 건이면 전부 그리는 것만으로 화면이 수천 px가 된다.
   const [docQuery, setDocQuery] = useState("");
-  const [docCourse, setDocCourse] = useState(""); // "" = 전체
   const [docLimit, setDocLimit] = useState(PAGE);
+
+  /** 강좌·자료가 바뀌었다 — 사이드바(강좌 수)와 이 화면이 같이 다시 불러온다 */
+  const ping = useCallback(() => window.dispatchEvent(new Event(TEACHER_REFRESH)), []);
 
   const loadDocs = useCallback(async () => {
     try {
@@ -260,22 +265,6 @@ function Dashboard({ session }: { session: Session }) {
     XLSX.writeFile(wb, "평가양식.xlsx");
   }
 
-  async function addCourse() {
-    const title = newCourse.trim();
-    if (!title) return;
-    const r = await fetch("/api/courses", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ title }),
-    });
-    const d = await r.json();
-    if (!r.ok) say(d.error || "강좌 생성 실패", true);
-    else {
-      setNewCourse("");
-      loadDocs();
-    }
-  }
-
   async function removeCourse(id: string) {
     if (!confirm("강좌를 삭제할까요? 담겨 있던 자료는 공용으로 바뀌어요.")) return;
     const r = await fetch(`/api/courses?id=${id}`, {
@@ -283,8 +272,8 @@ function Dashboard({ session }: { session: Session }) {
       headers: { Authorization: `Bearer ${token}` },
     });
     if (r.ok) {
-      if (courseSel === id) setCourseSel("");
-      loadDocs();
+      ping();
+      router.push("/teacher"); // 지운 ROOM에 머물 수 없다
     } else say("강좌를 삭제하지 못했어요 — 다시 시도해 주세요.", true);
   }
 
@@ -294,9 +283,6 @@ function Dashboard({ session }: { session: Session }) {
       .then((d) => {
         if (d.profile) {
           setName(d.profile.name ?? "");
-          setSubject(d.profile.subject ?? "");
-          setToneNote(d.profile.tone_note ?? "");
-          setIsPublic(d.profile.is_public ?? true);
           setSavedProfile(true);
         } else setSavedProfile(false);
       })
@@ -317,24 +303,28 @@ function Dashboard({ session }: { session: Session }) {
     loadReviews();
   }, [savedProfile, loadDocs, loadAssessments, loadReviews]);
 
-  async function saveProfile() {
-    say("");
-    const r = await fetch("/api/profile", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ name, subject, tone_note: toneNote, is_public: isPublic }),
-    });
-    const d = await r.json();
-    if (!r.ok) say(d.error || "저장 실패", true);
-    else {
-      setSavedProfile(true);
-      say("프로필을 저장했어요");
-    }
-  }
+  // 사이드바에서 강좌를 만들거나 지우면 여기 목록도 따라와야 한다
+  useEffect(() => {
+    if (savedProfile !== true) return;
+    const h = () => loadDocs();
+    window.addEventListener(TEACHER_REFRESH, h);
+    return () => window.removeEventListener(TEACHER_REFRESH, h);
+  }, [savedProfile, loadDocs]);
 
-  // 검색·강좌 필터를 적용한 목록. 원본 docs는 총계(개수·청크 수) 표시에 그대로 쓴다.
+  // ROOM에 들어가면 업로드 대상도 그 강좌로, 목록 상태는 초기화
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- URL(room) 변화에 파생 상태를 맞추는 동기화
+    setCourseSel(room && room !== "none" ? room : "");
+    setDocQuery("");
+    setDocLimit(PAGE);
+  }, [room]);
+
+  const roomCourse = room && room !== "none" ? courses.find((c) => c.id === room) ?? null : null;
+  const inRoom = room !== null;
+
+  // 검색·ROOM 필터를 적용한 목록. 원본 docs는 총계(개수·청크 수) 표시에 그대로 쓴다.
   const shownDocs = (docs ?? []).filter((d) => {
-    if (docCourse === "none" ? d.course_id !== null : docCourse && d.course_id !== docCourse) return false;
+    if (room === "none" ? d.course_id !== null : room && d.course_id !== room) return false;
     const q = docQuery.trim().toLowerCase();
     if (!q) return true;
     return (d.title ?? "").toLowerCase().includes(q) || d.preview.toLowerCase().includes(q);
@@ -357,7 +347,7 @@ function Dashboard({ session }: { session: Session }) {
     else {
       say("수정했어요");
       setEditId(null);
-      loadDocs();
+      ping();
     }
   }
 
@@ -403,7 +393,7 @@ function Dashboard({ session }: { session: Session }) {
       method: "DELETE",
       headers: { Authorization: `Bearer ${token}` },
     });
-    if (r.ok) loadDocs();
+    if (r.ok) ping();
     else say("삭제하지 못했어요 — 다시 시도해 주세요.", true);
   }
 
@@ -422,7 +412,7 @@ function Dashboard({ session }: { session: Session }) {
     if (!r.ok) say(d.error || "업로드 실패", true);
     else {
       say(`PDF를 등록했어요 (${d.chars}자)`);
-      loadDocs();
+      ping();
     }
   }
 
@@ -439,78 +429,54 @@ function Dashboard({ session }: { session: Session }) {
     else {
       setContent("");
       say("자료를 추가했어요");
-      loadDocs();
+      ping();
     }
   }
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="rise flex justify-between items-center">
+      <div className="rise flex justify-between items-end gap-3 flex-wrap">
         <div>
-          <Link href="/" className="text-sub text-[13px]">
-            ← 홈
-          </Link>
-          <h1 className="text-[24px] lg:text-[28px] font-extrabold">강사 대시보드</h1>
+          {inRoom && (
+            <Link href="/teacher" className="text-sub text-[13px]">
+              ← 전체 자료
+            </Link>
+          )}
+          <h1 className="text-[24px] lg:text-[28px] font-extrabold">
+            {room === "none" ? "공용 자료" : roomCourse ? roomCourse.title : inRoom ? "강좌" : "강사 대시보드"}
+          </h1>
+          {inRoom && (
+            <p className="text-sub text-[13px] mt-0.5">
+              {room === "none"
+                ? "어느 강좌에도 속하지 않는 자료 — 모든 강좌 검색에서 함께 쓰여요."
+                : "이 강좌 ROOM의 자료만 보여요. 여기서 올리면 이 강좌에 담겨요."}
+            </p>
+          )}
         </div>
-        <button onClick={() => supabase.auth.signOut()} className="chip">
-          로그아웃
-        </button>
+        {roomCourse && (
+          <button onClick={() => removeCourse(roomCourse.id)} className="chip !text-[13px]" style={{ color: "var(--red)" }}>
+            강좌 삭제
+          </button>
+        )}
       </div>
 
       <div className="lg:grid lg:grid-cols-[1fr_420px] lg:gap-5 lg:items-start flex flex-col gap-4">
       <div className="flex flex-col gap-4 min-w-0">
-      {/* 프로필 — 저장 후엔 접어둔다. 한 번 정하면 거의 안 건드리는데 최상단을 차지했다 */}
-      <details className="rise d1 card p-5 lg:p-6" open={savedProfile !== true}>
-        <summary className="font-bold text-[17px] cursor-pointer select-none list-none flex items-center justify-between gap-2">
-          <span>
-            내 프로필{" "}
-            {savedProfile === false && <span className="text-blue text-[13px]">· 먼저 저장하세요</span>}
-            {savedProfile === true && name && (
-              <span className="text-sub text-[13px] font-normal">
-                · {name}
-                {subject ? ` · ${subject}` : ""}
-              </span>
-            )}
-          </span>
-          <span className="text-sub text-[13px] font-normal shrink-0">펼치기</span>
-        </summary>
-        <div className="flex flex-col gap-3 mt-3">
-        <input className="field" placeholder="이름 (학생에게 표시)" value={name} onChange={(e) => setName(e.target.value)} />
-        <input className="field" placeholder="과목 (예: 전산회계 2급)" value={subject} onChange={(e) => setSubject(e.target.value)} />
-        <textarea
-          className="field min-h-20 resize-none"
-          placeholder="말투·설명 방식 (선택. 예: 존댓말로 차근차근, 실무 예시 위주, 암기팁 곁들이기)"
-          maxLength={500}
-          value={toneNote}
-          onChange={(e) => setToneNote(e.target.value)}
-        />
-        <label className="flex items-center gap-2 text-[14px] cursor-pointer select-none">
-          <input
-            type="checkbox"
-            checked={isPublic}
-            onChange={(e) => setIsPublic(e.target.checked)}
-            className="w-4 h-4 accent-[var(--blue)]"
-          />
-          강사 목록에 내 프로필 공개
-          <span className="text-sub text-[12px]">(끄면 초대받은 학생만 나를 볼 수 있어요)</span>
-        </label>
-        <button onClick={saveProfile} className="btn btn-primary py-3 self-start px-6">
-          프로필 저장
-        </button>
-        </div>
-      </details>
-
-      {/* 학생 초대 */}
+      {/* 프로필이 없으면 자료 API가 전부 403 — 먼저 설정으로 보낸다 */}
       {savedProfile === false && (
-        <section className="rise d2 card p-5 lg:p-6">
+        <section className="rise d1 card p-5 lg:p-6 flex flex-col gap-3">
           <h2 className="font-bold text-[17px]">먼저 프로필을 저장해 주세요</h2>
-          <p className="text-sub text-[14px] mt-1.5 leading-relaxed">
-            이름과 과목을 저장해야 자료 등록·학생 초대를 쓸 수 있어요. 위에서 저장하면 바로 열려요.
+          <p className="text-sub text-[14px] leading-relaxed">
+            이름과 과목을 저장해야 자료 등록·학생 초대를 쓸 수 있어요.
           </p>
+          <Link href="/teacher/settings" className="btn btn-primary py-3 px-6 self-start">
+            프로필 설정하러 가기
+          </Link>
         </section>
       )}
 
-      {savedProfile && invite && (
+      {/* 학생 초대 — 전체 대시보드에서만. ROOM은 자료 관리에 집중 */}
+      {!inRoom && savedProfile && invite && (
         <section className="rise d2 card p-5 lg:p-6 flex flex-col gap-3">
           <h2 className="font-bold text-[17px]">학생 초대</h2>
           <p className="text-sub text-[13px] -mt-1">
@@ -524,41 +490,8 @@ function Dashboard({ session }: { session: Session }) {
         </section>
       )}
 
-      {/* 강좌 */}
-      <section className="rise d2 card p-5 lg:p-6 flex flex-col gap-3">
-        <h2 className="font-bold text-[17px]">강좌</h2>
-        <p className="text-sub text-[13px] -mt-1">
-          강좌를 만들면 자료를 반별로 나눠 담을 수 있어요. 학생은 강좌를 골라 질문해요.
-        </p>
-        <div className="flex gap-2">
-          <input
-            className="field"
-            placeholder="강좌 이름 (예: 전산회계 2급 야간반)"
-            value={newCourse}
-            onChange={(e) => setNewCourse(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.nativeEvent.isComposing) addCourse();
-            }}
-          />
-          <button onClick={addCourse} className="btn btn-primary px-5 shrink-0">
-            추가
-          </button>
-        </div>
-        {courses.length > 0 && (
-          <div className="flex flex-wrap gap-2">
-            {courses.map((c) => (
-              <span key={c.id} className="chip flex items-center gap-1.5">
-                {c.title} <span className="text-sub">({c.documents})</span>
-                <button onClick={() => removeCourse(c.id)} aria-label="강좌 삭제" className="text-sub">
-                  ×
-                </button>
-              </span>
-            ))}
-          </div>
-        )}
-      </section>
-
       {/* 자료 */}
+      {savedProfile && (
       <section className="rise d2 card p-5 lg:p-6 flex flex-col gap-3">
         <div className="flex items-baseline justify-between gap-2 flex-wrap">
           <h2 className="font-bold text-[17px]">학습 자료</h2>
@@ -590,7 +523,8 @@ function Dashboard({ session }: { session: Session }) {
               무료 플랜 자료 한도({usage.documents.limit}건)를 다 썼어요. 더 올리려면 원장님께 문의해 주세요.
             </p>
           )}
-        {courses.length > 0 && (
+        {/* ROOM 안에선 업로드 대상이 그 강좌로 고정 — 고를 필요가 없다 */}
+        {!inRoom && courses.length > 0 && (
           <select
             className="field !py-2.5"
             value={courseSel}
@@ -644,49 +578,35 @@ function Dashboard({ session }: { session: Session }) {
           </div>
         )}
 
-        {docs?.length === 0 && (
+        {docs && shownDocs.length === 0 && !docQuery && (
           <p className="text-sub text-[13px] mt-1">
-            아직 등록된 자료가 없어요. 문제·풀이를 붙여넣거나 PDF를 올려보세요.
+            {inRoom
+              ? "이 ROOM엔 아직 자료가 없어요. 위에서 올리면 여기에 담겨요."
+              : "아직 등록된 자료가 없어요. 문제·풀이를 붙여넣거나 PDF를 올려보세요."}
           </p>
         )}
 
-        {docs && docs.length > 0 && (
+        {docs && shownDocs.length + (docQuery ? 1 : 0) > 0 && (
           <div className="flex flex-col gap-2 mt-1">
             <p className="text-sub text-[13px]">
-              등록된 자료 {docs.length}개 · 청크 {docs.reduce((s, d) => s + d.chunks, 0)}개
+              {inRoom ? (
+                <>이 ROOM 자료 {shownDocs.length}개 · 청크 {shownDocs.reduce((s, d) => s + d.chunks, 0)}개</>
+              ) : (
+                <>등록된 자료 {docs.length}개 · 청크 {docs.reduce((s, d) => s + d.chunks, 0)}개</>
+              )}
             </p>
 
             {/* 자료가 수십 건이면 전부 그리는 것만으로 화면이 수천 px가 되고, 원하는 자료를 못 찾는다 */}
-            {docs.length > 5 && (
-              <div className="flex gap-2 flex-wrap">
-                <input
-                  className="field !py-2.5 flex-1 min-w-[160px]"
-                  placeholder="자료 검색 (제목·내용)"
-                  value={docQuery}
-                  onChange={(e) => {
-                    setDocQuery(e.target.value);
-                    setDocLimit(PAGE);
-                  }}
-                />
-                {courses.length > 0 && (
-                  <select
-                    className="field !py-2.5 w-auto"
-                    value={docCourse}
-                    onChange={(e) => {
-                      setDocCourse(e.target.value);
-                      setDocLimit(PAGE);
-                    }}
-                  >
-                    <option value="">모든 강좌</option>
-                    <option value="none">공용</option>
-                    {courses.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.title}
-                      </option>
-                    ))}
-                  </select>
-                )}
-              </div>
+            {(docQuery || shownDocs.length > 5) && (
+              <input
+                className="field !py-2.5"
+                placeholder="자료 검색 (제목·내용)"
+                value={docQuery}
+                onChange={(e) => {
+                  setDocQuery(e.target.value);
+                  setDocLimit(PAGE);
+                }}
+              />
             )}
 
             {shownDocs.length === 0 && (
@@ -716,8 +636,8 @@ function Dashboard({ session }: { session: Session }) {
                     <span className="chip !py-0.5 !px-2 !text-[11px]">
                       {d.kind === "style" ? "말투" : "문제"}
                     </span>
-                    {/* 43건이 뒤섞이면 어느 강좌 자료인지 카드만 보고는 알 수 없다 */}
-                    <span className="chip !py-0.5 !px-2 !text-[11px]">{d.course ?? "공용"}</span>
+                    {/* ROOM 안에선 어느 강좌인지 자명 — 전체 목록에서만 표시 */}
+                    {!inRoom && <span className="chip !py-0.5 !px-2 !text-[11px]">{d.course ?? "공용"}</span>}
                     {d.source === "pdf" && <span className="chip !py-0.5 !px-2 !text-[11px]">PDF</span>}
                     <span className="text-sub text-[11px]">청크 {d.chunks}개</span>
                   </div>
@@ -804,9 +724,10 @@ function Dashboard({ session }: { session: Session }) {
           </div>
         )}
       </section>
+      )}
 
-      {/* 수강평 (학생 → 나) */}
-      {reviews && reviews.count > 0 && (
+      {/* 수강평 (학생 → 나) — 전체 대시보드에서만 */}
+      {!inRoom && reviews && reviews.count > 0 && (
         <section className="rise d3 card p-5 lg:p-6 flex flex-col gap-3">
           <div className="flex items-start justify-between gap-3">
             <div>
@@ -834,7 +755,8 @@ function Dashboard({ session }: { session: Session }) {
         </section>
       )}
 
-      {/* 평가 세트 */}
+      {/* 평가 세트 — 전체 대시보드에서만 (강좌 지정은 아래 선택으로) */}
+      {!inRoom && savedProfile && (
       <section className="rise d3 card p-5 lg:p-6 flex flex-col gap-3">
         <div className="flex items-start justify-between gap-3">
           <div>
@@ -911,9 +833,10 @@ function Dashboard({ session }: { session: Session }) {
           </div>
         )}
       </section>
+      )}
 
-      {/* 자료 기록 (감사 로그) */}
-      {events.length > 0 && (
+      {/* 자료 기록 (감사 로그) — 전체 대시보드에서만 */}
+      {!inRoom && events.length > 0 && (
         <details className="rise d3 card p-5 lg:p-6">
           <summary className="font-bold text-[17px] cursor-pointer select-none">
             자료 기록 <span className="text-sub text-[13px] font-normal">· {events.length}건</span>
@@ -952,29 +875,8 @@ function Dashboard({ session }: { session: Session }) {
 
       </div>
 
-      {/* 우측(PC) / 하단(모바일): 이동 + 자가 테스트 */}
+      {/* 우측(PC) / 하단(모바일): 자가 테스트 — 이동 메뉴는 사이드바로 옮겼다 */}
       <div className="flex flex-col gap-4 lg:sticky lg:top-6">
-      {/* 매일 보는 화면들 — 예전엔 스크롤 맨 아래에 있어 찾기 어려웠다 */}
-      <section className="rise d1 card p-3 grid grid-cols-3 gap-2">
-        {(
-          [
-            ["/teacher/insights", "인사이트", "질문 추이·자료 공백"],
-            ["/teacher/history", "질문 이력", "미해결 큐"],
-            ["/teacher/students", "학생 리포트", "학생별 활동"],
-          ] as const
-        ).map(([href, label, sub]) => (
-          <Link
-            key={href}
-            href={href}
-            className="rounded-[14px] border border-line px-2 py-3 text-center hover:bg-[var(--fill)] transition-colors"
-            style={{ background: "var(--fill-2)" }}
-          >
-            <p className="text-[13px] font-bold">{label}</p>
-            <p className="text-[11px] text-sub mt-0.5 leading-snug">{sub}</p>
-          </Link>
-        ))}
-      </section>
-
       <section className="rise d3 card p-5 lg:p-6 flex flex-col gap-3">
         <div className="flex items-center justify-between">
           <h2 className="font-bold text-[17px]">내 튜터 직접 테스트</h2>
