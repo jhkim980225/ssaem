@@ -12,12 +12,54 @@ function splitStem(stem: string): { body: string; form: string | null } {
 // "· 항목 : 값" 줄 → 라벨+값 블록(값 강조), "단, …" 줄 → 부가 조건 톤, 나머지 → 질문 본문.
 const ITEM_RE = /^\s*[·•‧\-]\s*(.+?)\s*[:：]\s*(.+)$/;
 const NOTE_RE = /^\s*[(（]?\s*단[,，]/;
+// 파이프라인(hwp)이 직렬화한 표: [[표]]셀|셀∥셀|셀[[/표]] — 행 ∥, 셀 |
+const TABLE_RE = /\[\[표\]\](.*?)\[\[\/표\]\]/;
+
+function TableBlock({ data }: { data: string }) {
+  const rows = data.split("∥").map((r) => r.split("|"));
+  return (
+    <div className="overflow-x-auto mt-1">
+      <table className="border-collapse text-[14px]">
+        <tbody>
+          {rows.map((r, i) => (
+            <tr key={i}>
+              {r.map((c, j) => (
+                <td
+                  key={j}
+                  className="border border-line px-3 py-1.5 text-center whitespace-nowrap tabular-nums"
+                  style={i === 0 ? { background: "var(--fill-2)", fontWeight: 700 } : undefined}
+                >
+                  {c}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
 
 export function StemView({ stem, images }: { stem: string; images?: string[] | null }) {
   const { body, form } = splitStem(stem);
   return (
     <div className="flex flex-col gap-1.5 break-keep">
       {body.split("\n").map((line, i) => {
+        const tm = line.match(TABLE_RE);
+        if (tm)
+          return (
+            <div key={i} className="flex flex-col gap-1">
+              {line.slice(0, tm.index).trim() && (
+                <p className="text-[15px] leading-[1.7] whitespace-pre-wrap">{line.slice(0, tm.index).trim()}</p>
+              )}
+              <TableBlock data={tm[1]} />
+              {line.slice((tm.index ?? 0) + tm[0].length).trim() && (
+                <p className="text-[15px] leading-[1.7] whitespace-pre-wrap">
+                  {line.slice((tm.index ?? 0) + tm[0].length).trim()}
+                </p>
+              )}
+            </div>
+          );
         const item = line.match(ITEM_RE);
         if (item)
           return (
@@ -69,6 +111,8 @@ export function ExplanationView({ text }: { text: string }) {
   return (
     <div className="flex flex-col gap-1 break-keep">
       {text.split("\n").map((line, i) => {
+        const tm = line.match(TABLE_RE);
+        if (tm) return <TableBlock key={i} data={tm[1]} />;
         const m = line.match(/^\s*[·•‧\-]?\s*(.+?)\s*[:：=]\s*([\d,]+\s*원?)\s*$/);
         if (m)
           return (
