@@ -14,6 +14,8 @@ export default function JoinPage({ params }: { params: Promise<{ code: string }>
   const router = useRouter();
 
   const [teacher, setTeacher] = useState<Teacher | null>(null);
+  // 강좌 ROOM 초대 코드(c.…)면 어느 반으로 들어가는지 보여준다
+  const [course, setCourse] = useState<{ id: string; title: string | null } | null>(null);
   const [err, setErr] = useState("");
   const [session, setSession] = useState<Session | null>(null);
   const [joining, setJoining] = useState(false);
@@ -30,7 +32,12 @@ export default function JoinPage({ params }: { params: Promise<{ code: string }>
   useEffect(() => {
     fetch(`/api/join?code=${encodeURIComponent(code)}`)
       .then((r) => r.json())
-      .then((d) => (d.teacher ? setTeacher(d.teacher) : setErr(d.error ?? "확인 실패")))
+      .then((d) => {
+        if (d.teacher) {
+          setTeacher(d.teacher);
+          setCourse(d.course ?? null);
+        } else setErr(d.error ?? "확인 실패");
+      })
       .catch(() => setErr("확인 실패"));
     supabase.auth.getSession().then(({ data }) => setSession(data.session));
     const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => setSession(s));
@@ -113,6 +120,11 @@ export default function JoinPage({ params }: { params: Promise<{ code: string }>
               <p className="text-[13px] text-sub">선생님의 초대</p>
               <p className="text-[19px] font-extrabold">{teacher.name}</p>
               {teacher.subject && <p className="text-[13px] text-sub">{teacher.subject}</p>}
+              {course?.title && (
+                <p className="text-[12px] font-bold text-blue mt-1">
+                  「{course.title}」 반으로 등록돼요
+                </p>
+              )}
             </div>
           </div>
 

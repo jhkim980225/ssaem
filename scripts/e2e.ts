@@ -168,6 +168,31 @@ async function main() {
         body: JSON.stringify({ id: cid, title: "  " }),
       })) === 400
     );
+
+    // ROOM 초대: 강좌 코드 발급 → 학생 등록 → 그 강좌 수강 연결 (여러 ROOM 등록의 기반)
+    const inv = await json(`/api/invite?course=${cid}`, { headers: bearer(teacherTok) });
+    ok("ROOM 초대 코드 발급 (c.)", Boolean(inv.body?.code?.startsWith("c.")));
+    if (inv.body?.code) {
+      const pv = await json(`/api/join?code=${encodeURIComponent(inv.body.code)}`);
+      ok("초대 미리보기에 ROOM 표시", pv.body?.course?.id === cid);
+      const jr = await json("/api/join", {
+        method: "POST",
+        headers: { ...bearer(studentTok), "Content-Type": "application/json" },
+        body: JSON.stringify({ code: inv.body.code }),
+      });
+      ok("학생 ROOM 코드 등록", jr.status === 200 && jr.body?.courseId === cid);
+      const stUid = JSON.parse(Buffer.from(studentTok.split(".")[1], "base64").toString()).sub as string;
+      const { data: enr } = await db
+        .from("enrollments")
+        .select("course_id")
+        .eq("course_id", cid)
+        .eq("student_id", stUid);
+      ok("enrollments에 그 ROOM 수강 연결", (enr ?? []).length === 1);
+      ok(
+        "학생 → 강좌 초대코드 발급 403",
+        (await status(`/api/invite?course=${cid}`, { headers: bearer(studentTok) })) === 403
+      );
+    }
     ok(
       "강좌 삭제 200",
       (await status(`/api/courses?id=${cid}`, { method: "DELETE", headers: bearer(teacherTok) })) === 200

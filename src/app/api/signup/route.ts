@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { serviceClient } from "@/lib/supabase";
 import { resolveAcademy } from "@/lib/academy";
 import { rateLimit, clientIp } from "@/lib/ratelimit";
-import { verifyInviteCode } from "@/lib/invite";
+import { verifyInviteCode, resolveStudentInvite } from "@/lib/invite";
 import { toEmail, isValidId, enrollToAcademyTeachers } from "@/lib/account";
 
 // 가입. email_confirm: true로 메일 인증 생략.
@@ -88,13 +88,14 @@ export async function POST(req: Request) {
   // 학생 초대코드: 계정을 만들기 전에 검증해야 실패 시 유령 계정이 안 남는다
   let invitedTeacherAcademyId: string | null = null;
   if (role === "student" && studentInviteCode) {
-    const teacherId = verifyInviteCode(studentInviteCode);
-    if (!teacherId)
+    // 강사 코드(s)·강좌 ROOM 코드(c) 둘 다 수용 — 학원 소속은 어느 쪽이든 그 강사의 학원
+    const inv = await resolveStudentInvite(db, studentInviteCode);
+    if (!inv)
       return NextResponse.json({ error: "선생님 초대코드가 올바르지 않아요" }, { status: 403 });
     const { data: t } = await db
       .from("profiles")
       .select("academy_id")
-      .eq("id", teacherId)
+      .eq("id", inv.teacherId)
       .eq("role", "teacher")
       .maybeSingle();
     if (!t?.academy_id)

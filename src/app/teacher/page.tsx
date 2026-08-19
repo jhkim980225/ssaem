@@ -272,6 +272,8 @@ function Dashboard({ session }: { session: Session }) {
   const [renameText, setRenameText] = useState("");
   // 수업 달력 (강좌 ROOM 전용). 날짜를 고르면 그 날 수업 자료만 + 업로드도 그 날짜로.
   const [lessonDate, setLessonDate] = useState<string | null>(null);
+  // ROOM 초대 (강좌별 코드 — 이 코드로 가입하면 그 ROOM에 바로 등록)
+  const [roomInvite, setRoomInvite] = useState<{ courseId: string; url: string; qrSvg: string } | null>(null);
 
   async function renameCourse(id: string) {
     const title = renameText.trim();
@@ -345,6 +347,16 @@ function Dashboard({ session }: { session: Session }) {
 
   const roomCourse = room && room !== "none" ? courses.find((c) => c.id === room) ?? null : null;
   const inRoom = room !== null;
+
+  // ROOM 초대 코드 로드 — 강좌마다 코드가 다르다
+  const roomCourseId = roomCourse?.id ?? null;
+  useEffect(() => {
+    if (!roomCourseId || savedProfile !== true) return;
+    fetch(`/api/invite?course=${roomCourseId}`, { headers: { Authorization: `Bearer ${token}` } })
+      .then((r) => r.json())
+      .then((d) => d.url && setRoomInvite({ courseId: roomCourseId, url: d.url, qrSvg: d.qrSvg }))
+      .catch(() => {});
+  }, [roomCourseId, savedProfile, token]);
 
   const lessonMarks = new Set(
     (docs ?? []).filter((d) => d.course_id === room && d.lesson_date).map((d) => d.lesson_date!)
@@ -561,6 +573,31 @@ function Dashboard({ session }: { session: Session }) {
             hint="학생이 회원가입 때 초대코드 칸에 넣어요"
           />
         </section>
+      )}
+
+      {/* ROOM 초대 — 이 코드로 가입한 학생은 이 강좌에 바로 등록된다. 학생은 여러 ROOM에 등록 가능 */}
+      {roomCourse && savedProfile && (
+        <details className="rise d1 card p-5 lg:p-6">
+          <summary className="font-bold text-[17px] cursor-pointer select-none flex items-center justify-between gap-2">
+            <span>이 ROOM으로 학생 초대</span>
+            <span className="text-sub text-[13px] font-normal shrink-0">펼치기</span>
+          </summary>
+          <p className="text-sub text-[13px] mt-2">
+            이 링크·코드로 가입한 학생은 <b>{roomCourse.title}</b>에 바로 등록돼요. 다른 ROOM 코드로 또
+            등록하면 여러 ROOM에 함께 들어가요.
+          </p>
+          <div className="mt-3">
+            {roomInvite?.courseId === roomCourse.id ? (
+              <InviteBox
+                url={roomInvite.url}
+                qrSvg={roomInvite.qrSvg}
+                hint="학생이 회원가입 때 초대코드 칸에 넣어요"
+              />
+            ) : (
+              <div className="skel h-24 !rounded-[16px]" />
+            )}
+          </div>
+        </details>
       )}
 
       {/* 수업 달력 — 강좌 ROOM 전용. 날짜별로 그 날 수업 자료를 묶는다 */}
