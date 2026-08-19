@@ -142,6 +142,7 @@ export default function AskPage() {
     // 조용히 return하면 클릭이 무반응으로 보인다
     if (!r.ok) return setErr(d?.error ?? "대화를 불러오지 못했어요. 다시 눌러 주세요.");
     setErr("");
+    setCourseId(""); // 다른 강사 대화로 넘어갈 때 이전 강사의 강좌 필터가 남지 않게
     type Row = { role: "user" | "assistant"; content: string };
     const msgs: Msg[] = ((d?.messages ?? []) as Row[]).map((m) => ({
       role: m.role === "user" ? "user" : "tutor",
@@ -246,6 +247,51 @@ export default function AskPage() {
             </div>
           </div>
 
+          {/* 강좌 ROOM — 선택한 선생님의 강좌별로 질문 범위를 좁힌다 (강사 대시보드 ROOM과 같은 개념) */}
+          {chat && courses.length > 0 && (
+            <div className="lg-card lg:p-3">
+              <p className="hidden lg:block text-sub text-[12px] font-bold px-1 pb-1.5">강좌 ROOM</p>
+
+              {/* PC 세로 리스트 */}
+              <div className="hidden lg:flex flex-col gap-0.5">
+                <button
+                  onClick={() => setCourseId("")}
+                  className={`t-item !py-2 ${courseId === "" ? "t-item-on" : ""}`}
+                >
+                  <span className="text-[14px] font-bold">전체 자료</span>
+                </button>
+                {courses.map((c) => (
+                  <button
+                    key={c.id}
+                    onClick={() => setCourseId(c.id)}
+                    className={`t-item !py-2 ${courseId === c.id ? "t-item-on" : ""}`}
+                  >
+                    <span className="text-[14px] font-bold truncate">{c.title}</span>
+                  </button>
+                ))}
+              </div>
+
+              {/* 모바일 가로 칩 */}
+              <div className="flex lg:hidden gap-2 overflow-x-auto pb-1 -mx-1 px-1">
+                <button
+                  onClick={() => setCourseId("")}
+                  className={`chip shrink-0 ${courseId === "" ? "chip-on" : ""}`}
+                >
+                  전체 자료
+                </button>
+                {courses.map((c) => (
+                  <button
+                    key={c.id}
+                    onClick={() => setCourseId(c.id)}
+                    className={`chip shrink-0 ${courseId === c.id ? "chip-on" : ""}`}
+                  >
+                    {c.title}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* 내 질문 이력 (로그인 학생) */}
           {session && role === "student" && convs.length > 0 && (
             <div className="lg-card lg:p-3">
@@ -299,25 +345,13 @@ export default function AskPage() {
               className="animate-pop card p-4 lg:p-6 lg:min-h-[68vh] flex flex-col"
             >
               <div className="flex items-center justify-between gap-2 -mb-2">
-                {/* 강좌 필터 — 공용 자료는 어떤 강좌를 골라도 포함 */}
+                {/* 현재 ROOM 표시 — 선택은 좌측 "강좌 ROOM" 목록에서 (공용 자료는 어떤 강좌를 골라도 포함) */}
                 {courses.length > 0 ? (
-                  <div className="flex gap-1.5 overflow-x-auto">
-                    <button
-                      onClick={() => setCourseId("")}
-                      className={`chip !py-1 !px-2.5 !text-[12px] shrink-0 ${courseId === "" ? "chip-on" : ""}`}
-                    >
-                      전체
-                    </button>
-                    {courses.map((c) => (
-                      <button
-                        key={c.id}
-                        onClick={() => setCourseId(c.id)}
-                        className={`chip !py-1 !px-2.5 !text-[12px] shrink-0 ${courseId === c.id ? "chip-on" : ""}`}
-                      >
-                        {c.title}
-                      </button>
-                    ))}
-                  </div>
+                  <span className="text-[12px] text-sub truncate">
+                    {courseId
+                      ? `ROOM: ${courses.find((c) => c.id === courseId)?.title ?? "강좌"} — 이 강좌 자료에서만 찾아요`
+                      : "전체 자료에서 찾아요"}
+                  </span>
                 ) : (
                   <span />
                 )}
