@@ -4,9 +4,35 @@ import { requireUser } from "@/lib/auth";
 import { academyOf } from "@/lib/tenant";
 import { rateLimit, clientIp } from "@/lib/ratelimit";
 
-// CBT 시험 기록 조회.
+// 시험 기록.
 // GET            → 내 기록 (마이페이지)
 // GET ?name=김학생 → 같은 학원 사용자의 기록을 이름으로 검색 (학원 공용 PC에서 확인용)
+// POST {subject, source?, total, score} → 세션 기록 저장
+//   (CBT는 배치 채점이 서버에서 직접 기록하지만, "한 문제씩" 모드는 문항별 채점이라
+//    완주 시점에 클라이언트가 이 API로 세션을 남긴다)
+export async function POST(req: Request) {
+  const g = await requireUser(req);
+  if ("res" in g) return g.res;
+  if (!rateLimit(`bankrec:${clientIp(req)}`, 60, 60_000))
+    return NextResponse.json({ error: "too many requests" }, { status: 429 });
+
+  const body = await req.json().catch(() => null);
+  const subject = (body?.subject ?? "").toString().trim().slice(0, 40);
+  const source = (body?.source ?? "").toString().slice(0, 60) || null;
+  const total = Number(body?.total);
+  const score = Number(body?.score);
+  if (!subject || !Number.isInteger(total) || total < 1 || total > 50)
+    return NextResponse.json({ error: "subject, total(1~50) required" }, { status: 400 });
+  if (!Number.isInteger(score) || score < 0 || score > total)
+    return NextResponse.json({ error: "score(0~total) required" }, { status: 400 });
+
+  const { error } = await serviceClient()
+    .from("bank_sessions")
+    .insert({ user_id: g.uid, subject, source, total, score });
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  return NextResponse.json({ ok: true });
+}
+
 export async function GET(req: Request) {
   const g = await requireUser(req);
   if ("res" in g) return g.res;

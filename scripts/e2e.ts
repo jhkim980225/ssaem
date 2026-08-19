@@ -537,10 +537,28 @@ async function main() {
           )
         );
         ok("비인증 → 기록 401", (await status("/api/bank/records")) === 401);
+        // 한 문제씩 모드 완주 기록 (클라이언트 POST 경로)
+        ok(
+          "세션 기록 POST 200",
+          (await status("/api/bank/records", {
+            method: "POST",
+            headers: { ...bearer(studentTok), "Content-Type": "application/json" },
+            body: JSON.stringify({ subject: "[E2E] 과목", total: 5, score: 4 }),
+          })) === 200
+        );
+        ok(
+          "점수>문항수 기록 400",
+          (await status("/api/bank/records", {
+            method: "POST",
+            headers: { ...bearer(studentTok), "Content-Type": "application/json" },
+            body: JSON.stringify({ subject: "[E2E] 과목", total: 5, score: 9 }),
+          })) === 400
+        );
         // 정리 — [E2E] 세션 기록 삭제
         {
           const stUid2 = JSON.parse(Buffer.from(studentTok.split(".")[1], "base64").toString()).sub as string;
           await db.from("bank_sessions").delete().eq("user_id", stUid2).eq("source", "[E2E] 세션");
+          await db.from("bank_sessions").delete().eq("user_id", stUid2).eq("subject", "[E2E] 과목");
         }
 
         // 문제모음 검색

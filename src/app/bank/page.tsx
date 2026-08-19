@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useGate } from "@/components/RoleGuard";
 import BackButton from "@/components/BackButton";
@@ -146,6 +146,7 @@ export default function BankPage() {
     setIdx(0);
     setScore({ right: 0, done: 0 });
     resetQ();
+    recordedRef.current = false;
     enterRun();
   }
 
@@ -179,6 +180,19 @@ export default function BankPage() {
   const q = qs?.[idx];
   // 공부 모드엔 결과(점수) 화면이 없다
   const finished = !study && qs !== null && qs.length > 0 && idx >= qs.length;
+
+  // "한 문제씩" 완주 시 세션 기록 — CBT는 서버 배치 채점이 직접 기록하므로 여기서만.
+  // ref 가드: 결과 화면 리렌더마다 중복 저장되지 않게 (새 세션 시작 때 리셋)
+  const recordedRef = useRef(false);
+  useEffect(() => {
+    if (!finished || recordedRef.current || !token || score.done === 0) return;
+    recordedRef.current = true;
+    fetch("/api/bank/records", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ subject, total: score.done, score: score.right }),
+    }).catch(() => {});
+  }, [finished, token, subject, score]);
 
   // 이론 채점
   async function pick(i: number) {
@@ -699,11 +713,15 @@ export default function BankPage() {
             <p className="text-sub text-[14px] mt-1">
               {score.done > 0 ? `정답률 ${Math.round((score.right / score.done) * 100)}%` : ""}
             </p>
+            {score.done > 0 && <p className="text-blue text-[13px] mt-2">내 시험 기록에 저장됐어요.</p>}
           </div>
           <div className="flex flex-col gap-2">
             <button onClick={exitRun} className="btn btn-primary py-3">
               다른 문제 풀기
             </button>
+            <Link href="/my/records" className="btn btn-gray py-3">
+              내 기록 보기
+            </Link>
             <Link href="/bank/notes" className="btn btn-gray py-3">
               오답노트 보기
             </Link>
