@@ -21,6 +21,8 @@ type Q = {
 };
 type TreeRow = { subject: string; count: number };
 
+const PER = 10; // 페이지당 문제 수
+
 // 문제검색 — 급수를 고르고 키워드를 검색하면 지문에 그 말이 포함된 문제를 전부 보여준다.
 // 정답은 바로 보여주지 않고 "답안 보기"를 눌러야 체크된다 (스스로 생각해 볼 여지).
 export default function BankBrowsePage() {
@@ -33,9 +35,10 @@ export default function BankBrowsePage() {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const [result, setResult] = useState<{ questions: Q[]; total: number; q: string } | null>(null);
-  const [open, setOpen] = useState<string | null>(null);
-  // 답안은 바로 보여주지 않는다 — "답안 보기"를 누른 문제만 체크
-  const [answered, setAnswered] = useState<string | null>(null);
+  // 답안은 바로 보여주지 않는다 — "답안 보기"를 누른 문제만 체크 (문제별 독립)
+  const [answered, setAnswered] = useState<Set<string>>(new Set());
+  const [page, setPage] = useState(0); // 10문제씩 페이징
+
 
   useEffect(() => {
     if (!token) return;
@@ -66,11 +69,16 @@ export default function BankBrowsePage() {
       const d = await r.json().catch(() => null);
       if (!r.ok) return setErr(d?.error ?? "검색하지 못했어요.");
       setResult({ questions: d.questions ?? [], total: d.total ?? 0, q: kw });
-      setOpen(null);
-      setAnswered(null);
+      setAnswered(new Set());
+      setPage(0);
     } finally {
       setBusy(false);
     }
+  }
+
+  function goPage(p: number) {
+    setPage(p);
+    window.scrollTo({ top: 0 }); // 페이지 넘기면 첫 문제부터 보이게
   }
 
   if (gate) return gate;
@@ -139,76 +147,92 @@ export default function BankBrowsePage() {
               <p className="text-sub text-[13px] mt-1">다른 키워드로 다시 찾아보세요.</p>
             </div>
           )}
-          <div className="flex flex-col gap-2">
-            {result.questions.map((n) => {
-              const isOpen = open === n.id;
+          <div className="flex flex-col gap-3">
+            {result.questions.slice(page * PER, page * PER + PER).map((n, pi) => {
               const isTheory = Array.isArray(n.choices) && n.choices.length > 0;
+              const show = answered.has(n.id);
               return (
-                <div key={n.id} className="rise card overflow-hidden">
-                  <button
-                    onClick={() => setOpen(isOpen ? null : n.id)}
-                    className="w-full text-left p-4 flex items-start justify-between gap-3"
-                  >
-                    <div className="min-w-0">
-                      <div className="flex gap-1.5 flex-wrap mb-1">
-                        {n.source && <span className="chip !py-0.5 !px-2 !text-[11px]">{n.source}</span>}
-                        <span className="chip !py-0.5 !px-2 !text-[11px]">{n.typeTag}</span>
-                        <span className="chip !py-0.5 !px-2 !text-[11px]">{isTheory ? "이론" : "실무"}</span>
-                      </div>
-                      <p className="text-[14px] font-medium line-clamp-2 break-keep">{n.stem.split("\n")[0]}</p>
+                <div key={n.id} className="rise card p-4 lg:p-5 flex flex-col gap-4">
+                  <div className="flex gap-1.5 flex-wrap">
+                    <span className="chip !py-0.5 !px-2 !text-[11px] !cursor-default">{page * PER + pi + 1}번</span>
+                    {n.source && <span className="chip !py-0.5 !px-2 !text-[11px] !cursor-default">{n.source}</span>}
+                    <span className="chip !py-0.5 !px-2 !text-[11px] !cursor-default">{n.typeTag}</span>
+                    <span className="chip !py-0.5 !px-2 !text-[11px] !cursor-default">{isTheory ? "이론" : "실무"}</span>
+                  </div>
+                  <StemView stem={n.stem} images={n.images} highlight={result.q} />
+                  {isTheory && (
+                    <div className="flex flex-col gap-2.5">
+                      {n.choices!.map((c, i) => (
+                        <div
+                          key={i}
+                          style={show && n.answerIdx === i ? { borderColor: "var(--blue)", background: "var(--blue-weak)" } : {}}
+                          className="rounded-[14px] border border-line px-4 py-3.5 min-h-[54px] text-[15px] leading-[1.65] break-keep flex items-start gap-3"
+                        >
+                          <span className="shrink-0 grid place-items-center w-5 h-5 mt-0.5 rounded-full border border-current text-[11px] font-extrabold">
+                            {i + 1}
+                          </span>
+                          <span className="flex-1 min-w-0"><Hi text={c} kw={result.q} /></span>
+                          {show && n.answerIdx === i && <span className="text-blue text-[11px] font-bold shrink-0">정답</span>}
+                        </div>
+                      ))}
                     </div>
-                    <span className="text-sub text-[13px] shrink-0">{isOpen ? "접기" : "보기"}</span>
-                  </button>
-
-                  {isOpen && (() => {
-                    const show = answered === n.id;
-                    return (
-                    <div className="px-4 lg:px-5 pb-5 flex flex-col gap-4 border-t border-line pt-4">
-                      <StemView stem={n.stem} images={n.images} highlight={result.q} />
-                      {isTheory && (
-                        <div className="flex flex-col gap-2.5">
-                          {n.choices!.map((c, i) => (
-                            <div
-                              key={i}
-                              style={show && n.answerIdx === i ? { borderColor: "var(--blue)", background: "var(--blue-weak)" } : {}}
-                              className="rounded-[14px] border border-line px-4 py-3.5 min-h-[54px] text-[15px] leading-[1.65] break-keep flex items-start gap-3"
-                            >
-                              <span className="shrink-0 grid place-items-center w-5 h-5 mt-0.5 rounded-full border border-current text-[11px] font-extrabold">
-                                {i + 1}
-                              </span>
-                              <span className="flex-1 min-w-0"><Hi text={c} kw={result.q} /></span>
-                              {show && n.answerIdx === i && <span className="text-blue text-[11px] font-bold shrink-0">정답</span>}
-                            </div>
-                          ))}
+                  )}
+                  {!show ? (
+                    <button
+                      onClick={() => setAnswered((prev) => new Set(prev).add(n.id))}
+                      className="btn btn-primary py-3"
+                    >
+                      답안 보기
+                    </button>
+                  ) : (
+                    <>
+                      {!isTheory && n.answerText && (
+                        <div className="rounded-[14px] border border-line p-4" style={{ background: "var(--blue-weak)" }}>
+                          <p className="text-[12px] font-bold text-blue mb-1.5">정답 (분개)</p>
+                          <JournalEntry text={n.answerText} />
                         </div>
                       )}
-                      {!show ? (
-                        <button onClick={() => setAnswered(n.id)} className="btn btn-primary py-3">
-                          답안 보기
-                        </button>
-                      ) : (
-                        <>
-                          {!isTheory && n.answerText && (
-                            <div className="rounded-[14px] border border-line p-4" style={{ background: "var(--blue-weak)" }}>
-                              <p className="text-[12px] font-bold text-blue mb-1.5">정답 (분개)</p>
-                              <JournalEntry text={n.answerText} />
-                            </div>
-                          )}
-                          {n.explanation && (
-                            <div className="rounded-[14px] border border-line p-4">
-                              <p className="text-[12px] font-bold text-sub mb-1.5">해설</p>
-                              <ExplanationView text={n.explanation} />
-                            </div>
-                          )}
-                        </>
+                      {n.explanation && (
+                        <div className="rounded-[14px] border border-line p-4">
+                          <p className="text-[12px] font-bold text-sub mb-1.5">해설</p>
+                          <ExplanationView text={n.explanation} />
+                        </div>
                       )}
-                    </div>
-                    );
-                  })()}
+                    </>
+                  )}
                 </div>
               );
             })}
           </div>
+
+          {/* 페이징 — 10문제씩 */}
+          {result.questions.length > PER && (
+            <div className="rise flex items-center justify-center gap-1.5 flex-wrap py-2">
+              <button
+                onClick={() => goPage(page - 1)}
+                disabled={page === 0}
+                className="chip !text-[13px] disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                ← 이전
+              </button>
+              {Array.from({ length: Math.ceil(result.questions.length / PER) }, (_, i) => (
+                <button
+                  key={i}
+                  onClick={() => goPage(i)}
+                  className={`chip !text-[13px] tabular-nums ${i === page ? "chip-on" : ""}`}
+                >
+                  {i + 1}
+                </button>
+              ))}
+              <button
+                onClick={() => goPage(page + 1)}
+                disabled={page >= Math.ceil(result.questions.length / PER) - 1}
+                className="chip !text-[13px] disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                다음 →
+              </button>
+            </div>
+          )}
         </>
       )}
     </main>
