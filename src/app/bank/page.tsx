@@ -251,7 +251,7 @@ export default function BankPage() {
         </div>
         <div className="flex gap-1.5 shrink-0">
           <Link href="/bank/browse" className="chip !text-[13px]">
-            문제모음
+            문제검색
           </Link>
           <Link href="/my/records" className="chip !text-[13px]">
             내 기록

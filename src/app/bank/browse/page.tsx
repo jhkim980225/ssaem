@@ -21,10 +21,10 @@ type Q = {
 };
 type TreeRow = { subject: string; count: number };
 
-// 문제모음 — 급수를 고르고 키워드를 검색하면 지문에 그 말이 포함된 문제를 전부 보여준다.
-// 열람용이라 정답·해설이 처음부터 함께 온다 (풀이·채점은 기출문제 탭에서).
+// 문제검색 — 급수를 고르고 키워드를 검색하면 지문에 그 말이 포함된 문제를 전부 보여준다.
+// 정답은 바로 보여주지 않고 "답안 보기"를 눌러야 체크된다 (스스로 생각해 볼 여지).
 export default function BankBrowsePage() {
-  const { session, gate } = useGate("any", { loginMessage: "문제모음은 로그인 후 볼 수 있어요." });
+  const { session, gate } = useGate("any", { loginMessage: "문제검색은 로그인 후 쓸 수 있어요." });
   const token = session?.access_token;
 
   const [tree, setTree] = useState<TreeRow[] | null>(null);
@@ -34,6 +34,8 @@ export default function BankBrowsePage() {
   const [err, setErr] = useState("");
   const [result, setResult] = useState<{ questions: Q[]; total: number; q: string } | null>(null);
   const [open, setOpen] = useState<string | null>(null);
+  // 답안은 바로 보여주지 않는다 — "답안 보기"를 누른 문제만 체크
+  const [answered, setAnswered] = useState<string | null>(null);
 
   useEffect(() => {
     if (!token) return;
@@ -65,6 +67,7 @@ export default function BankBrowsePage() {
       if (!r.ok) return setErr(d?.error ?? "검색하지 못했어요.");
       setResult({ questions: d.questions ?? [], total: d.total ?? 0, q: kw });
       setOpen(null);
+      setAnswered(null);
     } finally {
       setBusy(false);
     }
@@ -77,7 +80,7 @@ export default function BankBrowsePage() {
       <div className="rise flex items-start justify-between gap-3">
         <div className="flex flex-col gap-1">
           <BackButton fallback="/bank" />
-          <h1 className="text-[24px] lg:text-[28px] font-extrabold">문제모음</h1>
+          <h1 className="text-[24px] lg:text-[28px] font-extrabold">문제검색</h1>
           <p className="text-sub text-[14px]">급수를 고르고 키워드를 검색하면 그 말이 들어간 기출문제를 전부 모아 보여줘요.</p>
         </div>
         <Link href="/bank" className="chip shrink-0 !text-[13px]">
@@ -157,41 +160,51 @@ export default function BankBrowsePage() {
                     <span className="text-sub text-[13px] shrink-0">{isOpen ? "접기" : "보기"}</span>
                   </button>
 
-                  {isOpen && (
+                  {isOpen && (() => {
+                    const show = answered === n.id;
+                    return (
                     <div className="px-4 lg:px-5 pb-5 flex flex-col gap-4 border-t border-line pt-4">
                       <StemView stem={n.stem} images={n.images} />
-                      {isTheory ? (
+                      {isTheory && (
                         <div className="flex flex-col gap-2.5">
                           {n.choices!.map((c, i) => (
                             <div
                               key={i}
-                              style={n.answerIdx === i ? { borderColor: "var(--blue)", background: "var(--blue-weak)" } : {}}
+                              style={show && n.answerIdx === i ? { borderColor: "var(--blue)", background: "var(--blue-weak)" } : {}}
                               className="rounded-[14px] border border-line px-4 py-3.5 min-h-[54px] text-[15px] leading-[1.65] break-keep flex items-start gap-3"
                             >
                               <span className="shrink-0 grid place-items-center w-5 h-5 mt-0.5 rounded-full border border-current text-[11px] font-extrabold">
                                 {i + 1}
                               </span>
                               <span className="flex-1 min-w-0">{c}</span>
-                              {n.answerIdx === i && <span className="text-blue text-[11px] font-bold shrink-0">정답</span>}
+                              {show && n.answerIdx === i && <span className="text-blue text-[11px] font-bold shrink-0">정답</span>}
                             </div>
                           ))}
                         </div>
-                      ) : (
-                        n.answerText && (
-                          <div className="rounded-[14px] border border-line p-4" style={{ background: "var(--blue-weak)" }}>
-                            <p className="text-[12px] font-bold text-blue mb-1.5">정답 (분개)</p>
-                            <JournalEntry text={n.answerText} />
-                          </div>
-                        )
                       )}
-                      {n.explanation && (
-                        <div className="rounded-[14px] border border-line p-4">
-                          <p className="text-[12px] font-bold text-sub mb-1.5">해설</p>
-                          <ExplanationView text={n.explanation} />
-                        </div>
+                      {!show ? (
+                        <button onClick={() => setAnswered(n.id)} className="btn btn-primary py-3">
+                          답안 보기
+                        </button>
+                      ) : (
+                        <>
+                          {!isTheory && n.answerText && (
+                            <div className="rounded-[14px] border border-line p-4" style={{ background: "var(--blue-weak)" }}>
+                              <p className="text-[12px] font-bold text-blue mb-1.5">정답 (분개)</p>
+                              <JournalEntry text={n.answerText} />
+                            </div>
+                          )}
+                          {n.explanation && (
+                            <div className="rounded-[14px] border border-line p-4">
+                              <p className="text-[12px] font-bold text-sub mb-1.5">해설</p>
+                              <ExplanationView text={n.explanation} />
+                            </div>
+                          )}
+                        </>
                       )}
                     </div>
-                  )}
+                    );
+                  })()}
                 </div>
               );
             })}
