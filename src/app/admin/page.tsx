@@ -7,6 +7,7 @@ import { toEmail, isValidId } from "@/lib/account";
 import { avatarEmoji } from "@/lib/avatar";
 import { SHOW_PRICING } from "@/lib/flags";
 import { useGate } from "@/components/RoleGuard";
+import InviteBox from "@/components/InviteBox";
 
 type AdminData = {
   admin: { name: string };
@@ -156,7 +157,6 @@ function Dashboard({ session }: { session: Session }) {
   const [rev, setRev] = useState<AdminReviews | null>(null);
   const [days, setDays] = useState(30);
   const [err, setErr] = useState("");
-  const [copied, setCopied] = useState(false);
   // 학생 연락처·메모 — 개인정보라 펼친 학생만 조회한다 (목록에 싣지 않는다)
   const [openStu, setOpenStu] = useState<string | null>(null);
   const [stuDetail, setStuDetail] = useState<Record<string, { phone: string; note: string }>>({});
@@ -534,31 +534,11 @@ function Dashboard({ session }: { session: Session }) {
         <p className="text-sub text-[13px] -mt-1">
           QR이나 링크로 강사를 초대하세요. 가입하면 우리 학원 소속이 돼요.
         </p>
-        <div className="flex flex-col sm:flex-row gap-4 items-start">
-          <div
-            className="rounded-[14px] border border-line p-2 bg-white shrink-0 [&>svg]:block [&>svg]:w-[150px] [&>svg]:h-[150px]"
-            dangerouslySetInnerHTML={{ __html: data.invite.qrSvg }}
-          />
-          <div className="flex flex-col gap-2 min-w-0 w-full">
-            <p
-              className="text-[13px] break-all rounded-[10px] border border-line px-3 py-2.5"
-              style={{ background: "var(--fill-2)" }}
-            >
-              {data.invite.url}
-            </p>
-            <button
-              onClick={() => {
-                navigator.clipboard.writeText(data.invite.url).then(() => {
-                  setCopied(true);
-                  setTimeout(() => setCopied(false), 1500);
-                });
-              }}
-              className="btn btn-ghost py-2.5 px-5 self-start text-[14px]"
-            >
-              {copied ? "복사됨 ✓" : "링크 복사"}
-            </button>
-          </div>
-        </div>
+        <InviteBox
+          url={data.invite.url}
+          qrSvg={data.invite.qrSvg}
+          hint="강사가 회원가입 때 초대코드 칸에 넣어요"
+        />
       </section>
 
       <Link href="/ask" className="rise d4 btn btn-ghost py-4 text-center">

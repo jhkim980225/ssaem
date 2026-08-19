@@ -6,6 +6,7 @@ import { useGate } from "@/components/RoleGuard";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
 import ChatPanel from "@/components/ChatPanel";
+import InviteBox from "@/components/InviteBox";
 
 type Doc = {
   id: string;
@@ -102,7 +103,6 @@ function Dashboard({ session }: { session: Session }) {
   // null = /api/profile 응답 전. false로 두면 이미 저장된 강사에게도 "먼저 저장하세요"가 잠깐 뜬다
   const [savedProfile, setSavedProfile] = useState<boolean | null>(null);
   const [invite, setInvite] = useState<{ url: string; qrSvg: string } | null>(null);
-  const [copied, setCopied] = useState(false);
 
   const [content, setContent] = useState("");
   const [docs, setDocs] = useState<Doc[] | null>(null); // null = 아직 로딩 중 (자료 0건과 구분)
@@ -516,29 +516,11 @@ function Dashboard({ session }: { session: Session }) {
           <p className="text-sub text-[13px] -mt-1">
             QR을 보여주거나 링크를 공유하세요. 학생이 접속하면 가입과 동시에 내 기본반에 등록돼요.
           </p>
-          <div className="flex flex-col sm:flex-row gap-4 items-start">
-            <div
-              className="rounded-[14px] border border-line p-2 bg-white shrink-0 [&>svg]:block [&>svg]:w-[160px] [&>svg]:h-[160px]"
-              dangerouslySetInnerHTML={{ __html: invite.qrSvg }}
-            />
-            <div className="flex flex-col gap-2 min-w-0 w-full">
-              <p className="text-[12px] font-bold text-sub">초대 링크</p>
-              <p className="text-[13px] break-all rounded-[10px] border border-line px-3 py-2.5" style={{ background: "var(--fill-2)" }}>
-                {invite.url}
-              </p>
-              <button
-                onClick={() => {
-                  navigator.clipboard.writeText(invite.url).then(() => {
-                    setCopied(true);
-                    setTimeout(() => setCopied(false), 1500);
-                  });
-                }}
-                className="btn btn-ghost py-2.5 px-5 self-start text-[14px]"
-              >
-                {copied ? "복사됨 ✓" : "링크 복사"}
-              </button>
-            </div>
-          </div>
+          <InviteBox
+            url={invite.url}
+            qrSvg={invite.qrSvg}
+            hint="학생이 회원가입 때 초대코드 칸에 넣어요"
+          />
         </section>
       )}
 
