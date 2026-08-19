@@ -54,7 +54,6 @@ export default function BankPage() {
   const [source, setSource] = useState(""); // "" = 전체 회차 랜덤
   const [count, setCount] = useState<number>(15);
   const [cbtQs, setCbtQs] = useState<CbtQuestion[] | null>(null);
-  const [allRounds, setAllRounds] = useState(false); // 회차 칩 전체 펼침
 
   // 이론 채점 상태
   const [picked, setPicked] = useState<number | null>(null);
@@ -257,6 +256,7 @@ export default function BankPage() {
                     onClick={() => {
                       setSubject(subject === s ? "" : s);
                       setArea("");
+                      setSource(""); // 다른 과목의 회차가 선택된 채 남지 않게
                     }}
                   >
                     {s} <b className="opacity-60">{countFor({ subject: s })}</b>
@@ -266,36 +266,22 @@ export default function BankPage() {
               {cbt && (
                 <>
                   <Filter label="회차 (선택)">
-                    <Chip on={source === ""} onClick={() => setSource("")}>
-                      랜덤 출제
-                    </Chip>
-                    {(() => {
-                      const mine = sources
+                    {/* 과목당 38개 회차 — 칩으로 깔면 화면이 덮여서 드롭다운 하나로 */}
+                    <select
+                      className="field !py-2.5 !text-[14px] w-auto"
+                      value={source}
+                      onChange={(e) => setSource(e.target.value)}
+                    >
+                      <option value="">랜덤 출제 (전체 회차)</option>
+                      {sources
                         .filter((x) => !subject || x.subject === subject)
-                        .sort((a, b) => roundNo(b.source) - roundNo(a.source));
-                      // 기본은 최근 회차만 — 과목당 38개를 다 깔면 화면이 칩으로 덮인다
-                      const shown = allRounds ? mine : mine.slice(0, 24);
-                      return (
-                        <>
-                          {shown.map((x) => (
-                            <Chip
-                              key={x.source}
-                              on={source === x.source}
-                              onClick={() => setSource(source === x.source ? "" : x.source)}
-                            >
-                              {roundNo(x.source) ? `${roundNo(x.source)}회` : x.source}{" "}
-                              <b className="opacity-60">{x.count}</b>
-                            </Chip>
-                          ))}
-                          {mine.length > shown.length && (
-                            <Chip onClick={() => setAllRounds(true)}>+{mine.length - shown.length}개 더보기</Chip>
-                          )}
-                          {allRounds && mine.length > 24 && (
-                            <Chip onClick={() => setAllRounds(false)}>접기</Chip>
-                          )}
-                        </>
-                      );
-                    })()}
+                        .sort((a, b) => roundNo(b.source) - roundNo(a.source))
+                        .map((x) => (
+                          <option key={x.source} value={x.source}>
+                            {roundNo(x.source) ? `${roundNo(x.source)}회` : x.source} ({x.count}문항)
+                          </option>
+                        ))}
+                    </select>
                   </Filter>
                   <Filter label="문항 수">
                     {COUNTS.map((n) => (
