@@ -200,6 +200,15 @@ async function main() {
         (d) => d.id === ld.body.documentId && d.lesson_date === "2026-08-19"
       )
     );
+    // 학생 화면 동기화 — 강사가 올린 날짜 자료가 학생 수업 달력 API에 그대로 보여야 한다
+    const stLessons = await json(`/api/lessons?teacher=${tUid}`, { headers: bearer(studentTok) });
+    ok(
+      "학생 수업 달력 — 강사 등록분 동기화",
+      ((stLessons.body?.lessons ?? []) as { id: string; date: string }[]).some(
+        (l) => l.id === ld.body.documentId && l.date === "2026-08-19"
+      )
+    );
+    ok("비인증 → /api/lessons 401", (await status(`/api/lessons?teacher=${tUid}`)) === 401);
     ok(
       "잘못된 lessonDate는 무시(null)",
       (await (async () => {

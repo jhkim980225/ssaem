@@ -73,6 +73,7 @@ function buildCases(teacherId: string): Case[] {
     { path: "/api/ask", method: "POST", body: {}, expect: M(DENY, ALLOW, ALLOW, ALLOW) },
     { path: "/api/teachers", expect: M(DENY, ALLOW, ALLOW, ALLOW) },
     { path: `/api/courses?teacher=${teacherId}`, expect: M(DENY, ALLOW, ALLOW, ALLOW) },
+    { path: `/api/lessons?teacher=${teacherId}`, expect: M(DENY, ALLOW, ALLOW, ALLOW) },
     { path: "/api/popular", expect: M(DENY, ALLOW, ALLOW, ALLOW) },
     { path: "/api/related?teacher=x&q=abcd", expect: M(DENY, ALLOW, ALLOW, ALLOW) },
     { path: "/api/quiz?teacher=" + teacherId, expect: M(DENY, ALLOW, ALLOW, ALLOW) },

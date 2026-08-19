@@ -5,6 +5,7 @@ import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
 import { useGate } from "@/components/RoleGuard";
 import ChatPanel, { type Msg } from "@/components/ChatPanel";
+import LessonCalendar from "@/components/LessonCalendar";
 import { avatarEmoji } from "@/lib/avatar";
 
 type Teacher = {
@@ -16,6 +17,7 @@ type Teacher = {
   convs?: number;
 };
 type Course = { id: string; title: string };
+type Lesson = { id: string; title: string; date: string; course_id: string | null; course: string | null };
 type Conv = { id: string; title: string | null; teacher_id: string; teacher_name: string | null; messages: number };
 // 현재 채팅 대상. convId/msgs 있으면 이전 대화 이어가기, ask 있으면 진입 즉시 질문.
 type Chat = { teacherId: string; teacherName: string; convId?: string; msgs?: Msg[]; ask?: string };
@@ -38,6 +40,9 @@ export default function AskPage() {
   // 선택된 강사의 강좌 (teacherId 키로 보관 — 렌더에서 현재 강사 것만 사용)
   const [courseData, setCourseData] = useState<{ teacherId: string; courses: Course[] } | null>(null);
   const [courseId, setCourseId] = useState(""); // "" = 전체
+  // 수업 달력 — 강사가 날짜를 지정해 올린 자료 (teacherId 키로 보관, 강사 등록분과 항상 동기화)
+  const [lessonData, setLessonData] = useState<{ teacherId: string; lessons: Lesson[] } | null>(null);
+  const [lessonDate, setLessonDate] = useState<string | null>(null);
   const [err, setErr] = useState("");
   const [popular, setPopular] = useState<Popular | null>(null);
 
@@ -107,7 +112,33 @@ export default function AskPage() {
       .catch(() => setCourseData({ teacherId: tid, courses: [] }));
   }, [chat?.teacherId, allowed, session]);
 
+  // 강사 선택 시 수업 달력 로드 — 강사가 새로 올리면 다시 선택/새로고침 시 그대로 반영된다
+  useEffect(() => {
+    const tid = chat?.teacherId;
+    if (!allowed || !tid || !session) return;
+    fetch(`/api/lessons?teacher=${tid}`, {
+      headers: { Authorization: `Bearer ${session.access_token}` },
+    })
+      .then((r) => r.json())
+      .then((d) => setLessonData({ teacherId: tid, lessons: d.lessons ?? [] }))
+      .catch(() => setLessonData({ teacherId: tid, lessons: [] }));
+  }, [chat?.teacherId, allowed, session]);
+
   const courses = courseData && courseData.teacherId === chat?.teacherId ? courseData.courses : [];
+  const lessons = lessonData && lessonData.teacherId === chat?.teacherId ? lessonData.lessons : [];
+  // ROOM을 고르면 달력도 그 강좌 수업만
+  const roomLessons = courseId ? lessons.filter((l) => l.course_id === courseId) : lessons;
+  const lessonMarks = new Set(roomLessons.map((l) => l.date));
+  const dayLessons = lessonDate ? roomLessons.filter((l) => l.date === lessonDate) : [];
+  const fmtLesson = (s: string) => {
+    const [, m, d] = s.split("-");
+    return `${+m}월 ${+d}일`;
+  };
+  /** ROOM 변경 — 날짜 선택은 강좌가 바뀌면 의미가 달라지므로 함께 해제 */
+  function pickRoom(id: string) {
+    setCourseId(id);
+    setLessonDate(null);
+  }
 
   const shown = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -130,6 +161,7 @@ export default function AskPage() {
   function pick(t: Teacher, ask?: string) {
     setChat({ teacherId: t.id, teacherName: t.name, ask });
     setCourseId("");
+    setLessonDate(null);
     setNonce((n) => n + 1);
   }
 
@@ -143,6 +175,7 @@ export default function AskPage() {
     if (!r.ok) return setErr(d?.error ?? "대화를 불러오지 못했어요. 다시 눌러 주세요.");
     setErr("");
     setCourseId(""); // 다른 강사 대화로 넘어갈 때 이전 강사의 강좌 필터가 남지 않게
+    setLessonDate(null);
     type Row = { role: "user" | "assistant"; content: string };
     const msgs: Msg[] = ((d?.messages ?? []) as Row[]).map((m) => ({
       role: m.role === "user" ? "user" : "tutor",
@@ -255,7 +288,7 @@ export default function AskPage() {
               {/* PC 세로 리스트 */}
               <div className="hidden lg:flex flex-col gap-0.5">
                 <button
-                  onClick={() => setCourseId("")}
+                  onClick={() => pickRoom("")}
                   className={`t-item !py-2 ${courseId === "" ? "t-item-on" : ""}`}
                 >
                   <span className="text-[14px] font-bold">전체 자료</span>
@@ -263,7 +296,7 @@ export default function AskPage() {
                 {courses.map((c) => (
                   <button
                     key={c.id}
-                    onClick={() => setCourseId(c.id)}
+                    onClick={() => pickRoom(c.id)}
                     className={`t-item !py-2 ${courseId === c.id ? "t-item-on" : ""}`}
                   >
                     <span className="text-[14px] font-bold truncate">{c.title}</span>
@@ -274,7 +307,7 @@ export default function AskPage() {
               {/* 모바일 가로 칩 */}
               <div className="flex lg:hidden gap-2 overflow-x-auto pb-1 -mx-1 px-1">
                 <button
-                  onClick={() => setCourseId("")}
+                  onClick={() => pickRoom("")}
                   className={`chip shrink-0 ${courseId === "" ? "chip-on" : ""}`}
                 >
                   전체 자료
@@ -282,13 +315,35 @@ export default function AskPage() {
                 {courses.map((c) => (
                   <button
                     key={c.id}
-                    onClick={() => setCourseId(c.id)}
+                    onClick={() => pickRoom(c.id)}
                     className={`chip shrink-0 ${courseId === c.id ? "chip-on" : ""}`}
                   >
                     {c.title}
                   </button>
                 ))}
               </div>
+            </div>
+          )}
+
+          {/* 수업 달력 — 선생님이 날짜를 지정해 올린 수업 자료를 날짜별로 본다 (강사 등록분과 동기화) */}
+          {chat && lessons.length > 0 && (
+            <div className="lg-card lg:p-3">
+              <p className="text-sub text-[12px] font-bold px-1 pb-1.5">수업 달력</p>
+              <LessonCalendar marked={lessonMarks} selected={lessonDate} onSelect={setLessonDate} />
+              {lessonDate && (
+                <div className="flex flex-col gap-1.5 mt-2">
+                  <p className="text-[12px] font-bold text-blue px-1">{fmtLesson(lessonDate)} 수업</p>
+                  {dayLessons.length === 0 && (
+                    <p className="text-sub text-[12px] px-1">이 날은 이 강좌 수업 자료가 없어요.</p>
+                  )}
+                  {dayLessons.map((l) => (
+                    <div key={l.id} className="rounded-[12px] border border-line p-2.5" style={{ background: "var(--fill-2)" }}>
+                      <p className="text-[13px] font-bold leading-snug">{l.title}</p>
+                      <p className="text-[11px] text-sub mt-0.5">{l.course ?? "공용"}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
