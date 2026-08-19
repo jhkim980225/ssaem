@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { serviceClient } from "@/lib/supabase";
 import { requireRole } from "@/lib/auth";
 import { rateLimit } from "@/lib/ratelimit";
-import { saveDocument, updateDocument, logDocumentEvent, ownCourseOrNull } from "@/lib/documents";
+import { saveDocument, updateDocument, logDocumentEvent, ownCourseOrNull, lessonDateOrNull } from "@/lib/documents";
 import { docLimitError } from "@/lib/plan";
 
 const MAX_CONTENT = 200_000; // 임베딩 비용·메모리 방어
@@ -15,7 +15,7 @@ export async function GET(req: Request) {
   const db = serviceClient();
   const { data, error } = await db
     .from("documents")
-    .select("id, kind, title, source, raw_text, created_at, course_id, courses(title), chunks(count)")
+    .select("id, kind, title, source, raw_text, created_at, course_id, lesson_date, courses(title), chunks(count)")
     .eq("teacher_id", uid)
     .order("created_at", { ascending: false });
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
@@ -23,7 +23,8 @@ export async function GET(req: Request) {
   type Row = {
     id: string; kind: string; title: string | null; source: string;
     raw_text: string; created_at: string; chunks: { count: number }[];
-    course_id: string | null; courses: { title: string } | { title: string }[] | null;
+    course_id: string | null; lesson_date: string | null;
+    courses: { title: string } | { title: string }[] | null;
   };
   const documents = ((data ?? []) as Row[]).map((d) => ({
     id: d.id,
@@ -37,6 +38,7 @@ export async function GET(req: Request) {
     // 목록에서 어느 강좌 자료인지 보이게 (43건이 뒤섞이면 구분이 안 된다)
     course_id: d.course_id,
     course: (Array.isArray(d.courses) ? d.courses[0]?.title : d.courses?.title) ?? null,
+    lesson_date: d.lesson_date,
   }));
   return NextResponse.json({ documents });
 }
@@ -64,9 +66,10 @@ export async function POST(req: Request) {
   const limitMsg = await docLimitError(serviceClient(), uid);
   if (limitMsg) return NextResponse.json({ error: limitMsg }, { status: 403 });
   const courseId = await ownCourseOrNull(uid, body?.courseId);
+  const lessonDate = lessonDateOrNull(body?.lessonDate);
 
   try {
-    const r = await saveDocument({ teacherId: uid, kind, rawText: content, source: "text", courseId });
+    const r = await saveDocument({ teacherId: uid, kind, rawText: content, source: "text", courseId, lessonDate });
     return NextResponse.json({ ok: true, ...r });
   } catch (e) {
     return NextResponse.json({ error: e instanceof Error ? e.message : "실패" }, { status: 500 });

@@ -6,6 +6,7 @@ import { useGate } from "@/components/RoleGuard";
 import type { Session } from "@supabase/supabase-js";
 import ChatPanel from "@/components/ChatPanel";
 import InviteBox from "@/components/InviteBox";
+import LessonCalendar from "@/components/LessonCalendar";
 import { TEACHER_REFRESH } from "@/components/TeacherSidebar";
 
 type Doc = {
@@ -19,6 +20,7 @@ type Doc = {
   created_at: string;
   course_id: string | null;
   course: string | null;
+  lesson_date: string | null; // YYYY-MM-DD (ROOM 달력)
 };
 
 type Course = { id: string; title: string; documents: number };
@@ -268,6 +270,8 @@ function Dashboard({ session }: { session: Session }) {
   // 강좌 이름 변경 — ROOM 헤더에서 바로 고친다
   const [renaming, setRenaming] = useState(false);
   const [renameText, setRenameText] = useState("");
+  // 수업 달력 (강좌 ROOM 전용). 날짜를 고르면 그 날 수업 자료만 + 업로드도 그 날짜로.
+  const [lessonDate, setLessonDate] = useState<string | null>(null);
 
   async function renameCourse(id: string) {
     const title = renameText.trim();
@@ -336,14 +340,24 @@ function Dashboard({ session }: { session: Session }) {
     setDocQuery("");
     setDocLimit(PAGE);
     setRenaming(false);
+    setLessonDate(null);
   }, [room]);
 
   const roomCourse = room && room !== "none" ? courses.find((c) => c.id === room) ?? null : null;
   const inRoom = room !== null;
 
+  const lessonMarks = new Set(
+    (docs ?? []).filter((d) => d.course_id === room && d.lesson_date).map((d) => d.lesson_date!)
+  );
+  const fmtLesson = (s: string) => {
+    const [, m, d] = s.split("-");
+    return `${+m}월 ${+d}일`;
+  };
+
   // 검색·ROOM 필터를 적용한 목록. 원본 docs는 총계(개수·청크 수) 표시에 그대로 쓴다.
   const shownDocs = (docs ?? []).filter((d) => {
     if (room === "none" ? d.course_id !== null : room && d.course_id !== room) return false;
+    if (roomCourse && lessonDate && d.lesson_date !== lessonDate) return false;
     const q = docQuery.trim().toLowerCase();
     if (!q) return true;
     return (d.title ?? "").toLowerCase().includes(q) || d.preview.toLowerCase().includes(q);
@@ -422,6 +436,7 @@ function Dashboard({ session }: { session: Session }) {
     fd.append("file", file);
     fd.append("kind", "problem");
     if (courseSel) fd.append("courseId", courseSel);
+    if (roomCourse && lessonDate) fd.append("lessonDate", lessonDate);
     const r = await fetch("/api/upload", {
       method: "POST",
       headers: { Authorization: `Bearer ${token}` },
@@ -441,7 +456,12 @@ function Dashboard({ session }: { session: Session }) {
     const r = await fetch("/api/documents", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ kind: "problem", content, courseId: courseSel || null }),
+      body: JSON.stringify({
+        kind: "problem",
+        content,
+        courseId: courseSel || null,
+        lessonDate: roomCourse ? lessonDate : null,
+      }),
     });
     const d = await r.json();
     if (!r.ok) say(d.error || "실패", true);
@@ -543,11 +563,34 @@ function Dashboard({ session }: { session: Session }) {
         </section>
       )}
 
+      {/* 수업 달력 — 강좌 ROOM 전용. 날짜별로 그 날 수업 자료를 묶는다 */}
+      {roomCourse && savedProfile && (
+        <section className="rise d1 card p-5 lg:p-6 flex flex-col gap-3">
+          <div className="flex items-baseline justify-between gap-2">
+            <h2 className="font-bold text-[17px]">수업 달력</h2>
+            {lessonDate && (
+              <button onClick={() => setLessonDate(null)} className="chip !text-[12px]">
+                {fmtLesson(lessonDate)} 선택 해제 ×
+              </button>
+            )}
+          </div>
+          <p className="text-sub text-[13px] -mt-1">
+            날짜를 고르면 그 날 수업 자료만 보이고, 새로 올리는 자료도 그 날짜 수업에 담겨요.
+          </p>
+          <LessonCalendar marked={lessonMarks} selected={lessonDate} onSelect={setLessonDate} />
+        </section>
+      )}
+
       {/* 자료 */}
       {savedProfile && (
       <section className="rise d2 card p-5 lg:p-6 flex flex-col gap-3">
         <div className="flex items-baseline justify-between gap-2 flex-wrap">
-          <h2 className="font-bold text-[17px]">학습 자료</h2>
+          <h2 className="font-bold text-[17px]">
+            학습 자료
+            {roomCourse && lessonDate && (
+              <span className="text-blue text-[13px] font-bold"> · {fmtLesson(lessonDate)} 수업</span>
+            )}
+          </h2>
           {/* 예전엔 한도 초과를 "버튼 눌러 실패해야" 알 수 있었다 */}
           {usage && (
             <span className="text-[13px] text-sub">
@@ -633,9 +676,11 @@ function Dashboard({ session }: { session: Session }) {
 
         {docs && shownDocs.length === 0 && !docQuery && (
           <p className="text-sub text-[13px] mt-1">
-            {inRoom
-              ? "이 ROOM엔 아직 자료가 없어요. 위에서 올리면 여기에 담겨요."
-              : "아직 등록된 자료가 없어요. 문제·풀이를 붙여넣거나 PDF를 올려보세요."}
+            {roomCourse && lessonDate
+              ? `${fmtLesson(lessonDate)} 수업 자료가 아직 없어요. 지금 올리면 이 날짜에 담겨요.`
+              : inRoom
+                ? "이 ROOM엔 아직 자료가 없어요. 위에서 올리면 여기에 담겨요."
+                : "아직 등록된 자료가 없어요. 문제·풀이를 붙여넣거나 PDF를 올려보세요."}
           </p>
         )}
 
@@ -691,6 +736,11 @@ function Dashboard({ session }: { session: Session }) {
                     </span>
                     {/* ROOM 안에선 어느 강좌인지 자명 — 전체 목록에서만 표시 */}
                     {!inRoom && <span className="chip !py-0.5 !px-2 !text-[11px]">{d.course ?? "공용"}</span>}
+                    {d.lesson_date && (
+                      <span className="chip !py-0.5 !px-2 !text-[11px]" style={{ color: "var(--blue)" }}>
+                        {fmtLesson(d.lesson_date)} 수업
+                      </span>
+                    )}
                     {d.source === "pdf" && <span className="chip !py-0.5 !px-2 !text-[11px]">PDF</span>}
                     <span className="text-sub text-[11px]">청크 {d.chunks}개</span>
                   </div>

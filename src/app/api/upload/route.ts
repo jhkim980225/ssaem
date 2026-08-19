@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { extractText, getDocumentProxy } from "unpdf";
 import { requireRole } from "@/lib/auth";
-import { saveDocument, ownCourseOrNull } from "@/lib/documents";
+import { saveDocument, ownCourseOrNull, lessonDateOrNull } from "@/lib/documents";
 import { ocrPdf } from "@/lib/ocr";
 import { serviceClient } from "@/lib/supabase";
 import { docLimitError, planForTeacher } from "@/lib/plan";
@@ -75,6 +75,7 @@ export async function POST(req: Request) {
   }
 
   const courseId = await ownCourseOrNull(uid, form?.get("courseId"));
+  const lessonDate = lessonDateOrNull(form?.get("lessonDate"));
 
   try {
     const r = await saveDocument({
@@ -84,6 +85,7 @@ export async function POST(req: Request) {
       title: file.name,
       source: "pdf",
       courseId,
+      lessonDate,
     });
     return NextResponse.json({ ok: true, chars: content.length, ...r });
   } catch (e) {

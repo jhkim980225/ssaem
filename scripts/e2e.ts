@@ -174,6 +174,58 @@ async function main() {
     );
   }
 
+  section("수업 달력 — lesson_date 저장·조회");
+  // 테스트 강사는 무료 한도(10건)를 이미 넘겨서 등록이 403 — 잠시 pro로 올렸다가 끝나면 원복
+  const tUid = JSON.parse(Buffer.from(teacherTok.split(".")[1], "base64").toString()).sub as string;
+  const { data: tProf } = await db.from("profiles").select("academy_id").eq("id", tUid).maybeSingle();
+  const acadId = tProf?.academy_id ?? null;
+  let prevPlan: string | null = null;
+  if (acadId) {
+    const { data: a } = await db.from("academies").select("plan").eq("id", acadId).maybeSingle();
+    prevPlan = a?.plan ?? "free";
+    await db.from("academies").update({ plan: "pro" }).eq("id", acadId);
+  }
+  try {
+  const ld = await json("/api/documents", {
+    method: "POST",
+    headers: jsonHdr,
+    body: JSON.stringify({ kind: "problem", content: "[E2E] 수업 달력 자료", lessonDate: "2026-08-19" }),
+  });
+  ok("lessonDate 자료 등록", Boolean(ld.body?.documentId));
+  if (ld.body?.documentId) {
+    const docList = await json("/api/documents", { headers: bearer(teacherTok) });
+    ok(
+      "lesson_date 조회 반영",
+      ((docList.body?.documents ?? []) as { id: string; lesson_date: string | null }[]).some(
+        (d) => d.id === ld.body.documentId && d.lesson_date === "2026-08-19"
+      )
+    );
+    ok(
+      "잘못된 lessonDate는 무시(null)",
+      (await (async () => {
+        const bad = await json("/api/documents", {
+          method: "POST",
+          headers: jsonHdr,
+          body: JSON.stringify({ kind: "problem", content: "[E2E] 잘못된 날짜", lessonDate: "19/08/2026" }),
+        });
+        if (!bad.body?.documentId) return false;
+        const l2 = await json("/api/documents", { headers: bearer(teacherTok) });
+        const row = ((l2.body?.documents ?? []) as { id: string; lesson_date: string | null }[]).find(
+          (d) => d.id === bad.body.documentId
+        );
+        await status(`/api/documents?id=${bad.body.documentId}`, { method: "DELETE", headers: bearer(teacherTok) });
+        return row?.lesson_date === null;
+      })())
+    );
+    ok(
+      "달력 자료 삭제 200",
+      (await status(`/api/documents?id=${ld.body.documentId}`, { method: "DELETE", headers: bearer(teacherTok) })) === 200
+    );
+  }
+  } finally {
+    if (acadId) await db.from("academies").update({ plan: prevPlan }).eq("id", acadId);
+  }
+
   // ── 3. 학생 공용 엔드포인트 (전부 로그인 필수)
   section("학생 공용 엔드포인트");
   for (const p of ["/api/teachers", "/api/popular", "/api/quiz?teacher=x"]) {

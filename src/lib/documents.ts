@@ -15,6 +15,12 @@ export async function ownCourseOrNull(uid: string, raw: unknown): Promise<string
   return data?.id ?? null;
 }
 
+/** "YYYY-MM-DD"만 통과, 아니면 null — 달력 밖 임의 문자열이 DB로 가지 않게 */
+export function lessonDateOrNull(v: unknown): string | null {
+  const s = (v ?? "").toString();
+  return /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : null;
+}
+
 // 원본 문서 저장 + 청킹 + 청크별 임베딩. 텍스트/PDF 공용.
 export async function saveDocument(opts: {
   teacherId: string;
@@ -23,6 +29,7 @@ export async function saveDocument(opts: {
   title?: string | null;
   source: "text" | "pdf";
   courseId?: string | null;
+  lessonDate?: string | null; // YYYY-MM-DD (ROOM 달력)
 }): Promise<{ documentId: string; chunks: number }> {
   const db = serviceClient();
 
@@ -31,6 +38,7 @@ export async function saveDocument(opts: {
     .insert({
       teacher_id: opts.teacherId,
       course_id: opts.courseId ?? null,
+      lesson_date: opts.lessonDate ?? null,
       kind: opts.kind,
       title: opts.title ?? opts.rawText.slice(0, 40),
       source: opts.source,

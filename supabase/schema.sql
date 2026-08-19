@@ -68,6 +68,7 @@ create table if not exists documents (
   title text,
   source text not null default 'text' check (source in ('text', 'pdf')),
   raw_text text not null,     -- 재청킹용 원본 보존
+  lesson_date date,           -- 강좌 ROOM 달력용 수업 날짜 (NULL = 미지정)
   created_at timestamptz default now()
 );
 create index if not exists documents_teacher_idx on documents(teacher_id, created_at desc);
