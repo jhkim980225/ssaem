@@ -6,6 +6,7 @@ import BackButton from "@/components/BackButton";
 import JournalEntry from "@/components/JournalEntry";
 import CbtRunner, { type CbtQuestion } from "@/components/CbtRunner";
 import { StemView, ExplanationView } from "@/components/BankQuestion";
+import BankStats, { type BankStatsData } from "@/components/BankStats";
 
 // answerIdx·explanation은 공부 모드에서만 함께 온다
 type Theory = { id: string; type: "theory"; stem: string; choices: string[]; area: string; typeTag: string; images?: string[] | null; answerIdx?: number; explanation?: string | null };
@@ -62,6 +63,7 @@ export default function BankPage() {
   type Rec = { name?: string; subject: string; source: string | null; total: number; score: number; at: string };
   const [recName, setRecName] = useState("");
   const [recs, setRecs] = useState<Rec[] | null>(null);
+  const [recStats, setRecStats] = useState<BankStatsData | null>(null);
   const [recBusy, setRecBusy] = useState(false);
 
   async function searchRecords() {
@@ -69,11 +71,15 @@ export default function BankPage() {
     if (!nm || recBusy || !token) return;
     setRecBusy(true);
     try {
-      const r = await fetch(`/api/bank/records?name=${encodeURIComponent(nm)}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const h = { headers: { Authorization: `Bearer ${token}` } };
+      const [r, sr] = await Promise.all([
+        fetch(`/api/bank/records?name=${encodeURIComponent(nm)}`, h),
+        fetch(`/api/bank/stats?name=${encodeURIComponent(nm)}`, h),
+      ]);
       const d = await r.json().catch(() => null);
       setRecs(r.ok ? (d.records ?? []) : []);
+      const sd = await sr.json().catch(() => null);
+      setRecStats(sr.ok ? (sd.stats ?? null) : null);
     } finally {
       setRecBusy(false);
     }
@@ -481,6 +487,12 @@ export default function BankPage() {
               {recBusy ? "검색 중…" : "검색"}
             </button>
           </div>
+          {recStats && recStats.totals.attempts > 0 && (
+            <div className="mt-3 rounded-[14px] border border-line p-4">
+              <p className="text-[13px] font-bold mb-3">{recStats.name} 학생 풀이 통계</p>
+              <BankStats stats={recStats} />
+            </div>
+          )}
           {recs !== null && (
             <div className="flex flex-col gap-1.5 mt-3">
               {recs.length === 0 && <p className="text-sub text-[13px]">기록이 없어요. (같은 학원만 검색돼요)</p>}

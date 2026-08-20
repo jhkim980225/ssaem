@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useGate } from "@/components/RoleGuard";
 import BackButton from "@/components/BackButton";
+import BankStats, { type BankStatsData } from "@/components/BankStats";
 
 type Rec = { subject: string; source: string | null; total: number; score: number; at: string };
 
@@ -10,13 +11,19 @@ type Rec = { subject: string; source: string | null; total: number; score: numbe
 export default function MyRecordsPage() {
   const { session, gate } = useGate("any", { loginMessage: "시험 기록은 계정에 저장돼요." });
   const [recs, setRecs] = useState<Rec[] | null>(null);
+  const [stats, setStats] = useState<BankStatsData | null>(null);
 
   useEffect(() => {
     if (!session) return;
-    fetch("/api/bank/records", { headers: { Authorization: `Bearer ${session.access_token}` } })
+    const h = { headers: { Authorization: `Bearer ${session.access_token}` } };
+    fetch("/api/bank/records", h)
       .then((r) => r.json())
       .then((d) => setRecs(d.records ?? []))
       .catch(() => setRecs([]));
+    fetch("/api/bank/stats", h)
+      .then((r) => r.json())
+      .then((d) => setStats(d.stats ?? null))
+      .catch(() => {});
   }, [session]);
 
   if (gate) return gate;
@@ -52,6 +59,13 @@ export default function MyRecordsPage() {
             </div>
           ))}
         </div>
+      )}
+
+      {stats && stats.totals.attempts > 0 && (
+        <section className="rise d2 card p-5 flex flex-col gap-3">
+          <h2 className="font-bold text-[16px]">풀이 통계</h2>
+          <BankStats stats={stats} />
+        </section>
       )}
 
       {recs && recs.length === 0 && (

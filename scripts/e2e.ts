@@ -537,6 +537,19 @@ async function main() {
           )
         );
         ok("비인증 → 기록 401", (await status("/api/bank/records")) === 401);
+        // 풀이 통계 — 정답률/과목별/유형별
+        const st = await json("/api/bank/stats", { headers: bearer(studentTok) });
+        ok(
+          "풀이 통계 조회 (정답률·유형별)",
+          st.status === 200 &&
+            typeof st.body?.stats?.totals?.rate === "number" &&
+            Array.isArray(st.body?.stats?.byTag)
+        );
+        const stByName = await json(`/api/bank/stats?name=${encodeURIComponent("테스트")}`, {
+          headers: bearer(teacherTok),
+        });
+        ok("이름으로 통계 조회 (강사)", stByName.status === 200 && stByName.body?.stats !== undefined);
+        ok("비인증 → 통계 401", (await status("/api/bank/stats")) === 401);
         // 한 문제씩 모드 완주 기록 (클라이언트 POST 경로)
         ok(
           "세션 기록 POST 200",
