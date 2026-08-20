@@ -242,7 +242,7 @@ export default function AskPage() {
       <div className="grid gap-4 lg:gap-5 lg:grid-cols-[240px_minmax(0,1fr)] xl:grid-cols-[240px_minmax(0,1fr)_300px] 2xl:grid-cols-[280px_minmax(0,1fr)_340px] items-start">
         {/* ── 좌측 레일: 검색 · 선생님 · 내 이력 ───────────────── */}
         {/* min-w-0: 그리드 자식 기본 min-width:auto 때문에 내부 가로 스크롤이 페이지를 밀어냄 */}
-        <aside className="rise flex flex-col gap-3 min-w-0 lg:sticky lg:top-[76px]">
+        <aside className="rise flex flex-col gap-3 min-w-0 lg:sticky lg:top-6">
           <button
             onClick={() => {
               // 대화 중이면 새 대화, 아니면 첫 선생님으로 바로 시작
@@ -602,7 +602,7 @@ export default function AskPage() {
         </section>
 
         {/* ── 우측 레일: 현황 · 비중 · 팁 ───────────────── */}
-        <aside className="flex flex-col gap-4 min-w-0 lg:col-span-2 xl:col-span-1 xl:sticky xl:top-[76px]">
+        <aside className="flex flex-col gap-4 min-w-0 lg:col-span-2 xl:col-span-1 xl:sticky xl:top-6">
           <div className="rise d1 card p-5">
             <div className="flex items-baseline justify-between mb-4">
               <h2 className="font-extrabold text-[15px]">

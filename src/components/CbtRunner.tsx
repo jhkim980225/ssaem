@@ -183,7 +183,7 @@ export default function CbtRunner({
         </div>
 
         {/* 번호판 + 채점/결과 — PC에선 스크롤해도 따라오게 sticky */}
-        <div className="order-1 lg:order-2 flex flex-col gap-4 min-w-0 lg:sticky lg:top-[76px]">
+        <div className="order-1 lg:order-2 flex flex-col gap-4 min-w-0 lg:sticky lg:top-6">
           <div className="card p-3">
             <div className="grid grid-cols-8 sm:grid-cols-10 lg:grid-cols-6 gap-1.5">
               {questions.map((item, i) => {

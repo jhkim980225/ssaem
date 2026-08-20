@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
-import SiteHeader from "@/components/SiteHeader";
+import AppSidebar from "@/components/AppSidebar";
 import SiteFooter from "@/components/SiteFooter";
 import StudentProtection from "@/components/StudentProtection";
 
@@ -47,9 +47,12 @@ export default function RootLayout({
       </head>
       {/* suppressHydrationWarning: 브라우저 확장(광고차단 등)이 body에 속성 주입 시 hydration 경고 방지 */}
       <body className="min-h-full flex flex-col" suppressHydrationWarning>
-        <SiteHeader />
-        {children}
-        <SiteFooter />
+        <AppSidebar />
+        {/* 아이콘 레일(68px)만큼 본문을 비켜 놓는다 — 확장은 레일이 위에 얹혀 본문이 안 밀린다 */}
+        <div className="flex-1 flex flex-col md:pl-[68px]">
+          {children}
+          <SiteFooter />
+        </div>
         <StudentProtection />
       </body>
     </html>
