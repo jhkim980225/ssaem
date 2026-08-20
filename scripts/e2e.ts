@@ -1157,6 +1157,55 @@ async function main() {
     })) === 400
   );
 
+  // ── 8.9 에러 내성 하네스 — 오입력·깨진 요청에 500이 아니라 4xx로 응답해야 한다.
+  // 새 API를 만들면 여기에 오입력 케이스를 추가할 것 (500 = 방어 누락 신호).
+  section("에러 내성 — 오입력 전수 (5xx 금지)");
+  {
+    const js = { ...bearer(studentTok), "Content-Type": "application/json" };
+    const jt2 = { ...bearer(teacherTok), "Content-Type": "application/json" };
+    const bad = async (name: string, path: string, init?: RequestInit) => {
+      const st = await status(path, init);
+      ok(`${name} → ${st}`, st < 500, `status=${st}`);
+    };
+    // 페이지: 없는 주소는 404 화면
+    {
+      const r = await fetch(`${BASE}/no-such-page-xyz`);
+      const html = await r.text();
+      ok("없는 페이지 404 + 안내 화면", r.status === 404 && html.includes("페이지를 찾을 수 없어요"), `status=${r.status}`);
+    }
+    // API: 깨진 JSON / 빈 body / 잘못된 id
+    await bad("ask 빈 body", "/api/ask", { method: "POST", headers: js, body: "{}" });
+    await bad("ask 깨진 JSON", "/api/ask", { method: "POST", headers: js, body: "{broken" });
+    await bad("signup 빈 body", "/api/signup", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
+    await bad("signup 깨진 JSON", "/api/signup", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{{{" });
+    await bad("join 쓰레기 코드", `/api/join?code=${encodeURIComponent("x.y.z")}`);
+    await bad("join POST 쓰레기 코드", "/api/join", { method: "POST", headers: js, body: JSON.stringify({ code: "garbage" }) });
+    await bad("courses PATCH 잘못된 id", "/api/courses", { method: "PATCH", headers: jt2, body: JSON.stringify({ id: "nope", title: "x" }) });
+    await bad("documents DELETE 잘못된 id", "/api/documents?id=zzz", { method: "DELETE", headers: bearer(teacherTok) });
+    await bad("documents POST 깨진 JSON", "/api/documents", { method: "POST", headers: jt2, body: "{" });
+    await bad("bank 없는 과목", `/api/bank?subject=${encodeURIComponent("없는과목")}`, { headers: bearer(studentTok) });
+    await bad("bank/attempt 깨진 JSON", "/api/bank/attempt", { method: "POST", headers: js, body: "{{{" });
+    await bad("bank/attempt 잘못된 uuid", "/api/bank/attempt", { method: "POST", headers: js, body: JSON.stringify({ questionId: "abc", chosen: 1 }) });
+    await bad("bank/search 파라미터 없음", "/api/bank/search", { headers: bearer(studentTok) });
+    await bad("bank/records 엉터리 POST", "/api/bank/records", { method: "POST", headers: js, body: JSON.stringify({ subject: "", total: -1, score: 99 }) });
+    await bad("bank/stats 특수문자 이름", `/api/bank/stats?name=${encodeURIComponent("%_\\")}`, { headers: bearer(teacherTok) });
+    await bad("records 특수문자 이름", `/api/bank/records?name=${encodeURIComponent("%_\\")}`, { headers: bearer(teacherTok) });
+    await bad("quiz 잘못된 teacher", "/api/quiz?teacher=nope", { headers: bearer(studentTok) });
+    await bad("lessons 잘못된 teacher", "/api/lessons?teacher=nope", { headers: bearer(studentTok) });
+    await bad("courses 잘못된 teacher", "/api/courses?teacher=nope", { headers: bearer(studentTok) });
+    await bad("invite 잘못된 course", "/api/invite?course=nope", { headers: bearer(teacherTok) });
+    await bad("students/detail 잘못된 student", "/api/students/detail?student=zzz", { headers: bearer(teacherTok) });
+    await bad("upload 폼 없음", "/api/upload", { method: "POST", headers: bearer(teacherTok) });
+    await bad("assessments POST 폼 없음", "/api/assessments", { method: "POST", headers: bearer(teacherTok) });
+    await bad("password null body", "/api/password", { method: "POST", headers: js, body: "null" });
+    await bad("profile POST 깨진 JSON", "/api/profile", { method: "POST", headers: jt2, body: "{" });
+    await bad("feedback 빈 body", "/api/feedback", { method: "POST", headers: js, body: "{}" });
+    await bad("quiz/attempt 빈 body", "/api/quiz/attempt", { method: "POST", headers: js, body: "{}" });
+    await bad("conversations 잘못된 id", "/api/conversations?id=zzz", { headers: bearer(studentTok) });
+    await bad("related 빈 q", "/api/related?teacher=x&q=", { headers: bearer(studentTok) });
+    await bad("reviews 엉터리 POST", "/api/reviews", { method: "POST", headers: js, body: "{}" });
+  }
+
   // ── 9. PWA
   section("PWA");
   const man = await json("/manifest.webmanifest");
