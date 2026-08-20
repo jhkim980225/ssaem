@@ -1,8 +1,27 @@
+"use client";
 import Link from "next/link";
 import { SHOW_PRICING } from "@/lib/flags";
+import { useAuth } from "@/lib/auth-store";
 import { version } from "../../package.json";
 
+// 헤더와 같은 원칙: 내 역할의 링크만 보여준다 — 학생에게 학원장/강사 메뉴를 깔아봐야
+// 눌러도 거부 화면만 나온다. 비로그인(랜딩)은 안내판이므로 전부 보여준다.
 export default function SiteFooter() {
+  const { status, role } = useAuth();
+  const signedIn = status === "signed-in";
+  // role이 아직 확정 안 된 계정(강사 가입 직후 등)은 전부 노출
+  const showStudent = !signedIn || role === "student" || role === null || role === undefined;
+  const showTeacher = !signedIn || role === "teacher" || role === null || role === undefined;
+  const showAdmin = !signedIn || role === "admin" || role === null || role === undefined;
+
+  const item = (href: string, label: string) => (
+    <li key={href}>
+      <Link href={href} className="hover:text-blue transition-colors">
+        {label}
+      </Link>
+    </li>
+  );
+
   return (
     <footer className="border-t border-line mt-16">
       <div className="mx-auto w-full max-w-[1600px] px-5 lg:px-8 py-10 flex flex-col gap-8">
@@ -14,34 +33,45 @@ export default function SiteFooter() {
             </p>
           </div>
 
-          <div className="flex gap-14">
+          <div className="flex flex-wrap gap-x-14 gap-y-8">
+            {showStudent && (
+              <div>
+                <p className="text-[12px] font-bold text-sub mb-3">학생</p>
+                <ul className="flex flex-col gap-2 text-[13px]">
+                  {item("/ask", "질문하기")}
+                  {item("/quiz", "문제풀이")}
+                  {item("/quiz/notes", "오답노트")}
+                  {item("/my", "마이페이지")}
+                  {item("/my/history", "내 대화내역")}
+                  {item("/my/reviews", "선생님 평가")}
+                </ul>
+              </div>
+            )}
+            {showAdmin && (
+              <div>
+                <p className="text-[12px] font-bold text-sub mb-3">학원</p>
+                <ul className="flex flex-col gap-2 text-[13px]">
+                  {item("/admin", "학원장")}
+                  {SHOW_PRICING && item("/pricing", "요금제")}
+                </ul>
+              </div>
+            )}
+            {showTeacher && (
+              <div>
+                <p className="text-[12px] font-bold text-sub mb-3">강사</p>
+                <ul className="flex flex-col gap-2 text-[13px]">
+                  {item("/teacher", "대시보드")}
+                  {item("/teacher/insights", "인사이트")}
+                  {item("/teacher/history", "질문 이력")}
+                </ul>
+              </div>
+            )}
             <div>
-              <p className="text-[12px] font-bold text-sub mb-3">학생</p>
+              <p className="text-[12px] font-bold text-sub mb-3">공용</p>
               <ul className="flex flex-col gap-2 text-[13px]">
-                <li><Link href="/ask" className="hover:text-blue transition-colors">질문하기</Link></li>
-                <li><Link href="/quiz" className="hover:text-blue transition-colors">문제풀이</Link></li>
-                <li><Link href="/quiz/notes" className="hover:text-blue transition-colors">오답노트</Link></li>
-                <li><Link href="/my" className="hover:text-blue transition-colors">마이페이지</Link></li>
-                <li><Link href="/my/history" className="hover:text-blue transition-colors">내 대화내역</Link></li>
-                <li><Link href="/my/reviews" className="hover:text-blue transition-colors">선생님 평가</Link></li>
-                <li><Link href="/install" className="hover:text-blue transition-colors">앱 설치</Link></li>
-              </ul>
-            </div>
-            <div>
-              <p className="text-[12px] font-bold text-sub mb-3">학원</p>
-              <ul className="flex flex-col gap-2 text-[13px]">
-                <li><Link href="/admin" className="hover:text-blue transition-colors">학원장</Link></li>
-                {SHOW_PRICING && (
-                  <li><Link href="/pricing" className="hover:text-blue transition-colors">요금제</Link></li>
-                )}
-              </ul>
-            </div>
-            <div>
-              <p className="text-[12px] font-bold text-sub mb-3">강사</p>
-              <ul className="flex flex-col gap-2 text-[13px]">
-                <li><Link href="/teacher" className="hover:text-blue transition-colors">대시보드</Link></li>
-                <li><Link href="/teacher/insights" className="hover:text-blue transition-colors">인사이트</Link></li>
-                <li><Link href="/teacher/history" className="hover:text-blue transition-colors">질문 이력</Link></li>
+                {item("/bank", "기출문제")}
+                {item("/bank/browse", "문제검색")}
+                {item("/install", "앱 설치")}
               </ul>
             </div>
           </div>

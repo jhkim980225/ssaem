@@ -84,7 +84,7 @@ export default function BankBrowsePage() {
   if (gate) return gate;
 
   return (
-    <main className="flex-1 w-full max-w-3xl mx-auto px-5 py-8 flex flex-col gap-4">
+    <main className="flex-1 w-full max-w-3xl lg:max-w-4xl mx-auto px-5 py-8 flex flex-col gap-4">
       <div className="rise flex items-start justify-between gap-3">
         <div className="flex flex-col gap-1">
           <BackButton fallback="/bank" />
@@ -108,7 +108,7 @@ export default function BankBrowsePage() {
                   onClick={() => setSubject(subject === s ? "" : s)}
                   className={`chip !text-[13px] ${subject === s ? "chip-on" : ""}`}
                 >
-                  {s} <b className="opacity-60">{n}</b>
+                  {s} <b className="font-semibold" style={{ color: "var(--sub)" }}>{n}</b>
                 </button>
               ))}
             </div>

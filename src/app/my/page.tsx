@@ -10,7 +10,7 @@ type QuizTotals = { attempted: number; wrong: number; correct: number };
 // 학생 마이페이지 — 내 정보 + 흩어져 있던 기록(대화·오답노트·시험·수강평)을 한 화면에서 진입.
 // 숫자는 기존 API를 그대로 세는 것이라 각 상세 화면과 항상 일치한다.
 export default function MyPage() {
-  const { session, gate, allowed } = useGate("student", { loginMessage: "마이페이지는 내 계정 정보를 보여줘요." });
+  const { session, gate, allowed } = useGate("student", { loginMessage: "내 정보와 학습 기록은 계정에 저장돼요." });
 
   const [profile, setProfile] = useState<{ name: string; academy: string | null } | null>(null);
   const [teachers, setTeachers] = useState<Teacher[] | null>(null);

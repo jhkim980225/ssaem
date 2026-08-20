@@ -2,7 +2,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useGate } from "@/components/RoleGuard";
-import BackButton from "@/components/BackButton";
 import JournalEntry from "@/components/JournalEntry";
 import CbtRunner, { type CbtQuestion } from "@/components/CbtRunner";
 import { StemView, ExplanationView } from "@/components/BankQuestion";
@@ -306,7 +305,6 @@ export default function BankPage() {
     <main className={`flex-1 w-full ${width} mx-auto px-5 lg:px-6 py-8 flex flex-col gap-4`}>
       <div className="rise flex items-start justify-between gap-3">
         <div className="flex flex-col gap-1">
-          <BackButton fallback="/" />
           <h1 className="text-[24px] lg:text-[28px] font-extrabold">기출문제</h1>
           <p className="text-sub text-[14px]">전산회계·세무 기출 {tree ? countFor({}).toLocaleString() : "…"}문항</p>
         </div>
@@ -375,7 +373,7 @@ export default function BankPage() {
                       setSource(""); // 다른 과목의 회차가 선택된 채 남지 않게
                     }}
                   >
-                    {s} <b className="opacity-60">{countFor({ subject: s })}</b>
+                    {s} <b className="font-semibold" style={{ color: "var(--sub)" }}>{countFor({ subject: s })}</b>
                   </Chip>
                 ))}
               </Filter>
@@ -431,7 +429,7 @@ export default function BankPage() {
                   const n = countFor({ subject, category: c });
                   return (
                     <Chip key={c} on={category === c} disabled={n === 0} onClick={() => setCategory(category === c ? "" : c)}>
-                      {c} <b className="opacity-60">{n}</b>
+                      {c} <b className="font-semibold" style={{ color: "var(--sub)" }}>{n}</b>
                     </Chip>
                   );
                 })}
@@ -441,15 +439,16 @@ export default function BankPage() {
                 <Filter label="영역 (선택)">
                   {areas.map((a) => (
                     <Chip key={a} on={area === a} onClick={() => setArea(area === a ? "" : a)}>
-                      {a} <b className="opacity-60">{countFor({ subject, category, area: a })}</b>
+                      {a} <b className="font-semibold" style={{ color: "var(--sub)" }}>{countFor({ subject, category, area: a })}</b>
                     </Chip>
                   ))}
                 </Filter>
               )}
+              {/* 비활성일 땐 회색 버튼 — 연파랑+흰 글자는 대비가 2:1이라 안내문이 안 읽힌다 */}
               <button
                 onClick={start}
                 disabled={!subject || busy}
-                className="btn btn-primary py-3.5 disabled:opacity-50"
+                className={`btn py-3.5 ${!subject && !busy ? "btn-gray" : "btn-primary disabled:opacity-50"}`}
               >
                 {busy
                   ? "불러오는 중…"

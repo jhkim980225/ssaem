@@ -17,8 +17,8 @@ export default async function InstallPage() {
 
 
   return (
-    <main className="flex-1 w-full max-w-3xl mx-auto px-5 py-12">
-      <h1 className="rise text-[26px] lg:text-[32px] font-extrabold tracking-tight">앱으로 설치하기</h1>
+    <main className="flex-1 w-full max-w-3xl mx-auto px-5 py-8">
+      <h1 className="rise text-[24px] lg:text-[28px] font-extrabold tracking-tight">앱으로 설치하기</h1>
       <p className="rise d1 text-sub text-[15px] mt-2 leading-relaxed">
         스토어에서 받지 않아도 돼요. QR을 찍고 홈 화면에 추가하면 앱처럼 열려요.
       </p>

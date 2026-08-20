@@ -54,8 +54,8 @@ export default function MyRecordsPage() {
             ] as const
           ).map(([label, v]) => (
             <div key={label} className="card p-4 text-center">
-              <p className="text-sub text-[12px]">{label}</p>
-              <p className="text-[22px] font-extrabold tabular-nums">{v}</p>
+              <p className="text-[24px] font-extrabold tabular-nums">{v}</p>
+              <p className="text-[12px] text-sub mt-0.5">{label}</p>
             </div>
           ))}
         </div>

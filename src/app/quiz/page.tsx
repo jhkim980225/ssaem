@@ -3,7 +3,6 @@ import { Suspense, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useGate } from "@/components/RoleGuard";
-import BackButton from "@/components/BackButton";
 import AssessmentRunner from "@/components/AssessmentRunner";
 
 type Teacher = { id: string; name: string; subject: string | null };
@@ -151,7 +150,6 @@ function QuizInner() {
     <main className={`flex-1 w-full ${width} mx-auto px-5 py-8 flex flex-col gap-4`}>
       <div className="rise flex items-start justify-between gap-3">
         <div className="flex flex-col gap-1">
-          <BackButton fallback="/ask" />
           <h1 className="text-[24px] lg:text-[28px] font-extrabold">
             {mode === "wrong" ? "오답 다시 풀기" : "문제 풀기"}
           </h1>
