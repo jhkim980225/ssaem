@@ -53,7 +53,7 @@ export default function MyPage() {
 
   const menu = [
     { href: "/my/history", label: "대화내역", desc: "선생님과 나눈 질문·답변", n: convs },
-    { href: "/quiz/notes", label: "오답노트", desc: "틀린 문제 모음 — 다시 맞히면 사라져요", n: quiz ? quiz.wrong : null },
+    { href: "/quiz/notes", label: "오답노트", desc: "틀린 문제 기록 — 극복해도 남아요", n: quiz ? quiz.wrong : null },
     { href: "/my/records", label: "시험 기록", desc: "CBT 모의고사 응시 기록", n: exams },
     { href: "/my/reviews", label: "선생님 평가", desc: "수강평 남기기·수정", n: null },
   ];

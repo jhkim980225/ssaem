@@ -77,6 +77,7 @@ function buildCases(teacherId: string): Case[] {
     { path: "/api/popular", expect: M(DENY, ALLOW, ALLOW, ALLOW) },
     { path: "/api/related?teacher=x&q=abcd", expect: M(DENY, ALLOW, ALLOW, ALLOW) },
     { path: "/api/quiz?teacher=" + teacherId, expect: M(DENY, ALLOW, ALLOW, ALLOW) },
+    { path: "/api/quiz?mode=wrong", expect: M(DENY, ALLOW, ALLOW, ALLOW) }, // 전체 오답 모드 (teacher 생략)
     { path: "/api/quiz/attempt", expect: M(DENY, ALLOW, ALLOW, ALLOW) },
     { path: "/api/quiz/attempt", method: "POST", body: {}, expect: M(DENY, ALLOW, ALLOW, ALLOW) },
     { path: "/api/feedback", method: "POST", body: {}, expect: M(DENY, ALLOW, ALLOW, ALLOW) },

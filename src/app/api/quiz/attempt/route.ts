@@ -60,11 +60,26 @@ export async function GET(req: Request) {
     .limit(1000);
 
   type A = { question_id: string; correct: boolean; chosen: number; created_at: string };
-  const last = new Map<string, A>();
-  for (const a of (data ?? []) as A[]) last.set(a.question_id, a);
-  const wrong = [...last.values()].filter((a) => !a.correct);
+  // 한 번이라도 틀린 문제는 전부 기록으로 남긴다 — 다시 맞히면 cleared(극복)로 표시만 바뀐다.
+  const last = new Map<string, A>(); // 문항별 마지막 시도
+  const lastWrong = new Map<string, A>(); // 문항별 마지막 오답 시도 (내 답 표시용)
+  const wrongCount = new Map<string, number>();
+  for (const a of (data ?? []) as A[]) {
+    last.set(a.question_id, a);
+    if (!a.correct) {
+      lastWrong.set(a.question_id, a);
+      wrongCount.set(a.question_id, (wrongCount.get(a.question_id) ?? 0) + 1);
+    }
+  }
+  const wrong = [...lastWrong.values()]; // 한 번이라도 틀린 문제 전부
+  const remaining = wrong.filter((w) => !last.get(w.question_id)!.correct).length;
 
-  const totals = { attempted: last.size, wrong: wrong.length, correct: last.size - wrong.length };
+  const totals = {
+    attempted: last.size,
+    wrong: remaining, // 아직 못 맞힌 오답 — /quiz?mode=wrong 대상과 일치
+    correct: last.size - remaining,
+    overcome: wrong.length - remaining, // 틀렸다가 다시 맞힌 문제
+  };
   if (!wrong.length) return NextResponse.json({ totals, notes: [] });
 
   const { data: qs } = await db
@@ -93,6 +108,8 @@ export async function GET(req: Request) {
         teacherId: q.teacher_id,
         teacher: nameOf.get(q.teacher_id) ?? "선생님",
         at: w.created_at,
+        cleared: last.get(w.question_id)!.correct, // 극복(다시 맞힘) 여부
+        wrongCount: wrongCount.get(w.question_id) ?? 1,
       };
     })
     .filter(Boolean)

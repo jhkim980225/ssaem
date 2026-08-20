@@ -8,6 +8,7 @@ const LIMIT = 10; // 한 세션 문항 수
 // 학생 문제 출제.
 // GET ?teacher=<uuid>&course=<uuid>&mode=all|wrong
 //   mode=wrong → 오답노트(내가 마지막에 틀린 문제만). 정답은 내려보내지 않는다.
+//   teacher 생략 + mode=wrong → 전체 오답 모드 (모든 선생님의 내 오답을 한 번에).
 export async function GET(req: Request) {
   const g = await requireUser(req);
   if ("res" in g) return g.res;
@@ -17,32 +18,46 @@ export async function GET(req: Request) {
   const mode = url.searchParams.get("mode") === "wrong" ? "wrong" : "all";
   // 공부 모드: 문제 옆에 정답·해설을 처음부터 함께 준다 (채점 아닌 복습용).
   const study = url.searchParams.get("study") === "1";
-  if (!/^[0-9a-f-]{36}$/i.test(teacherId))
+  const hasTeacher = /^[0-9a-f-]{36}$/i.test(teacherId);
+  // teacher 없이 mode=wrong → 전체 오답 모드 (선생님 무관, 내 오답 전부).
+  // 대상이 내가 채점받은 문제뿐이라 학원 경계는 채점 시점에 이미 걸러졌다.
+  if (!hasTeacher && mode !== "wrong")
     return NextResponse.json({ error: "teacher required" }, { status: 400 });
 
   const db = serviceClient();
   const uid = g.uid;
   // 남의 학원 문제 목록을 uuid만 알면 볼 수 있던 것 차단
-  if (!(await sameAcademy(db, uid, teacherId)))
+  if (hasTeacher && !(await sameAcademy(db, uid, teacherId)))
     return NextResponse.json({ error: "not found" }, { status: 404 });
 
-  let q = db
-    .from("quiz_questions")
-    .select("id, question, choices, course_id, answer, explanation")
-    .eq("teacher_id", teacherId)
-    .order("created_at", { ascending: false })
-    .limit(200);
-  if (/^[0-9a-f-]{36}$/i.test(courseId)) q = q.eq("course_id", courseId);
-
-  const { data, error } = await q;
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   type Row = { id: string; question: string; choices: string[]; course_id: string | null; answer: number; explanation: string | null };
-  let questions = (data ?? []) as Row[];
-
-  if (mode === "wrong") {
-    if (!uid) return NextResponse.json({ questions: [], needLogin: true });
+  let questions: Row[];
+  if (hasTeacher) {
+    let q = db
+      .from("quiz_questions")
+      .select("id, question, choices, course_id, answer, explanation")
+      .eq("teacher_id", teacherId)
+      .order("created_at", { ascending: false })
+      .limit(200);
+    if (/^[0-9a-f-]{36}$/i.test(courseId)) q = q.eq("course_id", courseId);
+    const { data, error } = await q;
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    questions = (data ?? []) as Row[];
+    if (mode === "wrong") {
+      const wrong = await wrongQuestionIds(db, uid);
+      questions = questions.filter((x) => wrong.has(x.id));
+    }
+  } else {
     const wrong = await wrongQuestionIds(db, uid);
-    questions = questions.filter((x) => wrong.has(x.id));
+    if (!wrong.size) return NextResponse.json({ questions: [], total: 0, study });
+    const { data, error } = await db
+      .from("quiz_questions")
+      .select("id, question, choices, course_id, answer, explanation")
+      .in("id", [...wrong])
+      .order("created_at", { ascending: false })
+      .limit(200);
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    questions = (data ?? []) as Row[];
   }
 
   // 시험 모드: 정답·해설은 채점(POST /api/quiz/attempt) 때만 준다 — 응답만 보고 답 아는 것 차단.

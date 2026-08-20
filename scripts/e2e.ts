@@ -437,11 +437,41 @@ async function main() {
       ok("로그인 학생 기록 저장", graded.body?.saved === true);
       const notes = await json("/api/quiz/attempt", { headers: bearer(studentTok) });
       ok("오답노트 조회 200", notes.status === 200 && typeof notes.body?.totals?.attempted === "number");
+
+      // 오답 기록 유지 (v0.34.0): 틀림 → 기록 생김 → 다시 맞힘 → 사라지지 않고 cleared(극복)로 표시
+      const ans = Number(graded.body?.answer ?? 0);
+      const post = (chosen: number) =>
+        json("/api/quiz/attempt", {
+          method: "POST",
+          headers: { ...bearer(studentTok), "Content-Type": "application/json" },
+          body: JSON.stringify({ questionId: first.id, chosen }),
+        });
+      await post((ans + 1) % 4); // 일부러 틀린다
+      const n1 = await json("/api/quiz/attempt", { headers: bearer(studentTok) });
+      type N = { id: string; cleared: boolean };
+      const w1 = (n1.body?.notes ?? []).find((x: N) => x.id === first.id);
+      ok("틀린 문제 오답노트에 기록", Boolean(w1) && w1.cleared === false);
+      await post(ans); // 다시 맞힌다
+      const n2 = await json("/api/quiz/attempt", { headers: bearer(studentTok) });
+      const w2 = (n2.body?.notes ?? []).find((x: N) => x.id === first.id);
+      ok("다시 맞혀도 기록 유지 (극복 표시)", Boolean(w2) && w2.cleared === true);
+      ok(
+        "극복 집계(overcome) 반영",
+        typeof n2.body?.totals?.overcome === "number" && n2.body.totals.overcome >= 1,
+        `overcome=${n2.body?.totals?.overcome}`
+      );
+      // 전체 오답 모드: teacher 없이 mode=wrong → 200, 극복한 문제는 재출제 대상에서 빠진다
+      const allWrong = await json("/api/quiz?mode=wrong", { headers: bearer(studentTok) });
+      ok("전체 오답 모드 200", allWrong.status === 200 && Array.isArray(allWrong.body?.questions));
+      ok(
+        "극복한 문제는 전체 오답 재출제에서 제외",
+        !(allWrong.body?.questions ?? []).some((x: { id: string }) => x.id === first.id)
+      );
     } else {
       skip("채점·오답노트", "생성된 문제가 없음 (강사가 '문제 만들기' 미실행)");
     }
     ok(
-      "문제 목록에 teacher 필수",
+      "문제 목록에 teacher 필수 (전체 오답 모드 제외)",
       (await status("/api/quiz", { headers: bearer(studentTok) })) === 400
     );
   }

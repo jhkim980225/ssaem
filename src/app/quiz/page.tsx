@@ -24,6 +24,8 @@ export default function QuizPage() {
 function QuizInner() {
   const params = useSearchParams();
   const mode = params.get("mode") === "wrong" ? "wrong" : "all";
+  // 오답 전체 모드: teacher 없이 mode=wrong — 모든 선생님의 내 오답을 한 번에 다시 푼다
+  const wrongAll = mode === "wrong" && !params.get("teacher");
 
   const [teachers, setTeachers] = useState<Teacher[] | null>(null);
   // 오답노트에서 넘어올 때 선생님이 실려온다 — 없으면 목록 첫 번째
@@ -57,10 +59,11 @@ function QuizInner() {
       .then((d) => {
         const list: Teacher[] = d.teachers ?? [];
         setTeachers(list);
-        setTeacherId((cur) => cur || list[0]?.id || "");
+        // 전체 오답 모드에선 특정 선생님을 자동 선택하지 않는다 (빈 teacherId = 전체)
+        if (!wrongAll) setTeacherId((cur) => cur || list[0]?.id || "");
       })
       .catch(() => setTeachers([]));
-  }, [session]);
+  }, [session, wrongAll]);
 
   useEffect(() => {
     if (!teacherId || !session) return;
@@ -75,9 +78,9 @@ function QuizInner() {
   // 상태 초기화를 await 뒤로 모았다 — 이펙트 본문에서 동기 setState를 하면
   // 렌더가 연쇄로 돌아 react-hooks/set-state-in-effect에 걸린다.
   const load = useCallback(async () => {
-    if (!teacherId || tab !== "practice") return; // 평가 탭에선 연습문제를 부르지 않는다
+    if ((!teacherId && !wrongAll) || tab !== "practice") return; // 평가 탭에선 연습문제를 부르지 않는다
     const r = await fetch(
-      `/api/quiz?teacher=${teacherId}${courseId ? `&course=${courseId}` : ""}&mode=${mode}${study ? "&study=1" : ""}`,
+      `/api/quiz?${teacherId ? `teacher=${teacherId}&` : ""}${courseId ? `course=${courseId}&` : ""}mode=${mode}${study ? "&study=1" : ""}`,
       { headers: session ? { Authorization: `Bearer ${session.access_token}` } : {} }
     );
     const d = await r.json().catch(() => null);
@@ -93,7 +96,7 @@ function QuizInner() {
     }
     setErr("");
     setQs(d.questions ?? []);
-  }, [teacherId, courseId, mode, session, study, tab]);
+  }, [teacherId, courseId, mode, session, study, tab, wrongAll]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- load의 setState는 모두 await 이후라 동기 캐스케이드 아님
@@ -152,7 +155,7 @@ function QuizInner() {
           </h1>
           <p className="text-sub text-[14px]">
             {mode === "wrong"
-              ? "틀렸던 문제만 모았어요. 맞히면 오답노트에서 빠져요."
+              ? `${wrongAll ? "모든 선생님의 오답을 한 번에 모았어요. " : "틀렸던 문제만 모았어요. "}맞히면 극복한 오답으로 기록돼요.`
               : "선생님이 올린 자료로 만든 문제예요."}
           </p>
         </div>
@@ -161,7 +164,8 @@ function QuizInner() {
         </Link>
       </div>
 
-      {/* 연습문제 / 평가 탭 */}
+      {/* 연습문제 / 평가 탭 — 전체 오답 모드는 연습문제 오답만 다루므로 숨긴다 */}
+      {!wrongAll && (
       <div className="rise d1 flex gap-1.5">
         <button
           onClick={() => setTab("practice")}
@@ -179,6 +183,7 @@ function QuizInner() {
           {tab === "exam" ? "선생님이 올린 시험 · 1회만 응시" : "자료로 만든 연습문제"}
         </span>
       </div>
+      )}
 
       {/* 시험/공부 모드 토글 (연습문제 전용) */}
       {tab === "practice" && (
@@ -201,7 +206,8 @@ function QuizInner() {
       </div>
       )}
 
-      {/* 선생님·강좌 선택 */}
+      {/* 선생님·강좌 선택 — 전체 오답 모드에선 선생님 구분 없이 풀므로 숨긴다 */}
+      {!wrongAll && (
       <div className="rise d1 card p-4 flex flex-col gap-3">
         <div className="flex gap-1.5 overflow-x-auto">
           {teachers?.map((t) => (
@@ -237,6 +243,7 @@ function QuizInner() {
           </div>
         )}
       </div>
+      )}
 
       {tab === "exam" && teacherId && (
         <AssessmentRunner token={session?.access_token} teacherId={teacherId} />
