@@ -75,7 +75,8 @@ export default function MyPage() {
         </span>
         <div className="min-w-0 flex flex-col gap-0.5">
           <p className="text-[17px] font-extrabold truncate">{name || loginId}</p>
-          <p className="text-sub text-[13px] truncate">
+          {/* truncate 금지 — 320px 좌열에서 가입일이 잘린다. 줄바꿈으로 전부 보여준다 */}
+          <p className="text-sub text-[13px] break-keep">
             아이디 {loginId}
             {profile?.academy ? ` · ${profile.academy}` : ""}
             {joined ? ` · ${joined} 가입` : ""}

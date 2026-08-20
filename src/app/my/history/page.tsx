@@ -32,7 +32,12 @@ export default function MyHistoryPage() {
   }, [allowed, session]);
 
   async function toggle(id: string) {
-    if (openId === id) return setOpenId(null);
+    if (openId === id) {
+      // PC(마스터-디테일)에선 재클릭으로 선택이 풀리면 우측 패널이 비어 어색하다 — 유지.
+      // 모바일 아코디언은 재클릭 = 접기 그대로.
+      if (window.matchMedia("(min-width: 1024px)").matches) return;
+      return setOpenId(null);
+    }
     setOpenId(id);
     if (msgs[id] || !session) return;
     const r = await fetch(`/api/conversations?id=${id}`, {
