@@ -10,17 +10,19 @@ export async function GET(req: Request) {
   const db = serviceClient();
   const { data, error } = await db
     .from("profiles")
-    .select("name, academy_id, role, must_change_password, teacher_profiles(subject, is_public, tone_note)")
+    .select("name, academy_id, role, must_change_password, academies(name), teacher_profiles(subject, is_public, tone_note)")
     .eq("id", uid)
     .maybeSingle();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   if (!data) return NextResponse.json({ profile: null });
 
   const tp = Array.isArray(data.teacher_profiles) ? data.teacher_profiles[0] : data.teacher_profiles;
+  const ac = Array.isArray(data.academies) ? data.academies[0] : data.academies;
   return NextResponse.json({
     profile: {
       role: data.role, // 클라이언트 라우팅이 실제 역할을 알아야 함
       name: data.name,
+      academy: ac?.name ?? null,
       // 초기 비밀번호(휴대폰 뒷자리) 상태면 앱을 쓰기 전에 변경 화면을 띄운다
       mustChangePassword: data.must_change_password === true,
       subject: tp?.subject ?? "",

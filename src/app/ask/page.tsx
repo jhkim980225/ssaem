@@ -289,7 +289,7 @@ export default function AskPage() {
 
             {shown?.length === 0 && (
               <p className="text-sub text-[14px] py-2 lg:p-3">
-                {query ? "검색 결과가 없어요." : "아직 선생님이 없어요."}
+                {query ? "검색 결과가 없어요." : "아직 연결된 선생님이 없어요. 아래 칸에 선생님께 받은 코드를 입력하면 연결돼요."}
               </p>
             )}
 

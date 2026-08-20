@@ -174,7 +174,7 @@ async function main() {
   section("페이지 라우트 (전 역할 200 — 가드는 클라이언트)");
   for (const p of [
     "/", "/login", "/reset", "/install", "/pricing", "/legal/terms", "/legal/privacy",
-    "/ask", "/quiz", "/quiz/notes", "/my/history", "/bank", "/bank/notes",
+    "/ask", "/quiz", "/quiz/notes", "/my", "/my/history", "/my/records", "/bank", "/bank/notes",
     "/teacher", "/teacher/insights", "/teacher/history", "/teacher/students", "/admin",
   ]) {
     const r = await fetch(`${BASE}${p}`).catch(() => null);

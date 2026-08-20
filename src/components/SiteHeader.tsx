@@ -19,7 +19,7 @@ function navFor(role: Role | undefined, signedIn: boolean) {
   if (role === "teacher" || role === null)
     return [...pricing, { href: "/teacher", label: "강사 공간" }, { href: "/ask", label: "질문하기" }, bank, browse];
   if (role === "student")
-    return [...pricing, { href: "/ask", label: "질문하기" }, { href: "/quiz", label: "문제풀이" }, bank, browse];
+    return [...pricing, { href: "/ask", label: "질문하기" }, { href: "/quiz", label: "문제풀이" }, bank, browse, { href: "/my", label: "마이" }];
   return pricing; // 역할 조회 중 — 확정되면 채운다
 }
 

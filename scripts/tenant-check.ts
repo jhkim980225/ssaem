@@ -200,9 +200,23 @@ async function main() {
     .single();
   if (qA) made.questions.push(qA.id);
 
+  // 학생 목록은 수강 연결 기준 (v0.33.0) — 연결 전엔 같은 학원 강사도 안 보인다
+  const tl2b = await (await api("/api/teachers", tok)).json();
+  ok(
+    "수강 연결 전엔 같은 학원 강사도 목록에 없음",
+    !(tl2b.teachers ?? []).some((t: { name: string }) => t.name === `${TAG}강사A`)
+  );
+  const { data: courseA } = await db
+    .from("courses")
+    .insert({ academy_id: acA, teacher_id: tchAId, title: `${TAG}A강좌` })
+    .select("id")
+    .single();
+  if (courseA) made.courses.push(courseA.id);
+  await db.from("enrollments").insert({ course_id: courseA!.id, student_id: stuAId });
+
   const tl3 = await (await api("/api/teachers", tok)).json();
   ok(
-    "같은 학원 강사는 목록에 보임",
+    "수강 연결된 같은 학원 강사는 목록에 보임",
     (tl3.teachers ?? []).some((t: { name: string }) => t.name === `${TAG}강사A`)
   );
 

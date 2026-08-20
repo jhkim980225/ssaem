@@ -1,13 +1,17 @@
 import { NextResponse } from "next/server";
 import { serviceClient } from "@/lib/supabase";
-import { requireUser } from "@/lib/auth";
+import { userWithRole } from "@/lib/auth";
 import { academyOf } from "@/lib/tenant";
 
-// 강사 목록. 기본은 공개(is_public) 강사만, ?academy=<slug>로 학원 한정.
-// 로그인 학생이 Bearer로 호출하면 수강 연결(enrollments)된 비공개 강사도 포함 — 초대 기반 권한.
+// 강사 목록.
+// - 학생: 수강 연결(enrollments)된 강사만 — 선생님 코드/초대로 등록해야 보인다 (v0.33.0).
+//   공개(is_public) 여부와 무관: 연결됐으면 비공개여도 보이고, 안 됐으면 공개여도 안 보인다.
+// - 강사·원장: 내 학원의 공개 강사 전체 (미리보기·관리 용도).
 export async function GET(req: Request) {
-  const g = await requireUser(req);
-  if ("res" in g) return g.res;
+  const me = await userWithRole(req);
+  if (!me)
+    return NextResponse.json({ error: "로그인이 필요해요.", needLogin: true }, { status: 401 });
+  const g = { uid: me.uid };
   const slug = new URL(req.url).searchParams.get("academy");
   const db = serviceClient();
 
@@ -22,15 +26,17 @@ export async function GET(req: Request) {
   }
   if (!academyId) return NextResponse.json({ teachers: [] });
 
-  const q = db
-    .from("profiles")
-    .select("id, name, academy_id, teacher_profiles!inner(subject, is_public)")
-    .eq("role", "teacher")
-    .eq("teacher_profiles.is_public", true)
-    .eq("academy_id", academyId)
-    .order("name");
-
-  const { data, error } = await q;
+  // 학생은 학원 공개 명단을 아예 안 받는다 — 아래 수강 연결 병합만으로 목록을 만든다
+  const isStudent = me.role === "student";
+  const { data, error } = isStudent
+    ? { data: [], error: null }
+    : await db
+        .from("profiles")
+        .select("id, name, academy_id, teacher_profiles!inner(subject, is_public)")
+        .eq("role", "teacher")
+        .eq("teacher_profiles.is_public", true)
+        .eq("academy_id", academyId)
+        .order("name");
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   type Row = {

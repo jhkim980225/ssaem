@@ -21,6 +21,7 @@ export default function SiteFooter() {
                 <li><Link href="/ask" className="hover:text-blue transition-colors">질문하기</Link></li>
                 <li><Link href="/quiz" className="hover:text-blue transition-colors">문제풀이</Link></li>
                 <li><Link href="/quiz/notes" className="hover:text-blue transition-colors">오답노트</Link></li>
+                <li><Link href="/my" className="hover:text-blue transition-colors">마이페이지</Link></li>
                 <li><Link href="/my/history" className="hover:text-blue transition-colors">내 대화내역</Link></li>
                 <li><Link href="/my/reviews" className="hover:text-blue transition-colors">선생님 평가</Link></li>
                 <li><Link href="/install" className="hover:text-blue transition-colors">앱 설치</Link></li>

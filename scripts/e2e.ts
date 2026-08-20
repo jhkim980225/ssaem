@@ -695,6 +695,14 @@ async function main() {
           .select("student_id", { count: "exact", head: true })
           .eq("student_id", stuId);
         ok("코드 없는 가입 — 수강 연결 0건", (enr0 ?? 0) === 0, `${enr0}건`);
+
+        // 연결 0건이면 /ask 선생님 목록도 비어야 한다 (v0.33.0 — 학생은 수강 연결된 강사만 보임)
+        const tl = await json("/api/teachers", { headers: bearer(phTok) });
+        ok(
+          "코드 없는 가입 — /api/teachers 빈 목록",
+          (tl.body?.teachers ?? []).length === 0,
+          `${(tl.body?.teachers ?? []).length}명`
+        );
       }
 
       // 약한 비밀번호 거부
