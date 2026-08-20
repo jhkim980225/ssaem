@@ -3,7 +3,7 @@ import { serviceClient } from "@/lib/supabase";
 import { resolveAcademy } from "@/lib/academy";
 import { rateLimit, clientIp } from "@/lib/ratelimit";
 import { verifyInviteCode, resolveStudentInvite } from "@/lib/invite";
-import { toEmail, isValidId, enrollToAcademyTeachers } from "@/lib/account";
+import { toEmail, isValidId, enrollStudentToTeacher } from "@/lib/account";
 
 // 가입. email_confirm: true로 메일 인증 생략.
 // - admin(원장): 학원 이름으로 새 학원 개설 + admin 프로필 즉시 생성
@@ -87,11 +87,13 @@ export async function POST(req: Request) {
   }
   // 학생 초대코드: 계정을 만들기 전에 검증해야 실패 시 유령 계정이 안 남는다
   let invitedTeacherAcademyId: string | null = null;
+  let invitedEnroll: { teacherId: string; courseId: string | null } | null = null;
   if (role === "student" && studentInviteCode) {
     // 강사 코드(s)·강좌 ROOM 코드(c) 둘 다 수용 — 학원 소속은 어느 쪽이든 그 강사의 학원
     const inv = await resolveStudentInvite(db, studentInviteCode);
     if (!inv)
       return NextResponse.json({ error: "선생님 초대코드가 올바르지 않아요" }, { status: 403 });
+    invitedEnroll = { teacherId: inv.teacherId, courseId: inv.courseId };
     const { data: t } = await db
       .from("profiles")
       .select("academy_id")
@@ -184,8 +186,9 @@ export async function POST(req: Request) {
         .upsert({ student_id: uid, phone: phoneDigits, updated_by: uid }, { onConflict: "student_id" });
       if (derr) console.error("signup student phone:", derr.message);
     }
-    // 학원 강사들에게 자동 수강 연결 — 가입 직후 빈 강사 목록을 보지 않게
-    await enrollToAcademyTeachers(db, uid, academyId);
+    // 초대코드로 온 학생만 그 강사(또는 ROOM)에 수강 연결.
+    // 코드 없는 가입은 아무도 연결하지 않는다 — /ask의 "선생님 코드 입력"으로 직접 등록 (2026-08-20)
+    if (invitedEnroll) await enrollStudentToTeacher(db, uid, invitedEnroll.teacherId, academyId, invitedEnroll.courseId);
   }
 
   return NextResponse.json({ ok: true, userId: uid });

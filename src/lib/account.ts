@@ -17,8 +17,42 @@ export function isValidId(v: string): boolean {
 
 const DEFAULT_COURSE = "기본반";
 
-// 학생을 학원의 모든 강사 기본반에 수강 연결. 가입 직후 바로 질문할 수 있게.
-// 초대 코드 없이 가입한 학생은 강사가 아무도 안 잡혀 빈 화면을 보게 되는 문제를 막는다.
+// 학생을 특정 강사에 수강 연결. courseId를 주면 그 강좌(ROOM), 없으면 기본반(없으면 생성).
+// 가입(초대코드)·/api/join·/ask 코드 입력이 같은 로직을 쓴다.
+export async function enrollStudentToTeacher(
+  db: ReturnType<typeof serviceClient>,
+  studentId: string,
+  teacherId: string,
+  academyId: string | null,
+  courseId?: string | null
+): Promise<boolean> {
+  let cid = courseId ?? null;
+  if (!cid) {
+    let { data: course } = await db
+      .from("courses")
+      .select("id")
+      .eq("teacher_id", teacherId)
+      .eq("title", DEFAULT_COURSE)
+      .maybeSingle();
+    if (!course) {
+      const { data: made } = await db
+        .from("courses")
+        .insert({ academy_id: academyId, teacher_id: teacherId, title: DEFAULT_COURSE })
+        .select("id")
+        .single();
+      course = made ?? null;
+    }
+    if (!course) return false;
+    cid = course.id;
+  }
+  const { error } = await db
+    .from("enrollments")
+    .upsert({ course_id: cid, student_id: studentId }, { onConflict: "course_id,student_id" });
+  return !error;
+}
+
+// (시드 전용) 학생을 학원의 모든 강사 기본반에 수강 연결.
+// 실서비스 가입에선 쓰지 않는다 — 코드 없이 가입한 학생에게 선생님이 자동으로 잡히는 게 이상해서 뺐다(2026-08-20).
 export async function enrollToAcademyTeachers(
   db: ReturnType<typeof serviceClient>,
   studentId: string,

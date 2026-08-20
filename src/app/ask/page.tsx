@@ -158,6 +158,38 @@ export default function AskPage() {
     };
   }, [teachers]);
 
+  // 선생님 코드 입력 — 코드 없이 가입한 학생이 여기서 직접 등록한다 (자동 연결은 없앴다)
+  const [joinCode, setJoinCode] = useState("");
+  const [joinMsg, setJoinMsg] = useState<{ text: string; err: boolean } | null>(null);
+  const [joinBusy, setJoinBusy] = useState(false);
+
+  async function joinByCode() {
+    const code = joinCode.trim();
+    if (!code || joinBusy || !session) return;
+    setJoinBusy(true);
+    setJoinMsg(null);
+    try {
+      const r = await fetch("/api/join", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ code }),
+      });
+      const d = await r.json().catch(() => null);
+      if (!r.ok) return setJoinMsg({ text: d?.error ?? "코드를 확인해 주세요.", err: true });
+      // 강사 목록 갱신 + 방금 등록한 선생님으로 바로 이동
+      const tr = await fetch("/api/teachers", { headers: { Authorization: `Bearer ${session.access_token}` } });
+      const td = await tr.json().catch(() => null);
+      const list: Teacher[] = td?.teachers ?? [];
+      setTeachers(list);
+      setJoinCode("");
+      setJoinMsg({ text: "등록됐어요!", err: false });
+      const t = list.find((x) => x.id === d.teacherId);
+      if (t) pick(t);
+    } finally {
+      setJoinBusy(false);
+    }
+  }
+
   function pick(t: Teacher, ask?: string) {
     setChat({ teacherId: t.id, teacherName: t.name, ask });
     setCourseId("");
@@ -298,6 +330,30 @@ export default function AskPage() {
               ))}
             </div>
           </div>
+
+          {/* 선생님 코드 입력 — 초대코드(s./c.)로 수강 등록. 자동 연결이 없으니 이게 정식 입구 */}
+          {session && role === "student" && (
+            <div className="lg-card lg:p-3 flex flex-col gap-2">
+              <p className="text-sub text-[12px] font-bold px-1">선생님 코드 입력</p>
+              <input
+                className="field !py-2.5 !text-[13px]"
+                placeholder="선생님께 받은 코드"
+                value={joinCode}
+                onChange={(e) => setJoinCode(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.nativeEvent.isComposing) joinByCode();
+                }}
+              />
+              <button onClick={joinByCode} disabled={joinBusy} className="btn btn-primary py-2.5 !text-[13px] disabled:opacity-50">
+                {joinBusy ? "등록 중…" : "선생님 등록"}
+              </button>
+              {joinMsg && (
+                <p className={`text-[12px] px-1 ${joinMsg.err ? "" : "text-blue"}`} style={joinMsg.err ? { color: "var(--red)" } : undefined}>
+                  {joinMsg.text}
+                </p>
+              )}
+            </div>
+          )}
 
           {/* 강좌 ROOM — 선택한 선생님의 강좌별로 질문 범위를 좁힌다 (강사 대시보드 ROOM과 같은 개념) */}
           {chat && courses.length > 0 && (

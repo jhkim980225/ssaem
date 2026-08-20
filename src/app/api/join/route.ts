@@ -2,9 +2,8 @@ import { NextResponse } from "next/server";
 import { serviceClient } from "@/lib/supabase";
 import { userFromRequest } from "@/lib/auth";
 import { resolveStudentInvite } from "@/lib/invite";
+import { enrollStudentToTeacher } from "@/lib/account";
 import { rateLimit, clientIp } from "@/lib/ratelimit";
-
-const DEFAULT_COURSE = "기본반"; // 초대 수강 연결용 강좌 (없으면 자동 생성)
 
 // GET ?code= — 코드 검증 + 강사 미리보기 (가입 전 화면용, 인증 불필요)
 export async function GET(req: Request) {
@@ -51,32 +50,9 @@ export async function POST(req: Request) {
     .maybeSingle();
   if (!teacher) return NextResponse.json({ error: "강사를 찾을 수 없어요" }, { status: 404 });
 
-  // 등록할 강좌: ROOM 코드는 그 강좌, 강사 코드는 기본반(없으면 생성)
-  let courseId = inv.courseId;
-  if (!courseId) {
-    let { data: course } = await db
-      .from("courses")
-      .select("id")
-      .eq("teacher_id", inv.teacherId)
-      .eq("title", DEFAULT_COURSE)
-      .maybeSingle();
-    if (!course) {
-      const { data: made, error } = await db
-        .from("courses")
-        .insert({ academy_id: teacher.academy_id, teacher_id: inv.teacherId, title: DEFAULT_COURSE })
-        .select("id")
-        .single();
-      if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-      course = made;
-    }
-    courseId = course.id;
-  }
+  // ROOM 코드는 그 강좌, 강사 코드는 기본반(없으면 생성) — 가입 경로와 같은 헬퍼
+  const okEnroll = await enrollStudentToTeacher(db, uid, inv.teacherId, teacher.academy_id, inv.courseId);
+  if (!okEnroll) return NextResponse.json({ error: "수강 연결에 실패했어요" }, { status: 500 });
 
-  // 수강 연결 (중복 무시)
-  const { error: eerr } = await db
-    .from("enrollments")
-    .upsert({ course_id: courseId, student_id: uid }, { onConflict: "course_id,student_id" });
-  if (eerr) return NextResponse.json({ error: eerr.message }, { status: 500 });
-
-  return NextResponse.json({ ok: true, teacherId: inv.teacherId, courseId });
+  return NextResponse.json({ ok: true, teacherId: inv.teacherId, courseId: inv.courseId });
 }

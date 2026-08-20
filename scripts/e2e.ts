@@ -689,6 +689,12 @@ async function main() {
           det.body?.detail?.phone === phone.replace(/\D/g, ""),
           det.body?.detail?.phone ?? "없음"
         );
+        // 초대코드 없는 가입은 선생님 자동 연결이 없어야 한다 (v0.30.0 — /ask 코드 입력으로 직접 등록)
+        const { count: enr0 } = await db
+          .from("enrollments")
+          .select("student_id", { count: "exact", head: true })
+          .eq("student_id", stuId);
+        ok("코드 없는 가입 — 수강 연결 0건", (enr0 ?? 0) === 0, `${enr0}건`);
       }
 
       // 약한 비밀번호 거부
