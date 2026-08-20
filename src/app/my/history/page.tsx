@@ -47,9 +47,49 @@ export default function MyHistoryPage() {
   if (gate) return gate;
 
   const totalMsgs = (convs ?? []).reduce((s, c) => s + c.messages, 0);
+  const openConv = convs?.find((c) => c.id === openId) ?? null;
+
+  // 대화 본문 — 모바일 아코디언과 PC 우측 패널이 같이 쓴다
+  const detailBody = (c: Conv) => (
+    <>
+      {!msgs[c.id] && !msgErr[c.id] && <div className="skel h-10" />}
+      {msgErr[c.id] && (
+        <p className="text-[13px] font-bold" style={{ color: "var(--red)" }}>
+          {msgErr[c.id]}
+        </p>
+      )}
+      {msgs[c.id]?.map((m) =>
+        m.role === "user" ? (
+          <div
+            key={m.id}
+            className="self-end max-w-[85%] px-4 py-2.5 text-[14px] leading-relaxed whitespace-pre-wrap bg-blue text-white rounded-[16px] rounded-br-[5px]"
+          >
+            {m.content}
+          </div>
+        ) : (
+          <div key={m.id} className="self-start max-w-[92%] flex flex-col gap-1">
+            <div
+              className="px-4 py-2.5 text-[14px] leading-relaxed whitespace-pre-wrap rounded-[16px] rounded-bl-[5px] border border-line"
+              style={{ background: "var(--fill-2)" }}
+            >
+              {m.content}
+            </div>
+            {m.rating !== null && (
+              <span className="text-sub text-[12px] pl-1">
+                내 평가: {m.rating >= 4 ? "도움됐어요" : "아쉬워요"}
+              </span>
+            )}
+          </div>
+        )
+      )}
+      <Link href={`/ask?teacher=${c.teacher_id}`} className="btn btn-ghost py-2.5 text-[13px] text-center mt-1">
+        이 선생님께 새로 질문하기
+      </Link>
+    </>
+  );
 
   return (
-    <main className="flex-1 w-full max-w-2xl mx-auto px-5 py-8 flex flex-col gap-4">
+    <main className="flex-1 w-full max-w-2xl lg:max-w-5xl mx-auto px-5 py-8 flex flex-col gap-4">
       <div className="rise flex items-start justify-between gap-3">
         <div className="flex flex-col gap-1">
           <BackButton fallback="/ask" />
@@ -95,9 +135,15 @@ export default function MyHistoryPage() {
         </div>
       )}
 
+      {/* PC에선 좌(목록) / 우(대화 내용 sticky) 마스터-디테일, 모바일은 아코디언 그대로 */}
+      <div className="lg:grid lg:grid-cols-[360px_minmax(0,1fr)] lg:gap-6 lg:items-start">
       <div className="flex flex-col gap-2">
         {convs?.map((c, i) => (
-          <div key={c.id} className={`rise d${Math.min(i + 2, 6)} card overflow-hidden`}>
+          <div
+            key={c.id}
+            className={`rise d${Math.min(i + 2, 6)} card overflow-hidden`}
+            style={openId === c.id ? { borderColor: "var(--blue)" } : undefined}
+          >
             <button onClick={() => toggle(c.id)} className="w-full text-left p-4 lg:p-5 cursor-pointer">
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2.5 min-w-0">
@@ -115,47 +161,33 @@ export default function MyHistoryPage() {
             </button>
 
             {openId === c.id && (
-              <div className="px-4 lg:px-5 pb-4 flex flex-col gap-2 border-t border-line pt-3">
-                {!msgs[c.id] && !msgErr[c.id] && <div className="skel h-10" />}
-                {msgErr[c.id] && (
-                  <p className="text-[13px] font-bold" style={{ color: "var(--red)" }}>
-                    {msgErr[c.id]}
-                  </p>
-                )}
-                {msgs[c.id]?.map((m) =>
-                  m.role === "user" ? (
-                    <div
-                      key={m.id}
-                      className="self-end max-w-[85%] px-4 py-2.5 text-[14px] leading-relaxed whitespace-pre-wrap bg-blue text-white rounded-[16px] rounded-br-[5px]"
-                    >
-                      {m.content}
-                    </div>
-                  ) : (
-                    <div key={m.id} className="self-start max-w-[92%] flex flex-col gap-1">
-                      <div
-                        className="px-4 py-2.5 text-[14px] leading-relaxed whitespace-pre-wrap rounded-[16px] rounded-bl-[5px] border border-line"
-                        style={{ background: "var(--fill-2)" }}
-                      >
-                        {m.content}
-                      </div>
-                      {m.rating !== null && (
-                        <span className="text-sub text-[12px] pl-1">
-                          내 평가: {m.rating >= 4 ? "도움됐어요" : "아쉬워요"}
-                        </span>
-                      )}
-                    </div>
-                  )
-                )}
-                <Link
-                  href={`/ask?teacher=${c.teacher_id}`}
-                  className="btn btn-ghost py-2.5 text-[13px] text-center mt-1"
-                >
-                  이 선생님께 새로 질문하기
-                </Link>
+              <div className="px-4 lg:px-5 pb-4 flex flex-col gap-2 border-t border-line pt-3 lg:hidden">
+                {detailBody(c)}
               </div>
             )}
           </div>
         ))}
+      </div>
+
+      {/* PC 우측 패널 */}
+      {convs && convs.length > 0 && (
+        <div className="hidden lg:flex flex-col gap-2 card p-5 lg:sticky lg:top-[76px]">
+          {openConv ? (
+            <>
+              <div className="flex items-center gap-2.5 pb-3 border-b border-line">
+                <span className="avatar !w-8 !h-8 !text-[13px]">{avatarEmoji(openConv.teacher_name ?? "선생님")}</span>
+                <div className="min-w-0">
+                  <p className="font-bold text-[15px] truncate">{openConv.title || "제목 없음"}</p>
+                  <p className="text-sub text-[12px] truncate">{openConv.teacher_name ?? "선생님"}</p>
+                </div>
+              </div>
+              {detailBody(openConv)}
+            </>
+          ) : (
+            <p className="text-sub text-[14px] text-center py-16">왼쪽에서 대화를 고르면 내용이 여기에 나와요.</p>
+          )}
+        </div>
+      )}
       </div>
     </main>
   );

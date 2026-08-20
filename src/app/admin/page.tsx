@@ -470,7 +470,7 @@ function Dashboard({ session }: { session: Session }) {
                 <div className="flex items-center gap-2 text-[13px]">
                   <span style={{ color: "var(--blue)" }}>
                     {"★".repeat(r.rating)}
-                    <span style={{ color: "var(--line)" }}>{"★".repeat(5 - r.rating)}</span>
+                    <span style={{ color: "var(--border)" }}>{"★".repeat(5 - r.rating)}</span>
                   </span>
                   <span className="text-sub">
                     {r.student} → {r.teacher}

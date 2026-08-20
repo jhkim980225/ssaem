@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useGate } from "@/components/RoleGuard";
 import BackButton from "@/components/BackButton";
-import { avatarEmoji } from "@/lib/avatar";
 import AssessmentRunner from "@/components/AssessmentRunner";
 
 type Teacher = { id: string; name: string; subject: string | null };
@@ -145,8 +144,11 @@ function QuizInner() {
 
   if (gate) return gate;
 
+  // 화면 폭: PC에선 컨트롤 좌레일 + 문제 우측 2단(5xl). 공부 모드는 문제·해설이 또 2단이라 더 넓게 (bank과 동일 패턴)
+  const width = study && qs?.length ? "max-w-[1240px]" : "max-w-2xl lg:max-w-5xl";
+
   return (
-    <main className="flex-1 w-full max-w-2xl mx-auto px-5 py-8 flex flex-col gap-4">
+    <main className={`flex-1 w-full ${width} mx-auto px-5 py-8 flex flex-col gap-4`}>
       <div className="rise flex items-start justify-between gap-3">
         <div className="flex flex-col gap-1">
           <BackButton fallback="/ask" />
@@ -164,9 +166,12 @@ function QuizInner() {
         </Link>
       </div>
 
+      {/* PC에선 좌(컨트롤 레일 sticky) / 우(문제) 2단 — 모바일 기둥 방지 */}
+      <div className="flex flex-col gap-4 lg:grid lg:grid-cols-[300px_minmax(0,1fr)] lg:gap-6 lg:items-start">
+      <div className="flex flex-col gap-4 lg:sticky lg:top-[76px]">
       {/* 연습문제 / 평가 탭 — 전체 오답 모드는 연습문제 오답만 다루므로 숨긴다 */}
       {!wrongAll && (
-      <div className="rise d1 flex gap-1.5">
+      <div className="rise d1 flex flex-wrap gap-1.5">
         <button
           onClick={() => setTab("practice")}
           className={`chip !text-[13px] ${tab === "practice" ? "chip-on" : ""}`}
@@ -187,7 +192,7 @@ function QuizInner() {
 
       {/* 시험/공부 모드 토글 (연습문제 전용) */}
       {tab === "practice" && (
-      <div className="rise d1 flex gap-1.5">
+      <div className="rise d1 flex flex-wrap gap-1.5">
         <button
           onClick={() => setStudy(false)}
           className={`chip !text-[13px] ${!study ? "chip-on" : ""}`}
@@ -209,7 +214,7 @@ function QuizInner() {
       {/* 선생님·강좌 선택 — 전체 오답 모드에선 선생님 구분 없이 풀므로 숨긴다 */}
       {!wrongAll && (
       <div className="rise d1 card p-4 flex flex-col gap-3">
-        <div className="flex gap-1.5 overflow-x-auto">
+        <div className="flex gap-1.5 overflow-x-auto lg:flex-wrap lg:overflow-visible">
           {teachers?.map((t) => (
             <button
               key={t.id}
@@ -219,12 +224,12 @@ function QuizInner() {
               }}
               className={`chip shrink-0 !text-[13px] ${teacherId === t.id ? "chip-on" : ""}`}
             >
-              {avatarEmoji(t.name)} {t.name}
+              {t.name}
             </button>
           ))}
         </div>
         {courses.length > 0 && (
-          <div className="flex gap-1.5 overflow-x-auto">
+          <div className="flex gap-1.5 overflow-x-auto lg:flex-wrap lg:overflow-visible">
             <button
               onClick={() => setCourseId("")}
               className={`chip shrink-0 !py-1 !px-2.5 !text-[12px] ${courseId === "" ? "chip-on" : ""}`}
@@ -244,7 +249,9 @@ function QuizInner() {
         )}
       </div>
       )}
+      </div>
 
+      <div className="flex flex-col gap-4">
       {tab === "exam" && teacherId && (
         <AssessmentRunner token={session?.access_token} teacherId={teacherId} />
       )}
@@ -299,7 +306,7 @@ function QuizInner() {
 
       {/* 공부 모드 — 문제 옆에 정답·풀이 (데스크톱 2단, 모바일 세로) */}
       {study && q && (
-        <div key={q.id} className="animate-pop grid gap-4 lg:grid-cols-2">
+        <div key={q.id} className="animate-pop grid gap-4 lg:grid-cols-[minmax(0,1.55fr)_minmax(340px,0.85fr)]">
           <div className="card p-5 lg:p-6 flex flex-col gap-4">
             <p className="text-[16px] font-bold leading-relaxed">{q.question}</p>
             <div className="flex flex-col gap-2">
@@ -320,7 +327,7 @@ function QuizInner() {
               })}
             </div>
           </div>
-          <div className="card p-5 lg:p-6 flex flex-col gap-3 self-start">
+          <div className="card p-5 lg:p-6 flex flex-col gap-3 self-start lg:sticky lg:top-[76px]">
             <p className="text-[13px] font-extrabold text-blue">정답 {(q.answer ?? 0) + 1}번</p>
             <p className="text-[14px] leading-relaxed" style={{ color: "var(--sub-2)" }}>
               {q.explanation || "이 문제는 해설이 없어요."}
@@ -425,6 +432,8 @@ function QuizInner() {
       )}
         </>
       )}
+      </div>
+      </div>
     </main>
   );
 }

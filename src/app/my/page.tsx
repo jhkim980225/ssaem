@@ -59,12 +59,15 @@ export default function MyPage() {
   ];
 
   return (
-    <main className="flex-1 w-full max-w-2xl mx-auto px-5 py-8 flex flex-col gap-4">
+    <main className="flex-1 w-full max-w-2xl lg:max-w-4xl mx-auto px-5 py-8 flex flex-col gap-4">
       <div className="rise flex flex-col gap-1">
         <h1 className="text-[24px] lg:text-[28px] font-extrabold">마이페이지</h1>
         <p className="text-sub text-[14px]">내 정보와 학습 기록을 한 곳에서 봐요.</p>
       </div>
 
+      {/* PC에선 좌(내 정보·내 선생님) / 우(요약·기록) 2단 — 모바일 기둥 방지 */}
+      <div className="flex flex-col gap-4 lg:grid lg:grid-cols-[320px_minmax(0,1fr)] lg:items-start">
+      <div className="flex flex-col gap-4 lg:sticky lg:top-[76px]">
       {/* 내 정보 */}
       <section className="rise d1 card p-5 flex items-center gap-4">
         <span className="grid place-items-center w-12 h-12 shrink-0 rounded-full bg-blue text-white text-[18px] font-extrabold">
@@ -80,13 +83,40 @@ export default function MyPage() {
         </div>
       </section>
 
+      {/* 내 선생님 */}
+      <section className="rise d4 card p-5 flex flex-col gap-3">
+        <h2 className="text-[15px] font-extrabold">내 선생님</h2>
+        {teachers === null && <div className="skel h-10 !rounded-[12px]" />}
+        {teachers && teachers.length === 0 && (
+          <p className="text-sub text-[13px]">
+            아직 연결된 선생님이 없어요.{" "}
+            <Link href="/ask" className="text-blue font-bold hover:underline">
+              질문하기
+            </Link>
+            에서 선생님 코드를 입력하면 연결돼요.
+          </p>
+        )}
+        {teachers && teachers.length > 0 && (
+          <div className="flex flex-wrap gap-2">
+            {teachers.map((t) => (
+              <Link key={t.id} href={`/ask?teacher=${t.id}`} className="chip !text-[13px]">
+                {t.name}
+                {t.subject ? ` · ${t.subject}` : ""}
+              </Link>
+            ))}
+          </div>
+        )}
+      </section>
+      </div>
+
+      <div className="flex flex-col gap-4">
       {/* 학습 요약 */}
       <section className="rise d2 grid grid-cols-2 sm:grid-cols-4 gap-2">
         {(
           [
             ["대화", convs],
             ["푼 문제", quiz ? quiz.attempted : null],
-            ["오답", quiz ? quiz.wrong : null],
+            ["남은 오답", quiz ? quiz.wrong : null],
             ["시험 응시", exams],
           ] as const
         ).map(([label, n]) => (
@@ -118,31 +148,8 @@ export default function MyPage() {
           </Link>
         ))}
       </section>
-
-      {/* 내 선생님 */}
-      <section className="rise d4 card p-5 flex flex-col gap-3">
-        <h2 className="text-[15px] font-extrabold">내 선생님</h2>
-        {teachers === null && <div className="skel h-10 !rounded-[12px]" />}
-        {teachers && teachers.length === 0 && (
-          <p className="text-sub text-[13px]">
-            아직 연결된 선생님이 없어요.{" "}
-            <Link href="/ask" className="text-blue font-bold hover:underline">
-              질문하기
-            </Link>
-            에서 선생님 코드를 입력하면 연결돼요.
-          </p>
-        )}
-        {teachers && teachers.length > 0 && (
-          <div className="flex flex-wrap gap-2">
-            {teachers.map((t) => (
-              <Link key={t.id} href={`/ask?teacher=${t.id}`} className="chip !text-[13px]">
-                {t.name}
-                {t.subject ? ` · ${t.subject}` : ""}
-              </Link>
-            ))}
-          </div>
-        )}
-      </section>
+      </div>
+      </div>
     </main>
   );
 }

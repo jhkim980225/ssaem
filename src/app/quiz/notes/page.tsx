@@ -109,7 +109,7 @@ export default function NotesPage() {
   );
 
   return (
-    <main className="flex-1 w-full max-w-2xl mx-auto px-5 py-8 flex flex-col gap-4">
+    <main className="flex-1 w-full max-w-2xl lg:max-w-4xl mx-auto px-5 py-8 flex flex-col gap-4">
       <div className="rise flex items-start justify-between gap-3">
         <div className="flex flex-col gap-1">
           <BackButton fallback="/quiz" />
@@ -124,8 +124,10 @@ export default function NotesPage() {
       {data === null && <div className="skel h-24 !rounded-[20px]" />}
 
       {data && (
-        <>
-          <div className="rise d1 grid grid-cols-2 sm:grid-cols-4 gap-2">
+        // PC에선 좌(요약·다시 풀기 sticky) / 우(오답 목록) 2단 — 모바일 기둥 방지
+        <div className="flex flex-col gap-4 lg:grid lg:grid-cols-[280px_minmax(0,1fr)] lg:items-start">
+        <div className="flex flex-col gap-4 lg:sticky lg:top-[76px]">
+          <div className="rise d1 grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-2 gap-2">
             {(
               [
                 ["푼 문제", data.totals.attempted, false],
@@ -159,7 +161,9 @@ export default function NotesPage() {
                 ))}
             </div>
           )}
+          </div>
 
+          <div className="flex flex-col gap-4">
           {data.notes.length === 0 && (
             <div className="rise d2 card p-10 text-center">
               <p className="text-[15px] font-bold mb-1">틀린 문제가 없어요</p>
@@ -187,7 +191,8 @@ export default function NotesPage() {
               <div className="flex flex-col gap-2">{overcome.map(noteCard)}</div>
             </>
           )}
-        </>
+          </div>
+        </div>
       )}
     </main>
   );

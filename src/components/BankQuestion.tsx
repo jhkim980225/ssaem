@@ -83,7 +83,7 @@ export function StemView({ stem, images, highlight }: { stem: string; images?: s
         const item = line.match(ITEM_RE);
         if (item)
           return (
-            <div key={i} className="mt-1.5 pl-3 border-l-2" style={{ borderColor: "var(--line)" }}>
+            <div key={i} className="mt-1.5 pl-3 border-l-2" style={{ borderColor: "var(--border)" }}>
               <p className="text-[15px] font-medium leading-[1.65] whitespace-pre-wrap" style={{ color: "var(--text-2)" }}>
                 <Hi text={item[1]} kw={highlight} />
               </p>

@@ -32,7 +32,8 @@ export function useGate(
 ): { session: Session | null; role: Role | undefined; gate: ReactNode | null; allowed: boolean } {
   const { status, session, role, mustChangePassword } = useAuth();
 
-  const loginAs = opts.loginAs ?? (need === "teacher" || need === "admin" ? "teacher" : "student");
+  // any 페이지(기출·문제풀이 등)는 역할을 단정하지 않는다 — 강사가 세션 만료 후 와도 "학생 로그인"으로 오인 안 하게
+  const loginAs = opts.loginAs ?? (need === "teacher" || need === "admin" ? "teacher" : need === "student" ? "student" : "any");
 
   // 상태를 3종으로 명시해 "조회 중"과 "비로그인"을 절대 섞지 않는다.
   // 섞으면 로그인한 사용자에게 비로그인 화면이 한 프레임 보인다.
@@ -155,18 +156,17 @@ export function WrongRole({ need, role }: { need: "teacher" | "admin" | "student
 }
 
 // 로그인이 필요할 때. 로그인 후 원래 보려던 화면으로 돌아오게 현재 경로를 넘긴다.
-export function NeedLogin({ as, message }: { as: "teacher" | "student"; message?: string }) {
+export function NeedLogin({ as, message }: { as: "teacher" | "student" | "any"; message?: string }) {
   const next = usePathname();
+  const nextQ = next && next !== "/" ? `next=${encodeURIComponent(next)}` : "";
+  const href = as === "any" ? `/login${nextQ ? `?${nextQ}` : ""}` : `/login?role=${as}${nextQ ? `&${nextQ}` : ""}`;
   return (
     <main className="flex-1 grid place-items-center px-5">
       <div className="text-center">
         <p className="text-[16px] font-bold mb-1">로그인이 필요해요</p>
         <p className="text-sub text-[14px] mb-5">{message ?? "계정으로 로그인해 주세요."}</p>
-        <Link
-          href={`/login?role=${as}${next && next !== "/" ? `&next=${encodeURIComponent(next)}` : ""}`}
-          className="btn btn-primary py-3 px-6 inline-block"
-        >
-          {LABEL[as]} 로그인
+        <Link href={href} className="btn btn-primary py-3 px-6 inline-block">
+          {as === "any" ? "로그인" : `${LABEL[as]} 로그인`}
         </Link>
       </div>
     </main>

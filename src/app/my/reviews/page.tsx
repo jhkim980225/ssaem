@@ -82,7 +82,7 @@ export default function MyReviewsPage() {
   if (gate) return gate;
 
   return (
-    <main className="flex-1 w-full max-w-2xl mx-auto px-5 py-8 flex flex-col gap-4">
+    <main className="flex-1 w-full max-w-2xl lg:max-w-4xl mx-auto px-5 py-8 flex flex-col gap-4">
       <div className="rise flex items-start justify-between gap-3">
         <div className="flex flex-col gap-1">
           <BackButton fallback="/ask" />
@@ -113,6 +113,8 @@ export default function MyReviewsPage() {
         </div>
       )}
 
+      {/* PC에선 강사 카드 2열 — 카드끼리 독립 폼이라 1열일 이유가 없다 */}
+      <div className="grid gap-4 lg:grid-cols-2 items-start">
       {teachers?.map((t) => {
         const saved = mine[t.id];
         const d = draft[t.id] ?? { rating: saved?.rating ?? 0, comment: saved?.comment ?? "" };
@@ -137,7 +139,7 @@ export default function MyReviewsPage() {
                   onClick={() => setDraft((p) => ({ ...p, [t.id]: { ...d, rating: n } }))}
                   aria-label={`${n}점`}
                   className="text-[26px] leading-none transition-transform hover:scale-110"
-                  style={{ color: n <= d.rating ? "var(--blue)" : "var(--line)" }}
+                  style={{ color: n <= d.rating ? "var(--blue)" : "var(--border)" }}
                 >
                   ★
                 </button>
@@ -165,6 +167,7 @@ export default function MyReviewsPage() {
           </div>
         );
       })}
+      </div>
     </main>
   );
 }

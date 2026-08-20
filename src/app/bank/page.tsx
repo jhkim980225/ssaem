@@ -300,7 +300,7 @@ export default function BankPage() {
 
   // 화면 폭: 필터·CBT는 기존(2xl), 한 문제씩은 살짝 넓게(3xl),
   // 공부 모드는 2단(문제 65:해설 35)이라 PC에서 넓게 써야 줄바꿈 지옥이 없다
-  const width = cbtQs ? "max-w-[1240px]" : qs ? (study ? "max-w-[1240px]" : "max-w-3xl") : "max-w-2xl";
+  const width = cbtQs ? "max-w-[1240px]" : qs ? (study ? "max-w-[1240px]" : "max-w-3xl") : "max-w-2xl lg:max-w-4xl";
 
   return (
     <main className={`flex-1 w-full ${width} mx-auto px-5 lg:px-6 py-8 flex flex-col gap-4`}>
@@ -318,13 +318,14 @@ export default function BankPage() {
             내 기록
           </Link>
           <Link href="/bank/notes" className="chip !text-[13px]">
-            오답노트
+            기출 오답
           </Link>
         </div>
       </div>
 
-      {/* 필터 */}
+      {/* 필터 — PC에선 좌(필터) / 우(시험 기록 조회) 2단으로 빈 여백을 없앤다 */}
       {!qs && !cbtQs && (
+      <div className="flex flex-col gap-4 lg:grid lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
         <div className="rise d1 card p-5 flex flex-col gap-4">
           {tree === null ? (
             <div className="skel h-40 !rounded-[16px]" />
@@ -465,11 +466,9 @@ export default function BankPage() {
             </>
           )}
         </div>
-      )}
 
       {/* 시험 기록 조회 — 이름으로 같은 학원 사용자의 CBT 기록 검색 (학원 공용 PC 확인용) */}
-      {!qs && !cbtQs && (
-        <details className="rise d2 card p-5">
+        <details className="rise d2 card p-5 lg:sticky lg:top-[76px]">
           <summary className="font-bold text-[15px] cursor-pointer select-none">
             시험 기록 조회 <span className="text-sub text-[13px] font-normal">· 이름으로 검색</span>
           </summary>
@@ -513,6 +512,7 @@ export default function BankPage() {
             </div>
           )}
         </details>
+      </div>
       )}
 
       {cbtQs && (

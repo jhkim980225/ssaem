@@ -884,7 +884,7 @@ function Dashboard({ session }: { session: Session }) {
               <div key={r.id} className="rounded-[14px] border border-line p-3.5">
                 <p className="text-[13px]" style={{ color: "var(--blue)" }}>
                   {"★".repeat(r.rating)}
-                  <span style={{ color: "var(--line)" }}>{"★".repeat(5 - r.rating)}</span>
+                  <span style={{ color: "var(--border)" }}>{"★".repeat(5 - r.rating)}</span>
                 </p>
                 {r.comment && <p className="text-[14px] leading-relaxed mt-1">{r.comment}</p>}
               </div>

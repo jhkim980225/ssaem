@@ -180,7 +180,7 @@ export default function BankBrowsePage() {
                   {!show ? (
                     <button
                       onClick={() => setAnswered((prev) => new Set(prev).add(n.id))}
-                      className="btn btn-primary py-3"
+                      className="btn btn-primary py-3 lg:self-start lg:px-8"
                     >
                       답안 보기
                     </button>
