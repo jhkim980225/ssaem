@@ -168,8 +168,9 @@ export async function POST(req: Request) {
         academy_id: academyId,
         role: "student",
         name,
-        // 휴대폰 뒷자리로 시작한 계정만 변경을 강제한다
-        must_change_password: usePhonePw,
+        // 뒷 4자리를 그대로 쓴다 — 첫 로그인 변경 강제는 학생들이 번거로워 뺐다 (2026-08-20 결정).
+        // 대리 응시 위험은 감수. 되살리려면 usePhonePw로 되돌리면 된다.
+        must_change_password: false,
       });
     if (perr) {
       console.error("signup student profile:", perr.message);

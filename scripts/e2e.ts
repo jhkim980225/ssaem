@@ -646,7 +646,7 @@ async function main() {
     }
   }
 
-  // ── 7.45 휴대폰 뒷자리 가입 + 비밀번호 변경 강제
+  // ── 7.45 휴대폰 뒷자리 가입 (변경 강제 없음 — v0.29.1부터 뒷 4자리 유지)
   section("휴대폰 가입 · 비밀번호 변경");
   {
     const phId = `e2e-ph-${Date.now()}`;
@@ -676,7 +676,8 @@ async function main() {
 
     if (phTok) {
       const prof = await json("/api/profile", { headers: bearer(phTok) });
-      ok("변경 필요 플래그 on", prof.body?.profile?.mustChangePassword === true);
+      // 변경 강제를 뺐다(v0.29.1) — 뒷 4자리를 그대로 쓴다
+      ok("변경 강제 플래그 없음", prof.body?.profile?.mustChangePassword === false);
 
       // 받은 휴대폰이 학생 상세정보로 저장됐는지 (강사가 따로 입력 안 해도 되게)
       const stuId = su.body?.userId;

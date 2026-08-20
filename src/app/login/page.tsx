@@ -221,7 +221,7 @@ function LoginInner() {
               onKeyDown={(e) => e.key === "Enter" && submit()}
             />
             <p className="text-sub text-[12px] -mt-1.5 leading-relaxed">
-              첫 비밀번호는 <b>휴대폰 뒷 4자리</b>예요. 로그인하면 바로 바꾸게 안내해 드려요.
+              비밀번호는 <b>휴대폰 뒷 4자리</b>예요. 이대로 계속 쓰면 돼요.
             </p>
           </>
         )}
