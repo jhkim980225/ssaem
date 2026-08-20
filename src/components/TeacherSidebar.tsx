@@ -106,7 +106,7 @@ export default function TeacherSidebar() {
   return (
     <>
       {/* PC — 좌측 고정 */}
-      <aside className="hidden lg:flex flex-col gap-1 w-[240px] shrink-0 px-3 py-6 sticky top-0 max-h-screen overflow-y-auto">
+      <aside className="hidden lg:flex flex-col gap-1 w-[240px] shrink-0 px-3 py-6 sticky top-[60px] max-h-[calc(100vh-60px)] overflow-y-auto">
         <Link
           href="/teacher/settings"
           className="flex items-center gap-3 rounded-[14px] px-3 py-3 mb-2 hover:bg-[var(--fill)] transition-colors"

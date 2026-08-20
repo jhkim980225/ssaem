@@ -586,7 +586,7 @@ export default function BankPage() {
             )}
           </div>
           {/* 해설 — PC에선 스크롤해도 따라오게 sticky (헤더 60px + 여백) */}
-          <div className="card p-5 lg:p-6 flex flex-col gap-3 self-start min-w-0 lg:sticky lg:top-6">
+          <div className="card p-5 lg:p-6 flex flex-col gap-3 self-start min-w-0 lg:sticky lg:top-[76px]">
             {q.type === "theory" ? (
               <>
                 <p className="text-[15px] font-bold text-blue">정답 {(q.answerIdx ?? 0) + 1}번</p>
