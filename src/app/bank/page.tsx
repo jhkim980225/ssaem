@@ -29,6 +29,8 @@ const COUNTS = [5, 10, 15, 20, 30] as const;
 const roundNo = (s: string) => Number((s.match(/(\d+)\s*회/) ?? [])[1] ?? 0);
 
 const CATEGORIES = ["이론", "실무분개", "결산"] as const;
+// 과목 "전체" 선택 — 전 과목 섞어서 출제 (API에는 all=1로 나간다)
+const ALL = "전체";
 
 export default function BankPage() {
   const { session, gate } = useGate("any", { loginMessage: "기출문제 풀이 기록은 계정에 저장돼요." });
@@ -36,7 +38,8 @@ export default function BankPage() {
   const [tree, setTree] = useState<TreeRow[] | null>(null);
   const [subject, setSubject] = useState("");
   const [category, setCategory] = useState("");
-  const [area, setArea] = useState("");
+  // 영역 다중 선택 — 빈 배열 = 전체 영역
+  const [areaSel, setAreaSel] = useState<string[]>([]);
 
   const [qs, setQs] = useState<Q[] | null>(null);
   const [idx, setIdx] = useState(0);
@@ -106,14 +109,16 @@ export default function BankPage() {
   }, [token]);
 
   const subjects = useMemo(() => [...new Set((tree ?? []).map((t) => t.subject))].sort(), [tree]);
+  // "전체"는 과목 필터 없음으로 취급 — 영역 목록·문항 수 집계 공용
+  const subjFilter = subject === ALL ? "" : subject;
   const areas = useMemo(() => {
     const set = new Set(
       (tree ?? [])
-        .filter((t) => (!subject || t.subject === subject) && (!category || t.category === category))
+        .filter((t) => (!subjFilter || t.subject === subjFilter) && (!category || t.category === category))
         .map((t) => t.area)
     );
     return [...set];
-  }, [tree, subject, category]);
+  }, [tree, subjFilter, category]);
 
   function countFor(f: Partial<Pick<TreeRow, "subject" | "category" | "area">>): number {
     return (tree ?? [])
@@ -165,11 +170,12 @@ export default function BankPage() {
     setQs(null);
     setCbtQs(null);
     setRetryMode(false);
-    const p = new URLSearchParams({ subject });
+    // "전체"는 subject 대신 all=1 — 전 과목에서 섞어 출제
+    const p = new URLSearchParams(subject === ALL ? { all: "1" } : { subject });
     // CBT는 4지선다(이론)만 다룬다 — 실무 분개는 프로그램으로 푸는 것이라 번호판 채점에 맞지 않는다
     if (cbt) p.set("category", "이론");
     else if (category) p.set("category", category);
-    if (area) p.set("area", area);
+    if (areaSel.length) p.set("area", areaSel.join(","));
     if (cbt && source) p.set("source", source);
     if (!cbt && study) p.set("study", "1");
     // 회차를 골랐으면 그 회차 이론 전체를 낸다 (문항 수 선택은 랜덤 출제 전용)
@@ -363,22 +369,27 @@ export default function BankPage() {
                     : "한 문제 풀 때마다 바로 채점해요."}
               </p>
               <Filter label="과목" required>
-                {subjects.map((s) => (
+                {[ALL, ...subjects].map((s) => (
                   <Chip
                     key={s}
                     on={subject === s}
                     onClick={() => {
                       setSubject(subject === s ? "" : s);
-                      setArea("");
+                      setAreaSel([]);
                       setSource(""); // 다른 과목의 회차가 선택된 채 남지 않게
                     }}
                   >
-                    {s} <b className="font-semibold" style={{ color: "var(--sub)" }}>{countFor({ subject: s })}</b>
+                    {s}{" "}
+                    <b className="font-semibold" style={{ color: "var(--sub)" }}>
+                      {countFor(s === ALL ? {} : { subject: s })}
+                    </b>
                   </Chip>
                 ))}
               </Filter>
               {cbt && (
                 <>
+                  {/* 회차는 과목 하나 골랐을 때만 — "전체"는 과목이 섞여 회차 개념이 없다 */}
+                  {subject !== ALL && (
                   <Filter label="회차 (선택)">
                     {/* 과목당 38개 회차 — 칩으로 깔면 화면이 덮여서 드롭다운 하나로 */}
                     <select
@@ -397,6 +408,7 @@ export default function BankPage() {
                         ))}
                     </select>
                   </Filter>
+                  )}
                   {/* 회차를 고르면 그 회차 전체가 나가므로 문항 수 선택은 랜덤에서만 */}
                   {!source && (
                   <Filter label="문항 수">
@@ -426,7 +438,7 @@ export default function BankPage() {
               {!cbt && (
               <Filter label="유형 (선택)">
                 {CATEGORIES.map((c) => {
-                  const n = countFor({ subject, category: c });
+                  const n = countFor({ subject: subjFilter, category: c });
                   return (
                     <Chip key={c} on={category === c} disabled={n === 0} onClick={() => setCategory(category === c ? "" : c)}>
                       {c} <b className="font-semibold" style={{ color: "var(--sub)" }}>{n}</b>
@@ -436,12 +448,23 @@ export default function BankPage() {
               </Filter>
               )}
               {subject && areas.length > 1 && (
-                <Filter label="영역 (선택)">
-                  {areas.map((a) => (
-                    <Chip key={a} on={area === a} onClick={() => setArea(area === a ? "" : a)}>
-                      {a} <b className="font-semibold" style={{ color: "var(--sub)" }}>{countFor({ subject, category, area: a })}</b>
-                    </Chip>
-                  ))}
+                <Filter label="영역 (선택 · 여러 개 가능)">
+                  {/* 다중 선택 — 아무것도 안 고르면 전체 영역 */}
+                  {areas.map((a) => {
+                    const n = countFor({ subject: subjFilter, category: cbt ? "이론" : category, area: a });
+                    return (
+                      <Chip
+                        key={a}
+                        on={areaSel.includes(a)}
+                        disabled={n === 0}
+                        onClick={() =>
+                          setAreaSel((cur) => (cur.includes(a) ? cur.filter((x) => x !== a) : [...cur, a]))
+                        }
+                      >
+                        {a} <b className="font-semibold" style={{ color: "var(--sub)" }}>{n}</b>
+                      </Chip>
+                    );
+                  })}
                 </Filter>
               )}
               {/* 비활성일 땐 회색 버튼 — 연파랑+흰 글자는 대비가 2:1이라 안내문이 안 읽힌다 */}

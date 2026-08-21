@@ -197,6 +197,8 @@ body {
   .chip:active { transform: scale(0.94); }
   .chip:hover { border-color: var(--border-strong); }
   .chip-on { background: var(--blue); color: #fff; border-color: var(--blue); }
+  /* 선택된 칩 안의 카운트 — 인라인 --sub 색이 파란 배경에서 안 보여 흰색으로 강제 */
+  .chip-on b { color: #fff !important; opacity: 0.8; }
 
   /* 좌측 강사 리스트 아이템 (PC) */
   .t-item {

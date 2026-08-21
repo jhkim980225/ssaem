@@ -501,6 +501,32 @@ async function main() {
         !theory || (!("answer_idx" in theory) && !("explanation" in theory)),
         theory ? Object.keys(theory).join(",") : "이론 없음"
       );
+      // ── 전체 과목(all=1) + 영역 다중 선택 (v0.36.0)
+      {
+        const allSet = await json("/api/bank?all=1&limit=5", { headers: bearer(studentTok) });
+        ok("전체 과목 출제 200", allSet.status === 200 && (allSet.body?.questions ?? []).length > 0);
+        // 같은 과목의 서로 다른 영역 2개를 콤마로 — 반환 문항의 area가 그 집합 안에만 있어야 한다
+        const twoAreas = [
+          ...new Set(
+            (tree.body?.tree ?? [])
+              .filter((t: { subject: string }) => t.subject === subj)
+              .map((t: { area: string }) => t.area)
+          ),
+        ].slice(0, 2) as string[];
+        if (twoAreas.length === 2) {
+          const multi = await json(
+            `/api/bank?subject=${encodeURIComponent(subj)}&area=${encodeURIComponent(twoAreas.join(","))}&limit=10`,
+            { headers: bearer(studentTok) }
+          );
+          const qs2 = multi.body?.questions ?? [];
+          ok(
+            "영역 다중 필터 — 반환 문항이 선택 영역 안",
+            multi.status === 200 && qs2.length > 0 && qs2.every((x: { area: string }) => twoAreas.includes(x.area)),
+            `${qs2.length}문항 / 영역 ${twoAreas.join("·")}`
+          );
+        }
+      }
+
       // ── CBT 모드: 회차 목록 · 문항 수 · 일괄 채점
       ok("트리 응답에 회차 목록 포함", Array.isArray(tree.body?.sources), `${(tree.body?.sources ?? []).length}개`);
       const src = (tree.body?.sources ?? []).find((x: { subject: string }) => x.subject === subj);

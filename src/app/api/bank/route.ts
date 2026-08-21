@@ -23,15 +23,21 @@ export async function GET(req: Request) {
 
   const url = new URL(req.url);
   const subject = (url.searchParams.get("subject") ?? "").trim();
+  // 전체 과목 모드 — subject 없이 전 과목에서 출제 (all=1)
+  const all = url.searchParams.get("all") === "1";
   const category = (url.searchParams.get("category") ?? "").trim();
-  const area = (url.searchParams.get("area") ?? "").trim();
+  // 영역은 다중 선택 — 콤마 구분 (예: area=재무회계,원가회계)
+  const areas = (url.searchParams.get("area") ?? "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
   const typeTag = (url.searchParams.get("type_tag") ?? "").trim();
   // 회차 (예: "전산회계1급 125회"). 고르면 그 회차 문항만 — 실제 시험처럼 풀 수 있다.
   const source = (url.searchParams.get("source") ?? "").trim();
   const mode = url.searchParams.get("mode") === "wrong" ? "wrong" : "all";
   // 공부 모드: 이론 문항도 정답·해설을 처음부터 함께 준다 (복습용). 실무는 원래 포함.
   const study = url.searchParams.get("study") === "1";
-  const hasFilter = Boolean(url.searchParams.get("subject") || mode === "wrong");
+  const hasFilter = Boolean(url.searchParams.get("subject") || all || mode === "wrong");
   const limit = Math.min(
     Math.max(Number(url.searchParams.get("limit")) || DEFAULT_LIMIT, 1),
     MAX_LIMIT
@@ -76,7 +82,7 @@ export async function GET(req: Request) {
     let q = db.from("bank_questions").select("id").order("created_at", { ascending: true });
     if (subject) q = q.eq("subject", subject);
     if (category) q = q.eq("category", category);
-    if (area) q = q.eq("area", area);
+    if (areas.length) q = q.in("area", areas);
     if (typeTag) q = q.eq("type_tag", typeTag);
     if (source) q = q.eq("source", source);
     return q;
