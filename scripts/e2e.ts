@@ -672,6 +672,18 @@ async function main() {
             (pr.body.questions as SearchQ[]).every((x) => x.category !== "이론" && Boolean(x.answerText)),
           `${(pr.body?.questions ?? []).length}건`
         );
+
+        // 이론 통합 검색 (v0.38.0) — subject 없이 전 급수, 행마다 급수 태그(subject) 실림
+        const un = await json(`/api/bank/search?q=${encodeURIComponent("감가상각")}&kind=theory`, {
+          headers: bearer(studentTok),
+        });
+        type UnQ = { subject: string; category: string };
+        const unQs = (un.body?.questions ?? []) as UnQ[];
+        ok(
+          "이론 통합 검색 — subject 없이 200 + 전 행에 급수 포함",
+          un.status === 200 && unQs.length > 0 && unQs.every((x) => Boolean(x.subject) && x.category === "이론"),
+          `${unQs.length}건 · 급수 ${[...new Set(unQs.map((x) => x.subject))].join("·")}`
+        );
       }
 
       // 공부 모드는 이론도 정답(answerIdx)·해설 포함

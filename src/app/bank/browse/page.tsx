@@ -9,6 +9,7 @@ import { StemView, ExplanationView, Hi } from "@/components/BankQuestion";
 
 type Q = {
   id: string;
+  subject: string;
   category: string;
   typeTag: string;
   area: string;
@@ -77,16 +78,17 @@ function BrowseInner() {
 
   async function search(useKind: "theory" | "practice" = kind) {
     const kw = q.trim();
-    if (!subject) return setErr("급수(과목)를 먼저 골라 주세요.");
+    // 이론은 전 급수 통합 검색 — 급수 선택 없음. 실무만 급수를 고른다.
+    if (useKind === "practice" && !subject) return setErr("급수(과목)를 먼저 골라 주세요.");
     if (kw.length < 2) return setErr("검색어는 두 글자 이상 입력해 주세요.");
     if (busy || !token) return;
     setBusy(true);
     setErr("");
     try {
-      const r = await fetch(
-        `/api/bank/search?subject=${encodeURIComponent(subject)}&q=${encodeURIComponent(kw)}&kind=${useKind}`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      const subjQ = useKind === "practice" ? `subject=${encodeURIComponent(subject)}&` : "";
+      const r = await fetch(`/api/bank/search?${subjQ}q=${encodeURIComponent(kw)}&kind=${useKind}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       const d = await r.json().catch(() => null);
       if (!r.ok) return setErr(d?.error ?? "검색하지 못했어요.");
       setResult({ questions: d.questions ?? [], total: d.total ?? 0, q: kw });
@@ -108,7 +110,8 @@ function BrowseInner() {
     setKind(k);
     window.history.replaceState({}, "", `/bank/browse${k === "practice" ? "?kind=practice" : ""}`);
     setErr("");
-    if (result && q.trim().length >= 2) search(k);
+    // 실무로 넘어가는데 급수 미선택이면 이전 탭 결과만 비운다 (급수 고르고 재검색)
+    if (result && q.trim().length >= 2 && !(k === "practice" && !subject)) search(k);
     else setResult(null);
   }
 
@@ -123,8 +126,9 @@ function BrowseInner() {
             문제검색 {kind === "practice" ? "(실무)" : "(이론)"}
           </h1>
           <p className="text-sub text-[14px]">
-            급수를 고르고 키워드를 검색하면 그 말이 들어간 {kind === "practice" ? "실무(분개·결산)" : "이론(4지선다)"} 기출문제를
-            전부 모아 보여줘요.
+            {kind === "practice"
+              ? "급수를 고르고 키워드를 검색하면 그 말이 들어간 실무(분개·결산) 기출문제를 전부 모아 보여줘요."
+              : "키워드를 검색하면 전 급수의 이론(4지선다) 기출문제를 한 번에 모아 보여줘요. 문제마다 급수가 표시돼요."}
           </p>
         </div>
         <Link href="/bank" className="chip shrink-0 !text-[13px]">
@@ -153,17 +157,20 @@ function BrowseInner() {
           <div className="skel h-20 !rounded-[16px]" />
         ) : (
           <>
-            <div className="flex gap-1.5 flex-wrap">
-              {subjects.map(([s, n]) => (
-                <button
-                  key={s}
-                  onClick={() => setSubject(subject === s ? "" : s)}
-                  className={`chip !text-[13px] ${subject === s ? "chip-on" : ""}`}
-                >
-                  {s} <b className="font-semibold" style={{ color: "var(--sub)" }}>{n}</b>
-                </button>
-              ))}
-            </div>
+            {/* 이론은 전 급수 통합 — 급수 선택은 실무에만 (결과엔 급수 태그가 붙는다) */}
+            {kind === "practice" && (
+              <div className="flex gap-1.5 flex-wrap">
+                {subjects.map(([s, n]) => (
+                  <button
+                    key={s}
+                    onClick={() => setSubject(subject === s ? "" : s)}
+                    className={`chip !text-[13px] ${subject === s ? "chip-on" : ""}`}
+                  >
+                    {s} <b className="font-semibold" style={{ color: "var(--sub)" }}>{n}</b>
+                  </button>
+                ))}
+              </div>
+            )}
             <div className="flex gap-2">
               <input
                 className="field flex-1"
@@ -207,7 +214,16 @@ function BrowseInner() {
                 <div key={n.id} className="rise card p-4 lg:p-5 flex flex-col gap-4">
                   <div className="flex gap-1.5 flex-wrap">
                     <span className="chip !py-0.5 !px-2 !text-[11px] !cursor-default">{page * PER + pi + 1}번</span>
-                    {n.source && <span className="chip !py-0.5 !px-2 !text-[11px] !cursor-default">{n.source}</span>}
+                    {/* 급수 태그 — 통합 검색이라 문제마다 어느 급수인지 보여준다 */}
+                    {n.subject && (
+                      <span className="chip chip-on !py-0.5 !px-2 !text-[11px] !cursor-default">{n.subject}</span>
+                    )}
+                    {n.source && (
+                      <span className="chip !py-0.5 !px-2 !text-[11px] !cursor-default">
+                        {/* source가 "전산회계1급 125회" 꼴이라 급수 태그와 겹치는 앞부분은 떼고 회차만 */}
+                        {n.subject ? n.source.replace(n.subject, "").trim() || n.source : n.source}
+                      </span>
+                    )}
                     <span className="chip !py-0.5 !px-2 !text-[11px] !cursor-default">{n.typeTag}</span>
                     <span className="chip !py-0.5 !px-2 !text-[11px] !cursor-default">{isTheory ? "이론" : "실무"}</span>
                   </div>
