@@ -648,6 +648,30 @@ async function main() {
           })) === 400
         );
         ok("비인증 → 문제모음 401", (await status("/api/bank/search?subject=x&q=재무")) === 401);
+
+        // 이론/실무 분리 검색 (v0.37.0)
+        type SearchQ = { category: string; answerText: string | null };
+        const th = await json(
+          `/api/bank/search?subject=${encodeURIComponent(subj)}&q=${encodeURIComponent("재무")}&kind=theory`,
+          { headers: bearer(studentTok) }
+        );
+        ok(
+          "이론 검색 — 이론만 반환",
+          th.status === 200 &&
+            (th.body?.questions ?? []).length > 0 &&
+            (th.body.questions as SearchQ[]).every((x) => x.category === "이론")
+        );
+        const pr = await json(
+          `/api/bank/search?subject=${encodeURIComponent(subj)}&q=${encodeURIComponent("외상매출금")}&kind=practice`,
+          { headers: bearer(studentTok) }
+        );
+        ok(
+          "실무 검색 — 비이론만 + 정답(answerText) 포함",
+          pr.status === 200 &&
+            (pr.body?.questions ?? []).length > 0 &&
+            (pr.body.questions as SearchQ[]).every((x) => x.category !== "이론" && Boolean(x.answerText)),
+          `${(pr.body?.questions ?? []).length}건`
+        );
       }
 
       // 공부 모드는 이론도 정답(answerIdx)·해설 포함

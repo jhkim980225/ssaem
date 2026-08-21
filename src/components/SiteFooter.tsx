@@ -70,7 +70,8 @@ export default function SiteFooter() {
               <p className="text-[12px] font-bold text-sub mb-3">공용</p>
               <ul className="flex flex-col gap-2 text-[13px]">
                 {item("/bank", "기출문제")}
-                {item("/bank/browse", "문제검색")}
+                {item("/bank/browse", "문제검색(이론)")}
+                {item("/bank/browse?kind=practice", "문제검색(실무)")}
                 {item("/install", "앱 설치")}
               </ul>
             </div>

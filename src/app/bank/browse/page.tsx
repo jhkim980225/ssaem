@@ -1,6 +1,7 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useGate } from "@/components/RoleGuard";
 import BackButton from "@/components/BackButton";
 import JournalEntry from "@/components/JournalEntry";
@@ -19,18 +20,33 @@ type Q = {
   explanation: string | null;
   images?: string[] | null;
 };
-type TreeRow = { subject: string; count: number };
+type TreeRow = { subject: string; category: string; count: number };
 
 const PER = 10; // 페이지당 문제 수
 
 // 문제검색 — 급수를 고르고 키워드를 검색하면 지문에 그 말이 포함된 문제를 전부 보여준다.
+// 이론(4지선다)/실무(분개·결산) 탭으로 나뉜다 — 실무는 정답이 분개 표라 보는 방식이 다르다.
 // 정답은 바로 보여주지 않고 "답안 보기"를 눌러야 체크된다 (스스로 생각해 볼 여지).
 export default function BankBrowsePage() {
+  return (
+    <Suspense fallback={<main className="flex-1" />}>
+      <BrowseInner />
+    </Suspense>
+  );
+}
+
+function BrowseInner() {
+  // /bank/browse?kind=practice 로 실무 탭 바로 진입 (기본 이론)
+  const params = useSearchParams();
   const { session, gate } = useGate("any", { loginMessage: "문제검색은 로그인 후 쓸 수 있어요." });
   const token = session?.access_token;
 
   const [tree, setTree] = useState<TreeRow[] | null>(null);
   const [subject, setSubject] = useState("");
+  // 이론(4지선다) / 실무(분개·결산) 탭
+  const [kind, setKind] = useState<"theory" | "practice">(
+    params.get("kind") === "practice" ? "practice" : "theory"
+  );
   const [q, setQ] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
@@ -48,14 +64,18 @@ export default function BankBrowsePage() {
       .catch(() => setTree([]));
   }, [token]);
 
+  // 급수별 문항 수 — 현재 탭(이론/실무) 기준으로 집계
   const subjects = useMemo(() => {
     const c = new Map<string, number>();
-    for (const t of (tree ?? []) as { subject: string; count: number }[])
+    for (const t of tree ?? []) {
+      const isTheoryRow = t.category === "이론";
+      if (kind === "theory" ? !isTheoryRow : isTheoryRow) continue;
       c.set(t.subject, (c.get(t.subject) ?? 0) + t.count);
+    }
     return [...c.entries()].sort();
-  }, [tree]);
+  }, [tree, kind]);
 
-  async function search() {
+  async function search(useKind: "theory" | "practice" = kind) {
     const kw = q.trim();
     if (!subject) return setErr("급수(과목)를 먼저 골라 주세요.");
     if (kw.length < 2) return setErr("검색어는 두 글자 이상 입력해 주세요.");
@@ -63,9 +83,10 @@ export default function BankBrowsePage() {
     setBusy(true);
     setErr("");
     try {
-      const r = await fetch(`/api/bank/search?subject=${encodeURIComponent(subject)}&q=${encodeURIComponent(kw)}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const r = await fetch(
+        `/api/bank/search?subject=${encodeURIComponent(subject)}&q=${encodeURIComponent(kw)}&kind=${useKind}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
       const d = await r.json().catch(() => null);
       if (!r.ok) return setErr(d?.error ?? "검색하지 못했어요.");
       setResult({ questions: d.questions ?? [], total: d.total ?? 0, q: kw });
@@ -81,6 +102,16 @@ export default function BankBrowsePage() {
     window.scrollTo({ top: 0 }); // 페이지 넘기면 첫 문제부터 보이게
   }
 
+  // 이론/실무 탭 전환 — 결과가 떠 있으면 같은 검색어로 새 탭에서 재검색
+  function switchKind(k: "theory" | "practice") {
+    if (k === kind) return;
+    setKind(k);
+    window.history.replaceState({}, "", `/bank/browse${k === "practice" ? "?kind=practice" : ""}`);
+    setErr("");
+    if (result && q.trim().length >= 2) search(k);
+    else setResult(null);
+  }
+
   if (gate) return gate;
 
   return (
@@ -88,12 +119,33 @@ export default function BankBrowsePage() {
       <div className="rise flex items-start justify-between gap-3">
         <div className="flex flex-col gap-1">
           <BackButton fallback="/bank" />
-          <h1 className="text-[24px] lg:text-[28px] font-extrabold">문제검색</h1>
-          <p className="text-sub text-[14px]">급수를 고르고 키워드를 검색하면 그 말이 들어간 기출문제를 전부 모아 보여줘요.</p>
+          <h1 className="text-[24px] lg:text-[28px] font-extrabold">
+            문제검색 {kind === "practice" ? "(실무)" : "(이론)"}
+          </h1>
+          <p className="text-sub text-[14px]">
+            급수를 고르고 키워드를 검색하면 그 말이 들어간 {kind === "practice" ? "실무(분개·결산)" : "이론(4지선다)"} 기출문제를
+            전부 모아 보여줘요.
+          </p>
         </div>
         <Link href="/bank" className="chip shrink-0 !text-[13px]">
           기출문제
         </Link>
+      </div>
+
+      {/* 이론/실무 탭 */}
+      <div className="rise d1 flex flex-wrap gap-1.5">
+        <button onClick={() => switchKind("theory")} className={`chip !text-[13px] ${kind === "theory" ? "chip-on" : ""}`}>
+          문제검색(이론)
+        </button>
+        <button
+          onClick={() => switchKind("practice")}
+          className={`chip !text-[13px] ${kind === "practice" ? "chip-on" : ""}`}
+        >
+          문제검색(실무)
+        </button>
+        <span className="self-center text-[12px] text-sub ml-1">
+          {kind === "practice" ? "분개·결산 문제 — 정답이 분개 표로 나와요" : "4지선다 문제"}
+        </span>
       </div>
 
       <div className="rise d1 card p-5 flex flex-col gap-3">
@@ -122,7 +174,7 @@ export default function BankBrowsePage() {
                   if (e.key === "Enter" && !e.nativeEvent.isComposing) search();
                 }}
               />
-              <button onClick={search} disabled={busy} className="btn btn-primary px-6 shrink-0 disabled:opacity-50">
+              <button onClick={() => search()} disabled={busy} className="btn btn-primary px-6 shrink-0 disabled:opacity-50">
                 {busy ? "검색 중…" : "검색"}
               </button>
             </div>
