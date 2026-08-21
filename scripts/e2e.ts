@@ -531,13 +531,14 @@ async function main() {
       ok("트리 응답에 회차 목록 포함", Array.isArray(tree.body?.sources), `${(tree.body?.sources ?? []).length}개`);
       const src = (tree.body?.sources ?? []).find((x: { subject: string }) => x.subject === subj);
       if (src) {
+        // 실제 CBT 클라이언트와 동일하게 category=이론 — 집계 뷰(bank_source_counts)도 이론만 센다
         const bySrc = await json(
-          `/api/bank?subject=${encodeURIComponent(subj)}&source=${encodeURIComponent(src.source)}&limit=30`,
+          `/api/bank?subject=${encodeURIComponent(subj)}&source=${encodeURIComponent(src.source)}&category=${encodeURIComponent("이론")}&limit=30`,
           { headers: bearer(studentTok) }
         );
         ok("회차 지정 조회 200", bySrc.status === 200);
         ok(
-          "회차 문항 수가 집계와 일치",
+          "회차 문항 수가 집계와 일치 (이론)",
           (bySrc.body?.total ?? 0) === src.count,
           `${bySrc.body?.total} vs ${src.count}`
         );
@@ -684,6 +685,22 @@ async function main() {
           un.status === 200 && unQs.length > 0 && unQs.every((x) => Boolean(x.subject) && x.category === "이론"),
           `${unQs.length}건 · 급수 ${[...new Set(unQs.map((x) => x.subject))].join("·")}`
         );
+
+        // 실무 재분류 (v0.39.0): 세무는 일반전표·매입매출전표·결산 3분류, 회계는 일반전표·결산 2분류
+        type TR = { subject: string; category: string };
+        const cats = (subj2: string) =>
+          [...new Set(((tree.body?.tree ?? []) as TR[]).filter((t) => t.subject === subj2 && t.category !== "이론").map((t) => t.category))].sort();
+        ok(
+          "세무2급 실무 = 결산·매입매출전표·일반전표",
+          JSON.stringify(cats("전산세무2급")) === JSON.stringify(["결산", "매입매출전표", "일반전표"]),
+          cats("전산세무2급").join(",")
+        );
+        ok(
+          "회계1급 실무 = 결산·일반전표 (매입매출 없음)",
+          JSON.stringify(cats("전산회계1급")) === JSON.stringify(["결산", "일반전표"]),
+          cats("전산회계1급").join(",")
+        );
+        ok("실무분개 카테고리 소멸", !((tree.body?.tree ?? []) as TR[]).some((t) => t.category === "실무분개"));
       }
 
       // 공부 모드는 이론도 정답(answerIdx)·해설 포함

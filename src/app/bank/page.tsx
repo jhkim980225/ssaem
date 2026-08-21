@@ -28,7 +28,8 @@ const COUNTS = [5, 10, 15, 20, 30] as const;
 // 회차 문자열에서 숫자만 뽑아 정렬용으로 (예: "전산회계1급 125회" → 125)
 const roundNo = (s: string) => Number((s.match(/(\d+)\s*회/) ?? [])[1] ?? 0);
 
-const CATEGORIES = ["이론", "실무분개", "결산"] as const;
+// 유형 표시 순서 — 급수마다 있는 유형이 다르므로(세무: 매입매출전표 있음) 목록은 트리에서 동적으로 뽑는다
+const CATEGORY_ORDER = ["이론", "일반전표", "매입매출전표", "결산"];
 // 과목 "전체" 선택 — 전 과목 섞어서 출제 (API에는 all=1로 나간다)
 const ALL = "전체";
 
@@ -119,6 +120,13 @@ export default function BankPage() {
     );
     return [...set];
   }, [tree, subjFilter, category]);
+  // 급수별 실제 존재하는 유형만 — 회계는 일반전표·결산, 세무는 매입매출전표까지
+  const categories = useMemo(() => {
+    const set = new Set(
+      (tree ?? []).filter((t) => !subjFilter || t.subject === subjFilter).map((t) => t.category)
+    );
+    return [...set].sort((a, b) => CATEGORY_ORDER.indexOf(a) - CATEGORY_ORDER.indexOf(b));
+  }, [tree, subjFilter]);
 
   function countFor(f: Partial<Pick<TreeRow, "subject" | "category" | "area">>): number {
     return (tree ?? [])
@@ -380,6 +388,7 @@ export default function BankPage() {
                       setSubject(subject === s ? "" : s);
                       setAreaSel([]);
                       setSource(""); // 다른 과목의 회차가 선택된 채 남지 않게
+                      setCategory(""); // 급수마다 유형이 달라(매입매출전표는 세무만) 이월 방지
                     }}
                   >
                     {s}{" "}
@@ -440,7 +449,7 @@ export default function BankPage() {
               )}
               {!cbt && (
               <Filter label="유형 (선택)">
-                {CATEGORIES.map((c) => {
+                {categories.map((c) => {
                   const n = countFor({ subject: subjFilter, category: c });
                   return (
                     <Chip key={c} on={category === c} disabled={n === 0} onClick={() => setCategory(category === c ? "" : c)}>

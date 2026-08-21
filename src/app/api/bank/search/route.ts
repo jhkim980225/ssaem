@@ -6,7 +6,7 @@ import { rateLimit, clientIp } from "@/lib/ratelimit";
 // 문제모음 검색: 키워드 → 지문에 키워드가 포함된 문제 전부 (정답·해설 포함, 열람용).
 // GET ?q=재무&kind=theory|practice&subject=전산회계2급
 //   kind=theory  → 이론(4지선다)만
-//   kind=practice → 실무(실무분개·결산 — 이론이 아닌 전부)
+//   kind=practice → 실무(일반전표·매입매출전표·결산 — 이론이 아닌 전부)
 //   subject 생략 → 전 급수 통합 검색 (결과 행에 subject가 실려 태그로 표시)
 export async function GET(req: Request) {
   const g = await requireUser(req);

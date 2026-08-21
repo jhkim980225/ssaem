@@ -26,7 +26,7 @@ type TreeRow = { subject: string; category: string; count: number };
 const PER = 10; // 페이지당 문제 수
 
 // 문제검색 — 급수를 고르고 키워드를 검색하면 지문에 그 말이 포함된 문제를 전부 보여준다.
-// 이론(4지선다)/실무(분개·결산) 탭으로 나뉜다 — 실무는 정답이 분개 표라 보는 방식이 다르다.
+// 이론(4지선다)/실무(일반전표·매입매출전표·결산) 탭으로 나뉜다 — 실무는 정답이 분개 표라 보는 방식이 다르다.
 // 정답은 바로 보여주지 않고 "답안 보기"를 눌러야 체크된다 (스스로 생각해 볼 여지).
 export default function BankBrowsePage() {
   return (
@@ -44,7 +44,7 @@ function BrowseInner() {
 
   const [tree, setTree] = useState<TreeRow[] | null>(null);
   const [subject, setSubject] = useState("");
-  // 이론(4지선다) / 실무(분개·결산) 탭
+  // 이론(4지선다) / 실무(일반전표·매입매출전표·결산) 탭
   const [kind, setKind] = useState<"theory" | "practice">(
     params.get("kind") === "practice" ? "practice" : "theory"
   );
@@ -127,7 +127,7 @@ function BrowseInner() {
           </h1>
           <p className="text-sub text-[14px]">
             {kind === "practice"
-              ? "급수를 고르고 키워드를 검색하면 그 말이 들어간 실무(분개·결산) 기출문제를 전부 모아 보여줘요."
+              ? "급수를 고르고 키워드를 검색하면 그 말이 들어간 실무(일반전표·매입매출·결산) 기출문제를 전부 모아 보여줘요."
               : "키워드를 검색하면 전 급수의 이론(4지선다) 기출문제를 한 번에 모아 보여줘요. 문제마다 급수가 표시돼요."}
           </p>
         </div>
@@ -148,7 +148,7 @@ function BrowseInner() {
           문제검색(실무)
         </button>
         <span className="self-center text-[12px] text-sub ml-1">
-          {kind === "practice" ? "분개·결산 문제 — 정답이 분개 표로 나와요" : "4지선다 문제"}
+          {kind === "practice" ? "일반전표·매입매출·결산 문제 — 정답이 분개 표로 나와요" : "4지선다 문제"}
         </span>
       </div>
 
