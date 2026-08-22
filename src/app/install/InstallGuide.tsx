@@ -2,7 +2,14 @@
 import { useState, useSyncExternalStore } from "react";
 import InstallButton from "./InstallButton";
 
-type Platform = "ios-safari" | "ios-other" | "android" | "desktop" | "unknown";
+type Platform =
+  | "ios-safari"
+  | "ios-other"
+  | "android" // 크롬 등 — 오른쪽 위 ⋮
+  | "android-samsung" // 삼성 인터넷 — ⋮ 없음, 하단 ≡ 메뉴
+  | "android-inapp" // 카카오톡·네이버 등 인앱 — 홈 화면 추가 자체가 없음
+  | "desktop"
+  | "unknown";
 
 // 기기·브라우저를 보고 자기한테 필요한 단계만 보여준다.
 // iOS는 beforeinstallprompt가 없어(애플 미구현) 버튼으로 설치를 못 걸므로 수동 안내가 유일한 수단이고,
@@ -16,7 +23,12 @@ function detect(): Platform {
     const inSafari = /Safari/.test(ua) && !/CriOS|FxiOS|EdgiOS|NAVER|KAKAOTALK|Instagram|FBAN|FBAV|Line/i.test(ua);
     return inSafari ? "ios-safari" : "ios-other";
   }
-  if (/Android/.test(ua)) return "android";
+  if (/Android/.test(ua)) {
+    // 인앱 브라우저 먼저 — 삼성 폰 카카오톡 웹뷰는 SamsungBrowser가 아니라 KAKAOTALK로 온다
+    if (/KAKAOTALK|NAVER|Instagram|FBAN|FBAV|Line|DaumApps/i.test(ua)) return "android-inapp";
+    if (/SamsungBrowser/i.test(ua)) return "android-samsung";
+    return "android";
+  }
   return "desktop";
 }
 
@@ -40,11 +52,28 @@ const GUIDES: Record<Exclude<Platform, "unknown">, { title: string; steps: strin
     ],
   },
   android: {
-    title: "안드로이드 · 버튼 한 번이면 끝나요",
+    title: "안드로이드(크롬) · 버튼 한 번이면 끝나요",
     steps: [
       "아래 '이 기기에 바로 설치하기'를 누르세요.",
       "버튼이 안 보이면 오른쪽 위 점 세 개(⋮)를 누르세요.",
       "'앱 설치' 또는 '홈 화면에 추가'를 고르면 끝이에요.",
+    ],
+  },
+  "android-samsung": {
+    title: "삼성 인터넷 · 아래 메뉴에서 추가해요",
+    steps: [
+      "아래 '이 기기에 바로 설치하기' 버튼이 보이면 그걸 누르면 끝이에요.",
+      "버튼이 없으면 화면 오른쪽 아래 줄 세 개(≡) 메뉴를 누르세요. (삼성 인터넷엔 점 세 개가 없어요)",
+      "'현재 페이지 추가' 또는 '홈 화면에 추가'를 누르고 '홈 화면'을 고르면 아이콘이 생겨요.",
+    ],
+    note: "주소창 오른쪽에 설치 아이콘(↓)이 떠 있으면 그걸 눌러도 돼요.",
+  },
+  "android-inapp": {
+    title: "지금 브라우저에선 설치가 안 돼요",
+    steps: [
+      "카카오톡·네이버 앱 안 브라우저에는 홈 화면 추가 기능이 없어요.",
+      "화면 메뉴에서 '다른 브라우저로 열기'를 누르세요. (또는 아래 '주소 복사' 후 크롬·삼성 인터넷에 붙여넣기)",
+      "크롬이면 오른쪽 위 점 세 개(⋮) → '홈 화면에 추가', 삼성 인터넷이면 아래 줄 세 개(≡) → '현재 페이지 추가'예요.",
     ],
   },
   desktop: {
@@ -96,7 +125,7 @@ export default function InstallGuide({ url, appUrl }: { url: string; appUrl: str
           </a>
         )}
 
-        {(platform === "ios-other" || platform === "ios-safari") && (
+        {(platform === "ios-other" || platform === "ios-safari" || platform === "android-inapp") && (
           <button
             onClick={() => {
               navigator.clipboard.writeText(url).then(() => {
