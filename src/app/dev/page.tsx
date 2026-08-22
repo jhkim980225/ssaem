@@ -11,6 +11,8 @@ type Metrics = {
   usage30: { conversations: number; questions: number; quizAttempts: number; bankAttempts: number; cbtSessions: number };
   totals: { conversations: number; documents: number };
   daily: { day: string; students: number; visits: number }[];
+  signupDaily: { day: string; count: number }[];
+  academies: { name: string; students: number; teachers: number; admins: number; total: number }[];
   perUser: {
     id: string;
     name: string;
@@ -101,13 +103,60 @@ export default function DevPage() {
           </section>
 
           <section className="rise d3 flex flex-col gap-2">
-            <h2 className="text-[15px] font-extrabold">사용자</h2>
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+            <h2 className="text-[15px] font-extrabold">가입자</h2>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
+              {tile("총 가입자", m.users.students + m.users.teachers + m.users.admins)}
               {tile("학생", m.users.students)}
               {tile("강사", m.users.teachers)}
               {tile("원장", m.users.admins)}
               {tile("학원", m.users.academies)}
               {tile("신규 가입 (30일)", m.users.newUsers30)}
+            </div>
+            {/* 일별 신규 가입 30일 */}
+            <div className="card p-4">
+              <p className="text-[12px] font-bold text-sub mb-2">일별 신규 가입 (30일)</p>
+              <div className="flex items-end gap-[2px] h-16">
+                {m.signupDaily.map((d) => {
+                  const maxS = Math.max(1, ...m.signupDaily.map((x) => x.count));
+                  return (
+                    <div
+                      key={d.day}
+                      title={`${d.day} · ${d.count}명`}
+                      className="flex-1 rounded-t-[3px] bg-blue min-h-[2px]"
+                      style={{ height: `${Math.max(3, (d.count / maxS) * 100)}%`, opacity: d.count ? 1 : 0.15 }}
+                    />
+                  );
+                })}
+              </div>
+              <div className="flex justify-between text-[11px] text-sub mt-1.5">
+                <span>{m.signupDaily[0]?.day.slice(5)}</span>
+                <span>{m.signupDaily[m.signupDaily.length - 1]?.day.slice(5)}</span>
+              </div>
+            </div>
+            {/* 학원별 인원 분포 */}
+            <div className="card p-0 overflow-x-auto">
+              <table className="w-full text-[13px] min-w-[420px]">
+                <thead>
+                  <tr className="text-sub text-[12px] border-b border-line">
+                    <th className="text-left font-bold px-4 py-2.5">학원</th>
+                    <th className="text-right font-bold px-2 py-2.5">학생</th>
+                    <th className="text-right font-bold px-2 py-2.5">강사</th>
+                    <th className="text-right font-bold px-2 py-2.5">원장</th>
+                    <th className="text-right font-bold px-4 py-2.5">계</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {m.academies.map((a, i) => (
+                    <tr key={i} className="border-b border-line last:border-b-0">
+                      <td className="px-4 py-2 font-bold whitespace-nowrap">{a.name}</td>
+                      <td className="px-2 py-2 text-right tabular-nums">{a.students}</td>
+                      <td className="px-2 py-2 text-right tabular-nums">{a.teachers}</td>
+                      <td className="px-2 py-2 text-right tabular-nums">{a.admins}</td>
+                      <td className="px-4 py-2 text-right tabular-nums font-bold">{a.total}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </section>
 

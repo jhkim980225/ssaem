@@ -53,6 +53,40 @@ export async function GET(req: Request) {
       .then(({ data }) => (data ?? []) as { student_id: string; day: string; count: number }[]),
   ]);
 
+  // 가입 통계 — 일별 신규(30일)와 학원별 인원 분포
+  const { data: allProfiles } = await db
+    .from("profiles")
+    .select("role, created_at, academy_id, academies(name)")
+    .limit(10000);
+  type PRow = {
+    role: string;
+    created_at: string;
+    academy_id: string | null;
+    academies: { name: string } | { name: string }[] | null;
+  };
+  const signupByDay = new Map<string, number>();
+  const byAcademy = new Map<string, { name: string; students: number; teachers: number; admins: number }>();
+  for (const p of (allProfiles ?? []) as PRow[]) {
+    if (p.role === "dev") continue;
+    const d = kstDay(Date.parse(p.created_at));
+    if (d >= since30) signupByDay.set(d, (signupByDay.get(d) ?? 0) + 1);
+    const key = p.academy_id ?? "none";
+    const ac = Array.isArray(p.academies) ? p.academies[0] : p.academies;
+    const e = byAcademy.get(key) ?? { name: ac?.name ?? "미소속", students: 0, teachers: 0, admins: 0 };
+    if (p.role === "student") e.students++;
+    else if (p.role === "teacher") e.teachers++;
+    else if (p.role === "admin") e.admins++;
+    byAcademy.set(key, e);
+  }
+  const signupDaily: { day: string; count: number }[] = [];
+  for (let i = 29; i >= 0; i--) {
+    const d = kstDay(now - i * 86_400_000);
+    signupDaily.push({ day: d, count: signupByDay.get(d) ?? 0 });
+  }
+  const academyRows = [...byAcademy.values()]
+    .map((a) => ({ ...a, total: a.students + a.teachers + a.admins }))
+    .sort((a, b) => b.total - a.total);
+
   // 사용자별 접속 집계 (전 기간) — 학생 전원 + 접속 0인 학생도 포함해 비활성까지 보이게
   const [allVisits, studentProfiles] = await Promise.all([
     db
@@ -139,6 +173,8 @@ export async function GET(req: Request) {
     },
     totals: { conversations: convsTotal, documents },
     daily,
+    signupDaily,
+    academies: academyRows,
     perUser: perUserRows,
   });
 }
