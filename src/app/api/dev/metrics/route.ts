@@ -53,6 +53,59 @@ export async function GET(req: Request) {
       .then(({ data }) => (data ?? []) as { student_id: string; day: string; count: number }[]),
   ]);
 
+  // 사용자별 접속 집계 (전 기간) — 학생 전원 + 접속 0인 학생도 포함해 비활성까지 보이게
+  const [allVisits, studentProfiles] = await Promise.all([
+    db
+      .from("visit_days")
+      .select("student_id, day, count, last_at")
+      .order("day", { ascending: false })
+      .limit(20000)
+      .then(({ data }) => (data ?? []) as { student_id: string; day: string; count: number; last_at: string }[]),
+    db
+      .from("profiles")
+      .select("id, name, academies(name)")
+      .eq("role", "student")
+      .then(
+        ({ data }) =>
+          (data ?? []) as { id: string; name: string; academies: { name: string } | { name: string }[] | null }[]
+      ),
+  ]);
+  const perUser = new Map<string, { visits: number; days: string[]; lastAt: string }>();
+  for (const v of allVisits) {
+    const e = perUser.get(v.student_id) ?? { visits: 0, days: [], lastAt: "" };
+    e.visits += v.count;
+    e.days.push(v.day);
+    if (v.last_at > e.lastAt) e.lastAt = v.last_at;
+    perUser.set(v.student_id, e);
+  }
+  const todayStr = kstDay(now);
+  const streakOf = (days: string[]) => {
+    const have = new Set(days);
+    let anchor = Date.parse(todayStr);
+    if (!have.has(todayStr)) anchor -= 86_400_000;
+    let n = 0;
+    while (have.has(new Date(anchor).toISOString().slice(0, 10))) {
+      n++;
+      anchor -= 86_400_000;
+    }
+    return n;
+  };
+  const perUserRows = studentProfiles
+    .map((p) => {
+      const e = perUser.get(p.id);
+      const ac = Array.isArray(p.academies) ? p.academies[0] : p.academies;
+      return {
+        id: p.id,
+        name: p.name,
+        academy: ac?.name ?? null,
+        visits: e?.visits ?? 0,
+        visitDays: e?.days.length ?? 0,
+        streak: e ? streakOf(e.days) : 0,
+        lastVisit: e?.lastAt ?? null,
+      };
+    })
+    .sort((a, b) => b.visits - a.visits || a.name.localeCompare(b.name));
+
   // 활성 사용자: 기간 내 접속한 학생 distinct
   const dau = new Set(visitRows.filter((v) => v.day === today).map((v) => v.student_id)).size;
   const wau = new Set(visitRows.filter((v) => v.day >= since7).map((v) => v.student_id)).size;
@@ -86,5 +139,6 @@ export async function GET(req: Request) {
     },
     totals: { conversations: convsTotal, documents },
     daily,
+    perUser: perUserRows,
   });
 }

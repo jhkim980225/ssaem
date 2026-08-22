@@ -11,6 +11,15 @@ type Metrics = {
   usage30: { conversations: number; questions: number; quizAttempts: number; bankAttempts: number; cbtSessions: number };
   totals: { conversations: number; documents: number };
   daily: { day: string; students: number; visits: number }[];
+  perUser: {
+    id: string;
+    name: string;
+    academy: string | null;
+    visits: number;
+    visitDays: number;
+    streak: number;
+    lastVisit: string | null;
+  }[];
 };
 
 // 개발자 대시보드 — dev 계정 전용. 서비스 전반 지표(MAU·사용량)를 한 화면에.
@@ -119,6 +128,65 @@ export default function DevPage() {
               {tile("총 대화", m.totals.conversations)}
               {tile("등록 자료", m.totals.documents)}
             </div>
+          </section>
+
+          <section className="rise d6 flex flex-col gap-2">
+            <h2 className="text-[15px] font-extrabold">사용자별 접속 (학생 전원 · 전 기간)</h2>
+            <div className="card p-0 overflow-x-auto">
+              <table className="w-full text-[13px] min-w-[560px]">
+                <thead>
+                  <tr className="text-sub text-[12px] border-b border-line">
+                    <th className="text-left font-bold px-4 py-2.5">이름</th>
+                    <th className="text-left font-bold px-2 py-2.5">학원</th>
+                    <th className="text-right font-bold px-2 py-2.5">총 접속</th>
+                    <th className="text-right font-bold px-2 py-2.5">출석일</th>
+                    <th className="text-right font-bold px-2 py-2.5">연속</th>
+                    <th className="text-right font-bold px-4 py-2.5">최근 접속</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {m.perUser.map((u) => {
+                    const maxV = Math.max(1, m.perUser[0]?.visits ?? 1);
+                    return (
+                      <tr key={u.id} className="border-b border-line last:border-b-0">
+                        <td className="px-4 py-2 font-bold whitespace-nowrap">{u.name}</td>
+                        <td className="px-2 py-2 text-sub whitespace-nowrap">{u.academy ?? "—"}</td>
+                        <td className="px-2 py-2 text-right tabular-nums">
+                          <span className="inline-flex items-center gap-1.5 justify-end">
+                            {/* 상대 막대 — 표에서 바로 많이/적게가 보이게 */}
+                            <span
+                              className="inline-block h-2 rounded-full bg-blue"
+                              style={{ width: `${Math.max(2, (u.visits / maxV) * 56)}px`, opacity: u.visits ? 1 : 0.15 }}
+                            />
+                            {u.visits}
+                          </span>
+                        </td>
+                        <td className="px-2 py-2 text-right tabular-nums">{u.visitDays}</td>
+                        <td className="px-2 py-2 text-right tabular-nums">{u.streak > 0 ? `${u.streak}일` : "—"}</td>
+                        <td className="px-4 py-2 text-right text-sub whitespace-nowrap">
+                          {u.lastVisit
+                            ? new Date(u.lastVisit).toLocaleString("ko-KR", {
+                                month: "numeric",
+                                day: "numeric",
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              })
+                            : "없음"}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {m.perUser.length === 0 && (
+                    <tr>
+                      <td colSpan={6} className="px-4 py-6 text-center text-sub">
+                        아직 접속 기록이 없어요.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+            <p className="text-[11px] text-sub">접속은 학생 계정만 집계돼요 (v0.40.0 도입 이후).</p>
           </section>
 
           <p className="text-[11px] text-sub">
