@@ -17,7 +17,7 @@ type Teacher = {
   convs?: number;
 };
 type Course = { id: string; title: string };
-type Lesson = { id: string; title: string; date: string; course_id: string | null; course: string | null };
+type Lesson = { id: string; title: string; summary: string | null; date: string; course_id: string | null; course: string | null };
 type Conv = { id: string; title: string | null; teacher_id: string; teacher_name: string | null; messages: number };
 // 현재 채팅 대상. convId/msgs 있으면 이전 대화 이어가기, ask 있으면 진입 즉시 질문.
 type Chat = { teacherId: string; teacherName: string; convId?: string; msgs?: Msg[]; ask?: string };
@@ -414,6 +414,12 @@ export default function AskPage() {
                   {dayLessons.map((l) => (
                     <div key={l.id} className="rounded-[12px] border border-line p-2.5" style={{ background: "var(--fill-2)" }}>
                       <p className="text-[13px] font-bold leading-snug">{l.title}</p>
+                      {/* AI 요약 — 강사 메모를 학생용으로 정리한 것 */}
+                      {l.summary && (
+                        <p className="text-[12px] leading-relaxed mt-1" style={{ color: "var(--sub-2)" }}>
+                          {l.summary}
+                        </p>
+                      )}
                       <p className="text-[11px] text-sub mt-0.5">{l.course ?? "공용"}</p>
                     </div>
                   ))}

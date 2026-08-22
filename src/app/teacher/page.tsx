@@ -15,6 +15,7 @@ type Doc = {
   title: string | null;
   source: string;
   preview: string;
+  summary: string | null; // 수업 자료 AI 요약
   raw: string;
   chunks: number;
   created_at: string;
@@ -823,6 +824,12 @@ function Dashboard({ session }: { session: Session }) {
                     <span className="text-sub text-[11px]">청크 {d.chunks}개</span>
                   </div>
                   <p className="font-medium truncate">{d.title || "제목 없음"}</p>
+                  {/* 수업 자료 AI 요약 — 학생 달력에 이대로 보인다 */}
+                  {d.summary && (
+                    <p className="text-[13px] leading-relaxed break-words rounded-[10px] px-2.5 py-1.5 mt-1" style={{ background: "var(--blue-weak)", color: "var(--sub-2)" }}>
+                      <b className="text-blue text-[11px]">AI 요약</b> {d.summary}
+                    </p>
+                  )}
                   <p className="text-sub text-[13px] break-words">{d.preview}</p>
                 </div>
                 <div className="shrink-0 flex flex-col gap-2 items-end">

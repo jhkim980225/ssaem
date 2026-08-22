@@ -15,14 +15,14 @@ export async function GET(req: Request) {
   const db = serviceClient();
   const { data, error } = await db
     .from("documents")
-    .select("id, kind, title, source, raw_text, created_at, course_id, lesson_date, courses(title), chunks(count)")
+    .select("id, kind, title, source, raw_text, summary, created_at, course_id, lesson_date, courses(title), chunks(count)")
     .eq("teacher_id", uid)
     .order("created_at", { ascending: false });
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   type Row = {
     id: string; kind: string; title: string | null; source: string;
-    raw_text: string; created_at: string; chunks: { count: number }[];
+    raw_text: string; summary: string | null; created_at: string; chunks: { count: number }[];
     course_id: string | null; lesson_date: string | null;
     courses: { title: string } | { title: string }[] | null;
   };
@@ -32,6 +32,7 @@ export async function GET(req: Request) {
     title: d.title,
     source: d.source,
     preview: d.raw_text.slice(0, 120),
+    summary: d.summary,
     raw: d.source === "text" ? d.raw_text : "", // 수정 프리필용 (PDF는 수정 불가)
     chunks: d.chunks?.[0]?.count ?? 0,
     created_at: d.created_at,

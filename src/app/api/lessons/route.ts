@@ -21,7 +21,7 @@ export async function GET(req: Request) {
 
   let q = db
     .from("documents")
-    .select("id, title, lesson_date, course_id, courses(title)")
+    .select("id, title, summary, lesson_date, course_id, courses(title)")
     .eq("teacher_id", teacher)
     .not("lesson_date", "is", null)
     .order("lesson_date", { ascending: false });
@@ -41,12 +41,13 @@ export async function GET(req: Request) {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   type Row = {
-    id: string; title: string | null; lesson_date: string;
+    id: string; title: string | null; summary: string | null; lesson_date: string;
     course_id: string | null; courses: { title: string } | { title: string }[] | null;
   };
   const lessons = ((data ?? []) as Row[]).map((d) => ({
     id: d.id,
     title: d.title ?? "제목 없음",
+    summary: d.summary,
     date: d.lesson_date,
     course_id: d.course_id,
     course: (Array.isArray(d.courses) ? d.courses[0]?.title : d.courses?.title) ?? null,
