@@ -7,10 +7,11 @@ import { supabase } from "@/lib/supabase";
 import { homeFor, type Role } from "@/lib/role";
 import { useAuth, clearMustChangePassword } from "@/lib/auth-store";
 
-const LABEL: Record<"teacher" | "admin" | "student", string> = {
+const LABEL: Record<"teacher" | "admin" | "student" | "dev", string> = {
   teacher: "강사",
   admin: "학원장",
   student: "학생",
+  dev: "개발자",
 };
 
 // 보호 페이지 공통 게이트. 페이지마다 세션 구독 + 4줄짜리 가드를 복붙하던 걸 한곳으로 모았다

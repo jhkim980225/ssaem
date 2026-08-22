@@ -80,6 +80,7 @@ function buildCases(teacherId: string): Case[] {
     { path: "/api/quiz?mode=wrong", expect: M(DENY, ALLOW, ALLOW, ALLOW) }, // 전체 오답 모드 (teacher 생략)
     { path: "/api/visit", expect: M(DENY, ALLOW, DENY, DENY) }, // 출석 요약 — 학생 전용
     { path: "/api/visit", method: "POST", expect: M(DENY, ALLOW, ALLOW, ALLOW) }, // 핑은 로그인만 (비학생은 no-op)
+    { path: "/api/dev/metrics", expect: M(DENY, DENY, DENY, DENY) }, // 개발자 전용 — 네 역할 전부 차단
     { path: "/api/quiz/attempt", expect: M(DENY, ALLOW, ALLOW, ALLOW) },
     { path: "/api/quiz/attempt", method: "POST", body: {}, expect: M(DENY, ALLOW, ALLOW, ALLOW) },
     { path: "/api/feedback", method: "POST", body: {}, expect: M(DENY, ALLOW, ALLOW, ALLOW) },
@@ -177,7 +178,7 @@ async function main() {
   section("페이지 라우트 (전 역할 200 — 가드는 클라이언트)");
   for (const p of [
     "/", "/login", "/reset", "/install", "/pricing", "/legal/terms", "/legal/privacy",
-    "/ask", "/quiz", "/quiz/notes", "/my", "/my/history", "/my/records", "/bank", "/bank/notes",
+    "/ask", "/quiz", "/quiz/notes", "/my", "/my/history", "/my/records", "/bank", "/bank/notes", "/dev",
     "/teacher", "/teacher/insights", "/teacher/history", "/teacher/students", "/admin",
   ]) {
     const r = await fetch(`${BASE}${p}`).catch(() => null);

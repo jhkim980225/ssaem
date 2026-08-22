@@ -286,6 +286,25 @@ async function main() {
   for (const p of ["/api/teachers", "/api/popular", "/api/quiz?teacher=x"]) {
     ok(`비로그인 → ${p} 401`, (await status(p)) === 401);
   }
+  // 개발자 대시보드 (v0.41.0)
+  {
+    const devTok = await login("dev@ssaem.kr", "dev");
+    ok("dev/dev 로그인", Boolean(devTok));
+    if (devTok) {
+      const dm = await json("/api/dev/metrics", { headers: bearer(devTok) });
+      ok(
+        "개발자 지표 200 + MAU 필드",
+        dm.status === 200 &&
+          typeof dm.body?.active?.mau === "number" &&
+          Array.isArray(dm.body?.daily) &&
+          dm.body.daily.length === 30,
+        `mau=${dm.body?.active?.mau} daily=${dm.body?.daily?.length}`
+      );
+    }
+    ok("학생 → 개발자 지표 403", (await status("/api/dev/metrics", { headers: bearer(studentTok) })) === 403);
+    ok("비로그인 → 개발자 지표 401", (await status("/api/dev/metrics")) === 401);
+  }
+
   // 접속(출석) 기록 (v0.40.0)
   {
     ok("비로그인 → visit 401", (await status("/api/visit", { method: "POST" })) === 401);

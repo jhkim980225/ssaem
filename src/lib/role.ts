@@ -2,12 +2,13 @@
 // 예전엔 이 파일에 useSession/useRole이 있었고 컴포넌트마다 각자 상태를 들고 있었다.
 // 그래서 페이지를 옮길 때마다 "로그인 여부를 모르는 렌더"가 다시 생겨 화면이 깜빡였다.
 
-export type Role = "teacher" | "student" | "admin" | null;
+export type Role = "teacher" | "student" | "admin" | "dev" | null;
 
 // /login 역할 탭은 "이 탭으로는 이 역할만"이라는 필터다.
 // 역할 판정 근거로는 절대 쓰지 않는다 — 탭을 신뢰하면 권한 상승이 된다.
 // 강사 탭이 null을 통과시키는 건 가입 직후(프로필 저장 전) 상태라, 막으면 프로필을 못 만든다.
 export function roleFitsTab(tab: "student" | "teacher", role: Role): boolean {
+  if (role === "dev") return true; // 개발자 계정은 전용 탭이 없다 — 어느 탭으로든 로그인 허용
   return tab === "student" ? role === "student" : role === "teacher" || role === null;
 }
 
@@ -17,5 +18,6 @@ export function roleFitsTab(tab: "student" | "teacher", role: Role): boolean {
 export function homeFor(role: Role): string {
   if (role === "admin") return "/admin";
   if (role === "student") return "/ask";
+  if (role === "dev") return "/dev";
   return "/teacher";
 }

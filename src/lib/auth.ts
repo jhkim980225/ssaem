@@ -2,7 +2,7 @@ import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 import { serviceClient } from "./supabase";
 
-export type Role = "teacher" | "student" | "admin";
+export type Role = "teacher" | "student" | "admin" | "dev";
 
 // Authorization: Bearer <supabase access_token> 검증 → user id.
 // role 검사 없음 — 공개/공용 라우트용. 역할이 걸린 라우트는 requireRole을 쓸 것.
@@ -49,6 +49,7 @@ const DENY: Record<Role, string> = {
   teacher: "강사 계정만 쓸 수 있어요",
   admin: "원장 계정만 쓸 수 있어요",
   student: "학생 계정만 쓸 수 있어요",
+  dev: "개발자 계정만 쓸 수 있어요",
 };
 
 // 역할 게이트. 통과하면 uid를 주고, 막히면 그대로 반환할 NextResponse를 준다.
