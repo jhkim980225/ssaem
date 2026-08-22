@@ -11,7 +11,7 @@ import { supabase } from "@/lib/supabase";
 /** 강좌·프로필이 바뀐 쪽이 window에 쏘는 이벤트 — 사이드바/대시보드가 서로 다시 불러온다 */
 export const TEACHER_REFRESH = "teacher:refresh";
 
-type Course = { id: string; title: string; documents: number };
+type Course = { id: string; title: string; documents: number; students: number };
 
 export default function TeacherSidebar() {
   const { status, role, session } = useAuth();
@@ -78,14 +78,15 @@ export default function TeacherSidebar() {
   }
 
   const room = pathname === "/teacher" ? params.get("room") : undefined;
-  const rooms: { key: string; href: string; label: string; count?: number; active: boolean }[] = [
+  const rooms: { key: string; href: string; label: string; count?: number | string; active: boolean }[] = [
     { key: "all", href: "/teacher", label: "전체 자료", active: room === null },
     { key: "none", href: "/teacher?room=none", label: "공용 자료", active: room === "none" },
     ...courses.map((c) => ({
       key: c.id,
       href: `/teacher?room=${c.id}`,
       label: c.title,
-      count: c.documents,
+      // 자료 수 · 수강 인원 — 강좌마다 몇 명이 등록됐는지 목록에서 바로 보이게
+      count: c.students ? `${c.documents} · ${c.students}명` : c.documents,
       active: room === c.id,
     })),
   ];

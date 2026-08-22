@@ -39,19 +39,54 @@ export async function GET(req: Request) {
   const gate = await requireRole(req, "teacher");
   if ("res" in gate) return gate.res;
   const uid = gate.uid;
+
+  // ?members=<courseId> → 그 ROOM 수강생 명단 (내 강좌만)
+  const membersParam = new URL(req.url).searchParams.get("members");
+  if (membersParam) {
+    if (!/^[0-9a-f-]{36}$/i.test(membersParam))
+      return NextResponse.json({ error: "course required" }, { status: 400 });
+    const { data: course } = await db
+      .from("courses")
+      .select("id, teacher_id")
+      .eq("id", membersParam)
+      .maybeSingle();
+    if (!course || course.teacher_id !== uid)
+      return NextResponse.json({ error: "not found" }, { status: 404 });
+    const { data: enr } = await db
+      .from("enrollments")
+      .select("student_id, created_at, profiles!inner(name, role)")
+      .eq("course_id", membersParam)
+      .eq("profiles.role", "student")
+      .order("created_at");
+    type ERow = { student_id: string; created_at: string; profiles: { name: string } | { name: string }[] };
+    const members = ((enr ?? []) as ERow[]).map((e) => ({
+      id: e.student_id,
+      name: (Array.isArray(e.profiles) ? e.profiles[0]?.name : e.profiles?.name) ?? "이름 없음",
+      joinedAt: e.created_at,
+    }));
+    return NextResponse.json({ members });
+  }
+
   const { data, error } = await db
     .from("courses")
-    .select("id, title, created_at, documents(count)")
+    .select("id, title, created_at, documents(count), enrollments(count)")
     .eq("teacher_id", uid)
     .order("created_at");
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  type Row = { id: string; title: string; created_at: string; documents: { count: number }[] };
+  type Row = {
+    id: string;
+    title: string;
+    created_at: string;
+    documents: { count: number }[];
+    enrollments: { count: number }[];
+  };
   const courses = ((data ?? []) as Row[]).map((c) => ({
     id: c.id,
     title: c.title,
     created_at: c.created_at,
     documents: c.documents?.[0]?.count ?? 0,
+    students: c.enrollments?.[0]?.count ?? 0,
   }));
   return NextResponse.json({ courses });
 }

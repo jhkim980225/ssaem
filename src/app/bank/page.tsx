@@ -317,12 +317,13 @@ export default function BankPage() {
 
   return (
     <main className={`flex-1 w-full ${width} mx-auto px-5 lg:px-6 py-8 flex flex-col gap-4`}>
-      <div className="rise flex items-start justify-between gap-3">
+      {/* 모바일에선 칩 4개가 제목 폭을 먹어 세로 1자씩 깨진다 — 제목 아래로 스택 */}
+      <div className="rise flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
         <div className="flex flex-col gap-1">
           <h1 className="text-[24px] lg:text-[28px] font-extrabold">기출문제</h1>
           <p className="text-sub text-[14px]">전산회계·세무 기출 {tree ? countFor({}).toLocaleString() : "…"}문항</p>
         </div>
-        <div className="flex gap-1.5 shrink-0">
+        <div className="flex flex-wrap gap-1.5 sm:shrink-0">
           <Link href="/bank/browse" className="chip !text-[13px]">
             문제검색(이론)
           </Link>

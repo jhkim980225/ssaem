@@ -23,7 +23,7 @@ type Doc = {
   lesson_date: string | null; // YYYY-MM-DD (ROOM 달력)
 };
 
-type Course = { id: string; title: string; documents: number };
+type Course = { id: string; title: string; documents: number; students: number };
 
 type Usage = {
   plan: "free" | "pro";
@@ -274,6 +274,8 @@ function Dashboard({ session }: { session: Session }) {
   const [lessonDate, setLessonDate] = useState<string | null>(null);
   // ROOM 초대 (강좌별 코드 — 이 코드로 가입하면 그 ROOM에 바로 등록)
   const [roomInvite, setRoomInvite] = useState<{ courseId: string; url: string; qrSvg: string } | null>(null);
+  // ROOM 수강생 명단 (courseId 키로 보관 — 강좌 전환 시 이전 명단이 섞여 보이지 않게)
+  const [members, setMembers] = useState<{ courseId: string; list: { id: string; name: string; joinedAt: string }[] } | null>(null);
 
   async function renameCourse(id: string) {
     const title = renameText.trim();
@@ -352,6 +354,11 @@ function Dashboard({ session }: { session: Session }) {
   const roomCourseId = roomCourse?.id ?? null;
   useEffect(() => {
     if (!roomCourseId || savedProfile !== true) return;
+    // ROOM 수강생 명단 — 초대만 있고 누가 들어왔는지 안 보이면 강사가 등록 여부를 확인할 길이 없다
+    fetch(`/api/courses?members=${roomCourseId}`, { headers: { Authorization: `Bearer ${token}` } })
+      .then((r) => r.json())
+      .then((d) => setMembers({ courseId: roomCourseId, list: d.members ?? [] }))
+      .catch(() => setMembers({ courseId: roomCourseId, list: [] }));
     fetch(`/api/invite?course=${roomCourseId}`, { headers: { Authorization: `Bearer ${token}` } })
       .then((r) => r.json())
       .then((d) => d.url && setRoomInvite({ courseId: roomCourseId, url: d.url, qrSvg: d.qrSvg }))
@@ -523,7 +530,9 @@ function Dashboard({ session }: { session: Session }) {
             <p className="text-sub text-[13px] mt-0.5">
               {room === "none"
                 ? "어느 강좌에도 속하지 않는 자료 — 모든 강좌 검색에서 함께 쓰여요."
-                : "이 강좌 ROOM의 자료만 보여요. 여기서 올리면 이 강좌에 담겨요."}
+                : `이 강좌 ROOM의 자료만 보여요. 여기서 올리면 이 강좌에 담겨요.${
+                    roomCourse ? ` · 수강생 ${roomCourse.students}명` : ""
+                  }`}
             </p>
           )}
         </div>
@@ -595,6 +604,40 @@ function Dashboard({ session }: { session: Session }) {
           ) : (
             <div className="skel h-24 !rounded-[16px]" />
           )}
+        </section>
+      )}
+
+      {/* ROOM 수강생 명단 */}
+      {roomCourse && savedProfile && (
+        <section className="rise d1 card p-5 lg:p-6 flex flex-col gap-3">
+          <h2 className="font-bold text-[17px]">
+            수강생{" "}
+            <span className="text-blue tabular-nums">
+              {members?.courseId === roomCourse.id ? members.list.length : roomCourse.students}명
+            </span>
+          </h2>
+          {members?.courseId !== roomCourse.id ? (
+            <div className="skel h-10 !rounded-[12px]" />
+          ) : members.list.length === 0 ? (
+            <p className="text-sub text-[13px]">
+              아직 등록된 학생이 없어요. 위 초대 코드로 가입하면 여기에 나와요.
+            </p>
+          ) : (
+            <div className="flex flex-wrap gap-1.5">
+              {members.list.map((m) => (
+                <span key={m.id} className="chip !text-[13px] !cursor-default" title={`등록 ${new Date(m.joinedAt).toLocaleDateString("ko-KR")}`}>
+                  {m.name}
+                </span>
+              ))}
+            </div>
+          )}
+          <p className="text-sub text-[12px]">
+            질문·접속 현황은{" "}
+            <Link href="/teacher/students" className="text-blue font-bold hover:underline">
+              학생 리포트
+            </Link>
+            에서 볼 수 있어요.
+          </p>
         </section>
       )}
 

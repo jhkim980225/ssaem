@@ -213,6 +213,22 @@ async function main() {
         "강사는 자기 강좌 전체 보임",
         tcl.status === 200 && ((tcl.body?.courses ?? []) as { id: string }[]).some((c) => c.id === cid)
       );
+
+      // ROOM 인원수·명단 (v0.42.0)
+      const own = await json("/api/courses", { headers: bearer(teacherTok) });
+      type CRow = { id: string; students: number };
+      const ownRow = ((own.body?.courses ?? []) as CRow[]).find((c) => c.id === cid);
+      ok("강좌 목록에 수강 인원 포함", own.status === 200 && (ownRow?.students ?? 0) >= 1, `students=${ownRow?.students}`);
+      const mem = await json(`/api/courses?members=${cid}`, { headers: bearer(teacherTok) });
+      ok(
+        "ROOM 수강생 명단에 등록 학생 표시",
+        mem.status === 200 && ((mem.body?.members ?? []) as { id: string }[]).some((x) => x.id === stUid),
+        `${(mem.body?.members ?? []).length}명`
+      );
+      ok(
+        "학생 → 명단 조회 403",
+        (await status(`/api/courses?members=${cid}`, { headers: bearer(studentTok) })) === 403
+      );
     }
     ok(
       "강좌 삭제 200",
