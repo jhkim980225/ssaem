@@ -1,7 +1,8 @@
 "use client";
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { useAuth } from "@/lib/auth-store";
+import { supabase } from "@/lib/supabase";
+import { toEmail } from "@/lib/account";
 
 type Metrics = {
   generatedAt: string;
@@ -30,18 +31,8 @@ export default function DevPage() {
   }, [status, session]);
 
   if (status === "loading" || role === undefined) return <main className="flex-1" />;
-  if (status !== "signed-in" || role !== "dev")
-    return (
-      <main className="flex-1 grid place-items-center px-5">
-        <div className="text-center">
-          <p className="text-[16px] font-bold mb-1">개발자 전용 화면이에요</p>
-          <p className="text-sub text-[14px] mb-5">dev 계정으로 로그인해 주세요.</p>
-          <Link href="/login" className="btn btn-primary py-3 px-6 inline-block">
-            로그인
-          </Link>
-        </div>
-      </main>
-    );
+  // 개발자 전용 로그인 — /login(학생·강사 탭)으로 보내지 않고 여기서 바로 받는다
+  if (status !== "signed-in" || role !== "dev") return <DevLogin signedInWrongRole={status === "signed-in"} />;
 
   const maxVisits = Math.max(1, ...(m?.daily ?? []).map((d) => d.visits));
 
@@ -135,6 +126,75 @@ export default function DevPage() {
           </p>
         </>
       )}
+    </main>
+  );
+}
+
+// 개발자 로그인 — /dev 전용 폼. 일반 /login(학생·강사 탭)과 분리.
+function DevLogin({ signedInWrongRole }: { signedInWrongRole: boolean }) {
+  const [id, setId] = useState("");
+  const [pw, setPw] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+
+  async function submit() {
+    if (busy) return;
+    setBusy(true);
+    setErr("");
+    const { error } = await supabase.auth.signInWithPassword({ email: toEmail(id || "dev"), password: pw });
+    setBusy(false);
+    if (error) setErr("아이디 또는 비밀번호가 맞지 않아요.");
+    // 성공 시 auth-store가 role을 갱신 → 이 페이지가 대시보드로 다시 렌더된다.
+    // dev가 아닌 계정이면 아래 wrongRole 안내로 떨어진다.
+  }
+
+  if (signedInWrongRole)
+    return (
+      <main className="flex-1 grid place-items-center px-5">
+        <div className="text-center">
+          <p className="text-[16px] font-bold mb-1">개발자 계정이 아니에요</p>
+          <p className="text-sub text-[14px] mb-5">지금 계정을 로그아웃하고 dev 계정으로 다시 로그인해 주세요.</p>
+          <button onClick={() => supabase.auth.signOut()} className="btn btn-primary py-3 px-6">
+            로그아웃
+          </button>
+        </div>
+      </main>
+    );
+
+  return (
+    <main className="flex-1 grid place-items-center px-5">
+      <div className="card p-6 w-full max-w-sm flex flex-col gap-3">
+        <div>
+          <h1 className="text-[18px] font-extrabold">개발자 로그인</h1>
+          <p className="text-sub text-[13px] mt-0.5">서비스 지표 대시보드 — 개발자 전용이에요.</p>
+        </div>
+        <input
+          className="field"
+          placeholder="아이디"
+          value={id}
+          autoComplete="username"
+          onChange={(e) => setId(e.target.value)}
+        />
+        <input
+          className="field"
+          type="password"
+          placeholder="비밀번호"
+          value={pw}
+          autoComplete="current-password"
+          onChange={(e) => setPw(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && !e.nativeEvent.isComposing) submit();
+          }}
+        />
+        {err && (
+          <p className="text-[13px] font-bold" style={{ color: "var(--red)" }}>
+            {err}
+          </p>
+        )}
+        <button onClick={submit} disabled={busy || !pw} className="btn btn-primary py-3 disabled:opacity-50">
+          {busy ? "로그인 중…" : "로그인"}
+        </button>
+      </div>
     </main>
   );
 }
