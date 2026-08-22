@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
 import { serviceClient } from "@/lib/supabase";
-import { requireRole, requireUser } from "@/lib/auth";
+import { requireRole, userWithRole } from "@/lib/auth";
 import { sameAcademy } from "@/lib/tenant";
 
 // 강좌 관리.
-// GET ?teacher=<id> → 공개용: 그 강사의 강좌 목록 (학생 필터 칩)
+// GET ?teacher=<id> → 그 강사의 강좌 목록. **학생은 수강 연결(enrollments)된 ROOM만** —
+//                     초대코드로 받은 ROOM만 보여야 한다. 강사·원장은 전체(미리보기·관리).
 // GET (인증)       → 내 강좌 목록 (자료 수 포함)
 // POST {title}     → 강좌 생성
 // PATCH {id,title} → 강좌 이름 변경
@@ -14,19 +15,25 @@ export async function GET(req: Request) {
   const teacherParam = new URL(req.url).searchParams.get("teacher");
 
   if (teacherParam) {
-    const g = await requireUser(req);
-    if ("res" in g) return g.res;
+    const me = await userWithRole(req);
+    if (!me) return NextResponse.json({ error: "로그인이 필요해요.", needLogin: true }, { status: 401 });
     if (!/^[0-9a-f-]{36}$/i.test(teacherParam))
       return NextResponse.json({ error: "teacher required" }, { status: 400 });
-    if (!(await sameAcademy(db, g.uid, teacherParam)))
+    if (!(await sameAcademy(db, me.uid, teacherParam)))
       return NextResponse.json({ courses: [] });
-    const { data, error } = await db
-      .from("courses")
-      .select("id, title")
-      .eq("teacher_id", teacherParam)
-      .order("created_at");
+    const { data, error } =
+      me.role === "student"
+        ? await db
+            .from("courses")
+            .select("id, title, enrollments!inner(student_id)")
+            .eq("teacher_id", teacherParam)
+            .eq("enrollments.student_id", me.uid)
+            .order("created_at")
+        : await db.from("courses").select("id, title").eq("teacher_id", teacherParam).order("created_at");
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-    return NextResponse.json({ courses: data ?? [] });
+    return NextResponse.json({
+      courses: ((data ?? []) as { id: string; title: string }[]).map((c) => ({ id: c.id, title: c.title })),
+    });
   }
 
   const gate = await requireRole(req, "teacher");

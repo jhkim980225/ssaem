@@ -192,6 +192,27 @@ async function main() {
         "학생 → 강좌 초대코드 발급 403",
         (await status(`/api/invite?course=${cid}`, { headers: bearer(studentTok) })) === 403
       );
+
+      // 학생 강좌 목록 = 수강 연결된 ROOM만 (v0.40.1) — 초대 안 받은 강좌는 안 보인다
+      const tUid = JSON.parse(Buffer.from(teacherTok.split(".")[1], "base64").toString()).sub as string;
+      const scl = await json(`/api/courses?teacher=${tUid}`, { headers: bearer(studentTok) });
+      const sclIds = ((scl.body?.courses ?? []) as { id: string }[]).map((c) => c.id);
+      const { data: myEnr } = await db
+        .from("enrollments")
+        .select("course_id, courses!inner(teacher_id)")
+        .eq("student_id", stUid)
+        .eq("courses.teacher_id", tUid);
+      const myIds = new Set(((myEnr ?? []) as { course_id: string }[]).map((e) => e.course_id));
+      ok(
+        "학생 강좌 목록 — 초대받은 ROOM 포함 + 그 외 없음",
+        scl.status === 200 && sclIds.includes(cid) && sclIds.every((id) => myIds.has(id)),
+        `${sclIds.length}개 (수강 ${myIds.size}개)`
+      );
+      const tcl = await json(`/api/courses?teacher=${tUid}`, { headers: bearer(teacherTok) });
+      ok(
+        "강사는 자기 강좌 전체 보임",
+        tcl.status === 200 && ((tcl.body?.courses ?? []) as { id: string }[]).some((c) => c.id === cid)
+      );
     }
     ok(
       "강좌 삭제 200",
