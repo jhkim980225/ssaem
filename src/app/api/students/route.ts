@@ -53,20 +53,46 @@ export async function GET(req: Request) {
     agg.set(sid, e);
   }
 
-  if (agg.size === 0) return NextResponse.json({ days: DAYS, students: [] });
+  // 목록의 기준은 수강 연결된 학생 전원 — 질문이 없어도 접속(출석) 현황은 보여야 한다
+  const { data: enr } = await db
+    .from("enrollments")
+    .select("student_id, courses!inner(teacher_id)")
+    .eq("courses.teacher_id", uid);
+  type ERow = { student_id: string };
+  const ids = [...new Set([...((enr ?? []) as ERow[]).map((e) => e.student_id), ...agg.keys()])];
+  if (ids.length === 0) return NextResponse.json({ days: DAYS, students: [] });
 
   // role=student만 — 강사 자가 테스트 대화가 학생으로 잡히는 것 방지
   const { data: profiles } = await db
     .from("profiles")
     .select("id, name")
     .eq("role", "student")
-    .in("id", [...agg.keys()]);
+    .in("id", ids);
   const nameOf = new Map((profiles ?? []).map((p) => [p.id, p.name]));
 
-  const students = [...agg.entries()]
-    .filter(([id]) => nameOf.has(id))
-    .map(([id, e]) => ({ id, name: nameOf.get(id)!, ...e }))
-    .sort((a, b) => b.questions - a.questions);
+  // 접속(출석) 누적 — 일별 롤업을 학생별로 합산
+  const { data: vd } = await db
+    .from("visit_days")
+    .select("student_id, day, count, last_at")
+    .in("student_id", ids)
+    .limit(10000);
+  const visitOf = new Map<string, { visits: number; visitDays: number; lastVisit: string }>();
+  for (const v of (vd ?? []) as { student_id: string; day: string; count: number; last_at: string }[]) {
+    const e = visitOf.get(v.student_id) ?? { visits: 0, visitDays: 0, lastVisit: "" };
+    e.visits += v.count;
+    e.visitDays++;
+    if (v.last_at > e.lastVisit) e.lastVisit = v.last_at;
+    visitOf.set(v.student_id, e);
+  }
+
+  const students = ids
+    .filter((id) => nameOf.has(id))
+    .map((id) => {
+      const e = agg.get(id) ?? { questions: 0, down: 0, lastQuestion: "", lastAt: "" };
+      const v = visitOf.get(id) ?? { visits: 0, visitDays: 0, lastVisit: "" };
+      return { id, name: nameOf.get(id)!, ...e, ...v };
+    })
+    .sort((a, b) => b.questions - a.questions || b.visits - a.visits);
 
   return NextResponse.json({ days: DAYS, students });
 }

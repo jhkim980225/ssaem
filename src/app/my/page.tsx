@@ -17,6 +17,7 @@ export default function MyPage() {
   const [convs, setConvs] = useState<number | null>(null);
   const [quiz, setQuiz] = useState<QuizTotals | null>(null);
   const [exams, setExams] = useState<number | null>(null);
+  const [visit, setVisit] = useState<{ total: number; days: number; streak: number } | null>(null);
 
   useEffect(() => {
     if (!allowed || !session) return;
@@ -41,6 +42,10 @@ export default function MyPage() {
       .then((r) => r.json())
       .then((d) => setExams((d.records ?? []).length))
       .catch(() => setExams(0));
+    fetch("/api/visit", h)
+      .then((r) => r.json())
+      .then((d) => setVisit(typeof d.total === "number" ? d : { total: 0, days: 0, streak: 0 }))
+      .catch(() => setVisit({ total: 0, days: 0, streak: 0 }));
   }, [allowed, session]);
 
   if (gate) return gate;
@@ -82,6 +87,25 @@ export default function MyPage() {
             {joined ? ` · ${joined} 가입` : ""}
           </p>
         </div>
+      </section>
+
+      {/* 출석 */}
+      <section className="rise d1 card p-5 flex flex-col gap-1.5">
+        <h2 className="text-[15px] font-extrabold">출석</h2>
+        {visit === null ? (
+          <div className="skel h-9 !rounded-[10px]" />
+        ) : visit.days === 0 ? (
+          <p className="text-sub text-[13px]">오늘부터 출석이 기록돼요. 매일 들어와서 이어가 보세요.</p>
+        ) : (
+          <>
+            <p className="text-[22px] font-extrabold">
+              🔥 {visit.streak > 0 ? `${visit.streak}일 연속 출석` : "오늘 출석하면 이어져요"}
+            </p>
+            <p className="text-sub text-[13px]">
+              총 방문 {visit.total}회 · 출석일 {visit.days}일
+            </p>
+          </>
+        )}
       </section>
 
       {/* 내 선생님 */}

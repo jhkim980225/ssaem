@@ -265,6 +265,28 @@ async function main() {
   for (const p of ["/api/teachers", "/api/popular", "/api/quiz?teacher=x"]) {
     ok(`비로그인 → ${p} 401`, (await status(p)) === 401);
   }
+  // 접속(출석) 기록 (v0.40.0)
+  {
+    ok("비로그인 → visit 401", (await status("/api/visit", { method: "POST" })) === 401);
+    const vp = await json("/api/visit", { method: "POST", headers: bearer(studentTok) });
+    ok("학생 접속 기록됨", vp.status === 200 && vp.body?.counted === true);
+    const tv = await json("/api/visit", { method: "POST", headers: bearer(teacherTok) });
+    ok("강사 접속은 출석 아님", tv.status === 200 && tv.body?.counted === false);
+    const vs = await json("/api/visit", { headers: bearer(studentTok) });
+    ok(
+      "출석 요약 — 오늘 포함·연속 1 이상",
+      vs.status === 200 && vs.body?.today === true && vs.body?.total >= 1 && vs.body?.streak >= 1,
+      `total=${vs.body?.total} streak=${vs.body?.streak}`
+    );
+    const sl = await json("/api/students", { headers: bearer(teacherTok) });
+    type SV = { id: string; visits: number };
+    ok(
+      "강사 학생 리포트에 접속 수 포함",
+      sl.status === 200 && (sl.body?.students ?? []).every((s: SV) => typeof s.visits === "number"),
+      `${(sl.body?.students ?? []).length}명`
+    );
+  }
+
   const teachers = await json("/api/teachers", { headers: bearer(studentTok) });
   ok("강사 목록 200", teachers.status === 200 && Array.isArray(teachers.body?.teachers));
   const t0 = teachers.body?.teachers?.[0];

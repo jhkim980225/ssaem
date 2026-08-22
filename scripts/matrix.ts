@@ -78,6 +78,8 @@ function buildCases(teacherId: string): Case[] {
     { path: "/api/related?teacher=x&q=abcd", expect: M(DENY, ALLOW, ALLOW, ALLOW) },
     { path: "/api/quiz?teacher=" + teacherId, expect: M(DENY, ALLOW, ALLOW, ALLOW) },
     { path: "/api/quiz?mode=wrong", expect: M(DENY, ALLOW, ALLOW, ALLOW) }, // 전체 오답 모드 (teacher 생략)
+    { path: "/api/visit", expect: M(DENY, ALLOW, DENY, DENY) }, // 출석 요약 — 학생 전용
+    { path: "/api/visit", method: "POST", expect: M(DENY, ALLOW, ALLOW, ALLOW) }, // 핑은 로그인만 (비학생은 no-op)
     { path: "/api/quiz/attempt", expect: M(DENY, ALLOW, ALLOW, ALLOW) },
     { path: "/api/quiz/attempt", method: "POST", body: {}, expect: M(DENY, ALLOW, ALLOW, ALLOW) },
     { path: "/api/feedback", method: "POST", body: {}, expect: M(DENY, ALLOW, ALLOW, ALLOW) },

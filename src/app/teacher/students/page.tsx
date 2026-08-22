@@ -11,6 +11,9 @@ type Student = {
   down: number;
   lastQuestion: string;
   lastAt: string;
+  visits: number; // 총 접속 수
+  visitDays: number; // 출석일수
+  lastVisit: string; // 마지막 접속 시각
 };
 
 // 학생별 리포트 (Khanmigo 교사 리포트 패턴) — 누가 얼마나 묻는지, 어디서 막히는지.
@@ -138,6 +141,12 @@ export default function StudentsPage() {
                 <p className="text-[15px] font-bold truncate">{s.name}</p>
                 <p className="text-[13px] text-sub truncate">
                   최근 질문: {s.lastQuestion || "—"}
+                </p>
+                <p className="text-[12px] text-sub truncate tabular-nums">
+                  접속 {s.visits}회 · 출석 {s.visitDays}일
+                  {s.lastVisit
+                    ? ` · 마지막 ${new Date(s.lastVisit).toLocaleDateString("ko-KR", { month: "numeric", day: "numeric" })}`
+                    : " · 접속 기록 없음"}
                 </p>
               </div>
               <div className="text-right shrink-0">
