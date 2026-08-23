@@ -112,20 +112,24 @@ export default function AskPage() {
       .catch(() => setCourseData({ teacherId: tid, courses: [] }));
   }, [chat?.teacherId, allowed, session]);
 
-  // 강사 선택 시 수업 달력 로드 — 강사가 새로 올리면 다시 선택/새로고침 시 그대로 반영된다
+  // 달력 기준 선생님: 대화 중이면 그 선생님, 아니면(랜딩) 연결된 첫 선생님 —
+  // 대화를 시작해야만 달력이 보이면 학생이 수업 달력 기능을 알 길이 없다
+  const calTeacherId = chat?.teacherId ?? teachers?.[0]?.id ?? null;
+
+  // 수업 달력 로드 — 강사가 새로 올리면 다시 선택/새로고침 시 그대로 반영된다
   useEffect(() => {
-    const tid = chat?.teacherId;
-    if (!allowed || !tid || !session) return;
+    if (!allowed || !calTeacherId || !session) return;
+    const tid = calTeacherId;
     fetch(`/api/lessons?teacher=${tid}`, {
       headers: { Authorization: `Bearer ${session.access_token}` },
     })
       .then((r) => r.json())
       .then((d) => setLessonData({ teacherId: tid, lessons: d.lessons ?? [] }))
       .catch(() => setLessonData({ teacherId: tid, lessons: [] }));
-  }, [chat?.teacherId, allowed, session]);
+  }, [calTeacherId, allowed, session]);
 
   const courses = courseData && courseData.teacherId === chat?.teacherId ? courseData.courses : [];
-  const lessons = lessonData && lessonData.teacherId === chat?.teacherId ? lessonData.lessons : [];
+  const lessons = lessonData && lessonData.teacherId === calTeacherId ? lessonData.lessons : [];
   // ROOM을 고르면 달력도 그 강좌 수업만
   const roomLessons = courseId ? lessons.filter((l) => l.course_id === courseId) : lessons;
   const lessonMarks = new Set(roomLessons.map((l) => l.date));
@@ -400,11 +404,17 @@ export default function AskPage() {
             </div>
           )}
 
-          {/* 수업 달력 — 선생님이 날짜를 지정해 올린 수업 자료를 날짜별로 본다 (강사 등록분과 동기화) */}
-          {chat && lessons.length > 0 && (
+          {/* 수업 달력 — 선생님이 날짜를 지정해 올린 수업 자료를 날짜별로 본다 (강사 등록분과 동기화).
+              자료 0건이어도 달력은 보여준다 — 통째로 숨기면 학생이 기능이 있는 줄도 모른다 */}
+          {calTeacherId && (
             <div className="lg-card lg:p-3">
               <p className="text-sub text-[12px] font-bold px-1 pb-1.5">수업 달력</p>
               <LessonCalendar marked={lessonMarks} selected={lessonDate} onSelect={setLessonDate} />
+              {lessons.length === 0 && (
+                <p className="text-sub text-[12px] px-1 mt-1.5">
+                  아직 날짜가 지정된 수업 자료가 없어요. 선생님이 올리면 달력에 점으로 표시돼요.
+                </p>
+              )}
               {lessonDate && (
                 <div className="flex flex-col gap-1.5 mt-2">
                   <p className="text-[12px] font-bold text-blue px-1">{fmtLesson(lessonDate)} 수업</p>
