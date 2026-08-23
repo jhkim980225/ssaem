@@ -675,7 +675,8 @@ export default function AskPage() {
         </section>
 
         {/* ── 우측 레일: 현황 · 비중 · 팁 ───────────────── */}
-        <aside className="flex flex-col gap-4 min-w-0 lg:col-span-2 xl:col-span-1 xl:sticky xl:top-[76px]">
+        {/* sticky 금지 — 이 레일은 카드가 많아 화면보다 길어서, 붙이면 스크롤을 따라다니며 본문을 가린다 */}
+        <aside className="flex flex-col gap-4 min-w-0 lg:col-span-2 xl:col-span-1">
           <div className="rise d1 card p-5">
             <div className="flex items-baseline justify-between mb-4">
               <h2 className="font-extrabold text-[15px]">
