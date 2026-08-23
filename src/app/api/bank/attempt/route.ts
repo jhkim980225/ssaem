@@ -94,7 +94,8 @@ async function gradeBatch(
     const n = Number(o?.chosen);
     if (/^[0-9a-f-]{36}$/i.test(id) && Number.isInteger(n) && n >= 0 && n <= 3) picked.set(id, n);
   }
-  if (!picked.size) return NextResponse.json({ error: "answers required" }, { status: 400 });
+  if (!picked.size)
+    return NextResponse.json({ error: "채점할 답이 없어요. 문제를 풀고 채점해 주세요." }, { status: 400 });
   if (picked.size > 50) return NextResponse.json({ error: "한 번에 50문항까지" }, { status: 400 });
 
   const ids = [...picked.keys()];

@@ -46,6 +46,11 @@ export default function CbtRunner({
 
   async function submit() {
     if (busy || !token) return;
+    // 한 문제도 안 풀었으면 서버까지 갈 것 없이 안내 (서버 400 원문이 그대로 뜨던 것 방지)
+    if (answered === 0) {
+      setErr("아직 푼 문제가 없어요. 문제를 풀고 채점해 주세요.");
+      return;
+    }
     const unanswered = questions.length - answered;
     if (unanswered > 0 && !confirm(`아직 ${unanswered}문항이 비어 있어요. 채점할까요?`)) return;
     setBusy(true);
