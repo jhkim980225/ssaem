@@ -81,6 +81,9 @@ function buildCases(teacherId: string): Case[] {
     { path: "/api/visit", expect: M(DENY, ALLOW, DENY, DENY) }, // 출석 요약 — 학생 전용
     { path: "/api/visit", method: "POST", expect: M(DENY, ALLOW, ALLOW, ALLOW) }, // 핑은 로그인만 (비학생은 no-op)
     { path: "/api/dev/metrics", expect: M(DENY, DENY, DENY, DENY) }, // 개발자 전용 — 네 역할 전부 차단
+    { path: "/api/submissions?mine=1", expect: M(DENY, ALLOW, DENY, DENY) }, // 과제 — 내 제출은 학생만
+    { path: "/api/submissions?course=x", expect: M(DENY, DENY, ALLOW, DENY) }, // 과제 현황 — 강사만 (400=통과)
+    { path: "/api/submissions", method: "POST", body: {}, expect: M(DENY, ALLOW, DENY, DENY) }, // 제출은 학생만 (400=통과)
     { path: "/api/quiz/attempt", expect: M(DENY, ALLOW, ALLOW, ALLOW) },
     { path: "/api/quiz/attempt", method: "POST", body: {}, expect: M(DENY, ALLOW, ALLOW, ALLOW) },
     { path: "/api/feedback", method: "POST", body: {}, expect: M(DENY, ALLOW, ALLOW, ALLOW) },

@@ -229,6 +229,64 @@ async function main() {
         "학생 → 명단 조회 403",
         (await status(`/api/courses?members=${cid}`, { headers: bearer(studentTok) })) === 403
       );
+
+      // 과제 제출 (v0.45.0): 수업(달력) 자료에 학생 제출 → 강사 현황 → 재제출 갱신
+      {
+        // 테스트 강사는 무료 한도 초과 상태 — 수업 달력 섹션과 같은 패턴으로 잠시 pro
+        const { data: hwProf } = await db.from("profiles").select("academy_id").eq("id", tUid).maybeSingle();
+        const hwAcad = hwProf?.academy_id ?? null;
+        let hwPrevPlan: string | null = null;
+        if (hwAcad) {
+          const { data: a } = await db.from("academies").select("plan").eq("id", hwAcad).maybeSingle();
+          hwPrevPlan = a?.plan ?? "free";
+          await db.from("academies").update({ plan: "pro" }).eq("id", hwAcad);
+        }
+        const today = new Date(Date.now() + 9 * 3_600_000).toISOString().slice(0, 10);
+        const up = await json("/api/documents", {
+          method: "POST",
+          headers: { ...bearer(teacherTok), "Content-Type": "application/json" },
+          body: JSON.stringify({ content: "[E2E] 과제: 분개 3문제 풀기", kind: "problem", lessonDate: today, courseId: cid }),
+        });
+        const hwDocId = up.body?.documentId;
+        ok("수업 자료 등록(과제)", up.status === 200 && Boolean(hwDocId));
+        if (hwDocId) {
+          const s1 = await json("/api/submissions", {
+            method: "POST",
+            headers: { ...bearer(studentTok), "Content-Type": "application/json" },
+            body: JSON.stringify({ documentId: hwDocId, content: "1번 (차)현금 (대)자본금" }),
+          });
+          ok("학생 과제 제출 200", s1.status === 200);
+          const s2 = await json("/api/submissions", {
+            method: "POST",
+            headers: { ...bearer(studentTok), "Content-Type": "application/json" },
+            body: JSON.stringify({ documentId: hwDocId, content: "수정본: 1~3번 전부 풀었어요" }),
+          });
+          ok("재제출 200 (같은 행 갱신)", s2.status === 200);
+          const mine = await json("/api/submissions?mine=1", { headers: bearer(studentTok) });
+          type MS = { documentId: string; content: string };
+          const m = ((mine.body?.submissions ?? []) as MS[]).find((x) => x.documentId === hwDocId);
+          ok("내 제출 목록에 최신본", Boolean(m) && m!.content.startsWith("수정본"), m?.content?.slice(0, 20));
+          const tv = await json(`/api/submissions?course=${cid}`, { headers: bearer(teacherTok) });
+          type TL = { id: string; submissions: { content: string }[] };
+          const tl2 = ((tv.body?.lessons ?? []) as TL[]).find((x) => x.id === hwDocId);
+          ok(
+            "강사 제출 현황에 반영",
+            tv.status === 200 && (tl2?.submissions ?? []).some((s) => s.content.startsWith("수정본")),
+            `제출 ${tl2?.submissions?.length ?? 0}건`
+          );
+          ok(
+            "강사 → 학생용 제출 403",
+            (await status("/api/submissions", {
+              method: "POST",
+              headers: { ...bearer(teacherTok), "Content-Type": "application/json" },
+              body: JSON.stringify({ documentId: hwDocId, content: "x" }),
+            })) === 403
+          );
+          // 정리 — 과제 문서 삭제 (submissions는 cascade)
+          await status(`/api/documents?id=${hwDocId}`, { method: "DELETE", headers: bearer(teacherTok) });
+        }
+        if (hwAcad && hwPrevPlan) await db.from("academies").update({ plan: hwPrevPlan }).eq("id", hwAcad);
+      }
     }
     ok(
       "강좌 삭제 200",

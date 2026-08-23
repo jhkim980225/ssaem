@@ -42,6 +42,10 @@ export default function AskPage() {
   const [courseId, setCourseId] = useState(""); // "" = 전체
   // 수업 달력 — 강사가 날짜를 지정해 올린 자료 (teacherId 키로 보관, 강사 등록분과 항상 동기화)
   const [lessonData, setLessonData] = useState<{ teacherId: string; lessons: Lesson[] } | null>(null);
+  // 과제 제출 — 내 제출본(문서 id 키), 작성 중 초안, 전송 상태
+  const [mySubs, setMySubs] = useState<Record<string, { content: string; updatedAt: string }>>({});
+  const [hwDraft, setHwDraft] = useState<Record<string, string>>({});
+  const [hwBusy, setHwBusy] = useState<string | null>(null);
   const [lessonDate, setLessonDate] = useState<string | null>(null);
   const [err, setErr] = useState("");
   const [popular, setPopular] = useState<Popular | null>(null);
@@ -127,6 +131,35 @@ export default function AskPage() {
       .then((d) => setLessonData({ teacherId: tid, lessons: d.lessons ?? [] }))
       .catch(() => setLessonData({ teacherId: tid, lessons: [] }));
   }, [calTeacherId, allowed, session]);
+
+  // 내 과제 제출본 로드 (로그인 학생만)
+  useEffect(() => {
+    if (!allowed || !session || role !== "student") return;
+    fetch("/api/submissions?mine=1", { headers: { Authorization: `Bearer ${session.access_token}` } })
+      .then((r) => r.json())
+      .then((d) => {
+        const map: Record<string, { content: string; updatedAt: string }> = {};
+        for (const s of d.submissions ?? []) map[s.documentId] = { content: s.content, updatedAt: s.updatedAt };
+        setMySubs(map);
+      })
+      .catch(() => {});
+  }, [allowed, session, role]);
+
+  async function submitHomework(documentId: string) {
+    const content = (hwDraft[documentId] ?? mySubs[documentId]?.content ?? "").trim();
+    if (!content || !session || hwBusy) return;
+    setHwBusy(documentId);
+    try {
+      const r = await fetch("/api/submissions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ documentId, content }),
+      });
+      if (r.ok) setMySubs((m) => ({ ...m, [documentId]: { content, updatedAt: new Date().toISOString() } }));
+    } finally {
+      setHwBusy(null);
+    }
+  }
 
   const courses = courseData && courseData.teacherId === chat?.teacherId ? courseData.courses : [];
   const lessons = lessonData && lessonData.teacherId === calTeacherId ? lessonData.lessons : [];
@@ -431,6 +464,30 @@ export default function AskPage() {
                         </p>
                       )}
                       <p className="text-[11px] text-sub mt-0.5">{l.course ?? "공용"}</p>
+                      {/* 과제 제출 — 로그인 학생만. 제출하면 선생님 ROOM 화면에 바로 보인다 */}
+                      {session && role === "student" && (
+                        <details className="mt-1.5">
+                          <summary className="text-[12px] font-bold text-blue cursor-pointer select-none">
+                            {mySubs[l.id]
+                              ? `과제 제출함 · ${new Date(mySubs[l.id].updatedAt).toLocaleDateString("ko-KR", { month: "numeric", day: "numeric" })} (수정 가능)`
+                              : "과제 제출하기"}
+                          </summary>
+                          <textarea
+                            className="field !text-[13px] w-full mt-1.5"
+                            rows={3}
+                            placeholder="푼 내용·답을 적어 주세요"
+                            value={hwDraft[l.id] ?? mySubs[l.id]?.content ?? ""}
+                            onChange={(e) => setHwDraft((d) => ({ ...d, [l.id]: e.target.value }))}
+                          />
+                          <button
+                            onClick={() => submitHomework(l.id)}
+                            disabled={hwBusy === l.id || !(hwDraft[l.id] ?? mySubs[l.id]?.content ?? "").trim()}
+                            className="btn btn-primary w-full py-2 mt-1.5 !text-[13px] disabled:opacity-50"
+                          >
+                            {hwBusy === l.id ? "제출 중…" : mySubs[l.id] ? "다시 제출" : "제출"}
+                          </button>
+                        </details>
+                      )}
                     </div>
                   ))}
                 </div>

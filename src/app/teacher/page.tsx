@@ -277,6 +277,9 @@ function Dashboard({ session }: { session: Session }) {
   const [roomInvite, setRoomInvite] = useState<{ courseId: string; url: string; qrSvg: string } | null>(null);
   // ROOM 수강생 명단 (courseId 키로 보관 — 강좌 전환 시 이전 명단이 섞여 보이지 않게)
   const [members, setMembers] = useState<{ courseId: string; list: { id: string; name: string; joinedAt: string }[] } | null>(null);
+  // ROOM 과제 제출 현황
+  type HwLesson = { id: string; title: string; date: string; submissions: { studentId: string; name: string; content: string; updatedAt: string }[] };
+  const [homework, setHomework] = useState<{ courseId: string; roster: { id: string; name: string }[]; lessons: HwLesson[] } | null>(null);
 
   async function renameCourse(id: string) {
     const title = renameText.trim();
@@ -360,6 +363,11 @@ function Dashboard({ session }: { session: Session }) {
       .then((r) => r.json())
       .then((d) => setMembers({ courseId: roomCourseId, list: d.members ?? [] }))
       .catch(() => setMembers({ courseId: roomCourseId, list: [] }));
+    // 과제 제출 현황 — 수업(달력) 자료별 제출/미제출
+    fetch(`/api/submissions?course=${roomCourseId}`, { headers: { Authorization: `Bearer ${token}` } })
+      .then((r) => r.json())
+      .then((d) => setHomework({ courseId: roomCourseId, roster: d.roster ?? [], lessons: d.lessons ?? [] }))
+      .catch(() => setHomework({ courseId: roomCourseId, roster: [], lessons: [] }));
     fetch(`/api/invite?course=${roomCourseId}`, { headers: { Authorization: `Bearer ${token}` } })
       .then((r) => r.json())
       .then((d) => d.url && setRoomInvite({ courseId: roomCourseId, url: d.url, qrSvg: d.qrSvg }))
@@ -639,6 +647,56 @@ function Dashboard({ session }: { session: Session }) {
             </Link>
             에서 볼 수 있어요.
           </p>
+        </section>
+      )}
+
+      {/* ROOM 과제 제출 현황 — 학생이 달력 수업 카드에서 제출한 내용 */}
+      {roomCourse && savedProfile && homework?.courseId === roomCourse.id && homework.lessons.length > 0 && (
+        <section className="rise d1 card p-5 lg:p-6 flex flex-col gap-3">
+          <h2 className="font-bold text-[17px]">과제 제출 현황</h2>
+          <p className="text-sub text-[13px] -mt-1">
+            학생이 수업 달력에서 제출한 과제예요. 수업(날짜 지정 자료)별로 모여요.
+          </p>
+          <div className="flex flex-col gap-2">
+            {homework.lessons.map((hl) => {
+              const submittedIds = new Set(hl.submissions.map((s) => s.studentId));
+              const missing = homework.roster.filter((r) => !submittedIds.has(r.id));
+              return (
+                <details key={hl.id} className="rounded-[14px] border border-line p-3">
+                  <summary className="cursor-pointer select-none flex items-center justify-between gap-2">
+                    <span className="text-[14px] font-bold min-w-0 truncate">
+                      {hl.date.slice(5).replace("-", "/")} · {hl.title}
+                    </span>
+                    <span
+                      className="text-[12px] font-bold tabular-nums shrink-0"
+                      style={{ color: hl.submissions.length === homework.roster.length && homework.roster.length > 0 ? "var(--blue)" : "var(--sub)" }}
+                    >
+                      제출 {hl.submissions.length}/{homework.roster.length}
+                    </span>
+                  </summary>
+                  <div className="mt-2.5 flex flex-col gap-2">
+                    {hl.submissions.length === 0 && <p className="text-sub text-[13px]">아직 제출한 학생이 없어요.</p>}
+                    {hl.submissions.map((s) => (
+                      <div key={s.studentId} className="rounded-[12px] p-3" style={{ background: "var(--fill-2)" }}>
+                        <p className="text-[13px] font-bold">
+                          {s.name}{" "}
+                          <span className="text-sub font-normal text-[11px]">
+                            {new Date(s.updatedAt).toLocaleString("ko-KR", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                          </span>
+                        </p>
+                        <p className="text-[13px] leading-relaxed whitespace-pre-wrap break-words mt-1">{s.content}</p>
+                      </div>
+                    ))}
+                    {missing.length > 0 && (
+                      <p className="text-[12px]" style={{ color: "var(--red)" }}>
+                        미제출: {missing.map((m) => m.name).join(", ")}
+                      </p>
+                    )}
+                  </div>
+                </details>
+              );
+            })}
+          </div>
         </section>
       )}
 

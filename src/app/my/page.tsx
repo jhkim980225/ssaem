@@ -18,6 +18,7 @@ export default function MyPage() {
   const [quiz, setQuiz] = useState<QuizTotals | null>(null);
   const [exams, setExams] = useState<number | null>(null);
   const [visit, setVisit] = useState<{ total: number; days: number; streak: number } | null>(null);
+  const [hw, setHw] = useState<number | null>(null);
 
   useEffect(() => {
     if (!allowed || !session) return;
@@ -46,6 +47,10 @@ export default function MyPage() {
       .then((r) => r.json())
       .then((d) => setVisit(typeof d.total === "number" ? d : { total: 0, days: 0, streak: 0 }))
       .catch(() => setVisit({ total: 0, days: 0, streak: 0 }));
+    fetch("/api/submissions?mine=1", h)
+      .then((r) => r.json())
+      .then((d) => setHw((d.submissions ?? []).length))
+      .catch(() => setHw(0));
   }, [allowed, session]);
 
   if (gate) return gate;
@@ -136,13 +141,14 @@ export default function MyPage() {
 
       <div className="flex flex-col gap-4">
       {/* 학습 요약 */}
-      <section className="rise d2 grid grid-cols-2 sm:grid-cols-4 gap-2">
+      <section className="rise d2 grid grid-cols-2 sm:grid-cols-5 gap-2">
         {(
           [
             ["대화", convs],
             ["푼 문제", quiz ? quiz.attempted : null],
             ["남은 오답", quiz ? quiz.wrong : null],
             ["시험 응시", exams],
+            ["과제 제출", hw],
           ] as const
         ).map(([label, n]) => (
           <div key={label} className="card p-4 text-center">
