@@ -287,6 +287,48 @@ async function main() {
         }
         if (hwAcad && hwPrevPlan) await db.from("academies").update({ plan: hwPrevPlan }).eq("id", hwAcad);
       }
+
+      // 자료 게시판 (v0.46.0): 강사 게시(파일 포함) → 학생 열람·서명 URL → ROOM 필터 → 삭제
+      {
+        const fd = new FormData();
+        fd.append("title", "[E2E] 3주차 유인물");
+        fd.append("body", "수업 때 나눠준 자료예요");
+        fd.append("file", new Blob(["hello board"], { type: "text/plain" }), "e2e.txt");
+        const bp = await json("/api/board", { method: "POST", headers: bearer(teacherTok), body: fd });
+        ok("게시판 글+파일 등록", bp.status === 200 && Boolean(bp.body?.id));
+        const postId = bp.body?.id;
+
+        // ROOM 전용 글 (학생 미수강 강좌엔 안 보이는지 검증용은 cid — 학생이 이미 수강 중이므로 보임)
+        const fd2 = new FormData();
+        fd2.append("title", "[E2E] ROOM 전용 공지");
+        fd2.append("courseId", cid);
+        const bp2 = await json("/api/board", { method: "POST", headers: bearer(teacherTok), body: fd2 });
+        ok("ROOM 전용 게시", bp2.status === 200);
+
+        type BP = { id: string; title: string; fileUrl: string | null };
+        const sv = await json(`/api/board?teacher=${tUid}`, { headers: bearer(studentTok) });
+        const posts = (sv.body?.posts ?? []) as BP[];
+        const fp = posts.find((p) => p.id === postId);
+        ok("학생 게시판 열람 — 글·파일 URL", sv.status === 200 && Boolean(fp?.fileUrl), fp ? "url 있음" : "글 없음");
+        ok("수강 ROOM 전용 글 보임", posts.some((p) => p.title === "[E2E] ROOM 전용 공지"));
+        if (fp?.fileUrl) {
+          const dl = await fetch(fp.fileUrl);
+          ok("서명 URL로 파일 다운로드", dl.ok && (await dl.text()) === "hello board");
+        }
+        ok(
+          "학생 → 게시 403",
+          (await status("/api/board", { method: "POST", headers: bearer(studentTok), body: new FormData() })) === 403
+        );
+        // 정리
+        if (postId) await status(`/api/board?id=${postId}`, { method: "DELETE", headers: bearer(teacherTok) });
+        if (bp2.body?.id) await status(`/api/board?id=${bp2.body.id}`, { method: "DELETE", headers: bearer(teacherTok) });
+        const after = await json("/api/board", { headers: bearer(teacherTok) });
+        ok(
+          "삭제 반영",
+          !((after.body?.posts ?? []) as BP[]).some((p) => p.title.startsWith("[E2E]")),
+          `${(after.body?.posts ?? []).length}건`
+        );
+      }
     }
     ok(
       "강좌 삭제 200",

@@ -42,6 +42,9 @@ export default function AskPage() {
   const [courseId, setCourseId] = useState(""); // "" = 전체
   // 수업 달력 — 강사가 날짜를 지정해 올린 자료 (teacherId 키로 보관, 강사 등록분과 항상 동기화)
   const [lessonData, setLessonData] = useState<{ teacherId: string; lessons: Lesson[] } | null>(null);
+  // 자료 게시판 — 선생님이 올린 내려받기 자료 (teacherId 키로 보관)
+  type BoardPost = { id: string; course: string | null; title: string; body: string | null; fileName: string | null; fileUrl: string | null; createdAt: string };
+  const [boardData, setBoardData] = useState<{ teacherId: string; posts: BoardPost[] } | null>(null);
   // 과제 제출 — 내 제출본(문서 id 키), 작성 중 초안, 전송 상태
   const [mySubs, setMySubs] = useState<Record<string, { content: string; updatedAt: string }>>({});
   const [hwDraft, setHwDraft] = useState<Record<string, string>>({});
@@ -131,6 +134,17 @@ export default function AskPage() {
       .then((d) => setLessonData({ teacherId: tid, lessons: d.lessons ?? [] }))
       .catch(() => setLessonData({ teacherId: tid, lessons: [] }));
   }, [calTeacherId, allowed, session]);
+
+  // 자료 게시판 로드 — 달력과 같은 선생님 기준
+  useEffect(() => {
+    if (!allowed || !calTeacherId || !session) return;
+    const tid = calTeacherId;
+    fetch(`/api/board?teacher=${tid}`, { headers: { Authorization: `Bearer ${session.access_token}` } })
+      .then((r) => r.json())
+      .then((d) => setBoardData({ teacherId: tid, posts: d.posts ?? [] }))
+      .catch(() => setBoardData({ teacherId: tid, posts: [] }));
+  }, [calTeacherId, allowed, session]);
+  const boardPosts = boardData && boardData.teacherId === calTeacherId ? boardData.posts : [];
 
   // 내 과제 제출본 로드 (로그인 학생만)
   useEffect(() => {
@@ -492,6 +506,32 @@ export default function AskPage() {
                   ))}
                 </div>
               )}
+            </div>
+          )}
+
+          {/* 자료실 — 선생님이 게시판에 올린 내려받기 자료 */}
+          {calTeacherId && boardPosts.length > 0 && (
+            <div className="lg-card lg:p-3">
+              <p className="text-sub text-[12px] font-bold px-1 pb-1.5">자료실</p>
+              <div className="flex flex-col gap-1.5">
+                {boardPosts.slice(0, 6).map((p) => (
+                  <div key={p.id} className="rounded-[12px] border border-line p-2.5" style={{ background: "var(--fill-2)" }}>
+                    <p className="text-[13px] font-bold leading-snug break-words">{p.title}</p>
+                    {p.body && <p className="text-[12px] text-sub leading-relaxed mt-0.5 break-words">{p.body}</p>}
+                    <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                      {p.fileUrl && (
+                        <a href={p.fileUrl} target="_blank" rel="noreferrer" className="chip !py-0.5 !px-2 !text-[11px]">
+                          📎 {p.fileName}
+                        </a>
+                      )}
+                      <span className="text-[11px] text-sub">
+                        {p.course ?? "공용"} ·{" "}
+                        {new Date(p.createdAt).toLocaleDateString("ko-KR", { month: "numeric", day: "numeric" })}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
 
