@@ -714,6 +714,13 @@ function Dashboard({ session }: { session: Session }) {
           <p className="text-sub text-[13px] -mt-1">
             날짜를 고르면 그 날 수업 자료만 보이고, 새로 올리는 자료도 그 날짜 수업에 담겨요.
           </p>
+          {/* 수강생 0명 ROOM의 수업은 어느 학생에게도 안 보인다 — 조용히 묻히기 전에 알려준다 */}
+          {roomCourse.students === 0 && (members?.courseId !== roomCourse.id || members.list.length === 0) && (
+            <p className="text-[13px] font-bold" style={{ color: "var(--red)" }}>
+              이 ROOM엔 수강생이 없어서 달력 수업이 학생에게 보이지 않아요. 위 초대 코드로 학생을
+              먼저 등록해 주세요.
+            </p>
+          )}
           <LessonCalendar marked={lessonMarks} selected={lessonDate} onSelect={setLessonDate} />
         </section>
       )}
