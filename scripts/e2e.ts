@@ -371,6 +371,16 @@ async function main() {
       )
     );
     ok("비인증 → /api/lessons 401", (await status(`/api/lessons?teacher=${tUid}`)) === 401);
+    // 수업 상세 페이지 API — 학생·강사 열람, 비인증·없는 id 차단
+    const det = await json(`/api/lessons/${ld.body.documentId}`, { headers: bearer(studentTok) });
+    ok("수업 상세 — 학생(공용 수업) 200", det.status === 200 && det.body?.lesson?.date === "2026-08-19");
+    const detT = await json(`/api/lessons/${ld.body.documentId}`, { headers: bearer(teacherTok) });
+    ok("수업 상세 — 강사 본인 200", detT.status === 200 && Boolean(detT.body?.lesson?.title));
+    ok("수업 상세 — 비인증 401", (await status(`/api/lessons/${ld.body.documentId}`)) === 401);
+    ok(
+      "수업 상세 — 없는 id 404",
+      (await status(`/api/lessons/00000000-0000-4000-8000-000000000000`, { headers: bearer(studentTok) })) === 404
+    );
     ok(
       "잘못된 lessonDate는 무시(null)",
       (await (async () => {

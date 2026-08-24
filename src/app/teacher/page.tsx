@@ -881,9 +881,10 @@ function Dashboard({ session }: { session: Session }) {
                     {/* ROOM 안에선 어느 강좌인지 자명 — 전체 목록에서만 표시 */}
                     {!inRoom && <span className="chip !py-0.5 !px-2 !text-[11px]">{d.course ?? "공용"}</span>}
                     {d.lesson_date && (
-                      <span className="chip !py-0.5 !px-2 !text-[11px]" style={{ color: "var(--blue)" }}>
-                        {fmtLesson(d.lesson_date)} 수업
-                      </span>
+                      /* 클릭 → 수업 상세 페이지 (학생이 보는 것과 같은 화면) */
+                      <Link href={`/lesson/${d.id}`} className="chip !py-0.5 !px-2 !text-[11px]" style={{ color: "var(--blue)" }}>
+                        {fmtLesson(d.lesson_date)} 수업 →
+                      </Link>
                     )}
                     {d.source === "pdf" && <span className="chip !py-0.5 !px-2 !text-[11px]">PDF</span>}
                     <span className="text-sub text-[11px]">청크 {d.chunks}개</span>

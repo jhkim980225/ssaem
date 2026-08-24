@@ -470,14 +470,22 @@ export default function AskPage() {
                   )}
                   {dayLessons.map((l) => (
                     <div key={l.id} className="rounded-[12px] border border-line p-2.5" style={{ background: "var(--fill-2)" }}>
-                      <p className="text-[13px] font-bold leading-snug">{l.title}</p>
+                      {/* 제목 클릭 → 수업 상세 페이지. 좁은 레일에선 요약이 잘려 읽기 힘들다 */}
+                      <Link href={`/lesson/${l.id}`} className="text-[13px] font-bold leading-snug hover:text-blue transition-colors block">
+                        {l.title}
+                      </Link>
                       {/* AI 요약 — 강사 메모를 학생용으로 정리한 것 */}
                       {l.summary && (
-                        <p className="text-[12px] leading-relaxed mt-1" style={{ color: "var(--sub-2)" }}>
+                        <p className="text-[12px] leading-relaxed mt-1 line-clamp-3" style={{ color: "var(--sub-2)" }}>
                           {l.summary}
                         </p>
                       )}
-                      <p className="text-[11px] text-sub mt-0.5">{l.course ?? "공용"}</p>
+                      <p className="text-[11px] text-sub mt-0.5">
+                        {l.course ?? "공용"} ·{" "}
+                        <Link href={`/lesson/${l.id}`} className="text-blue font-bold hover:underline">
+                          전체 보기 →
+                        </Link>
+                      </p>
                       {/* 과제 제출 — 로그인 학생만. 제출하면 선생님 ROOM 화면에 바로 보인다 */}
                       {session && role === "student" && (
                         <details className="mt-1.5">
