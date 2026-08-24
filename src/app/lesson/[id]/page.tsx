@@ -43,14 +43,14 @@ export default function LessonPage({ params }: { params: Promise<{ id: string }>
   };
 
   return (
-    <main className="flex-1 w-full max-w-2xl mx-auto px-5 py-8 flex flex-col gap-4">
+    <main className="flex-1 w-full max-w-2xl lg:max-w-5xl mx-auto px-5 py-8 flex flex-col gap-4">
       <div className="rise flex flex-col gap-1">
         <BackButton fallback={home} />
         <h1 className="text-[24px] lg:text-[28px] font-extrabold">수업 내용</h1>
       </div>
 
       {err && (
-        <section className="rise d1 card p-5 flex flex-col gap-3">
+        <section className="rise d1 card p-5 flex flex-col gap-3 lg:max-w-2xl">
           <p className="text-sub text-[14px]">{err}</p>
           <Link href={home} className="btn btn-gray py-2 px-5 self-start text-[13px]">
             돌아가기
@@ -58,29 +58,63 @@ export default function LessonPage({ params }: { params: Promise<{ id: string }>
         </section>
       )}
 
-      {!lesson && !err && <div className="rise d1 skel h-48 !rounded-[16px]" />}
+      {/* PC는 본문 + 우측 정보 레일 2컬럼 (teacher 대시보드와 같은 구조), 모바일은 세로 스택 */}
+      {!lesson && !err && (
+        <div className="lg:grid lg:grid-cols-[1fr_300px] lg:gap-5 lg:items-start flex flex-col gap-4">
+          <div className="rise d1 skel h-64 !rounded-[16px]" />
+          <div className="rise d1 skel h-32 !rounded-[16px] hidden lg:block" />
+        </div>
+      )}
 
       {lesson && (
-        <section className="rise d1 card p-5 lg:p-6 flex flex-col gap-3">
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <span className="chip !py-0.5 !px-2 !text-[11px]" style={{ color: "var(--blue)" }}>
-              {fmtDate(lesson.date)} 수업
-            </span>
-            <span className="chip !py-0.5 !px-2 !text-[11px]">{lesson.course ?? "공용"}</span>
-            {lesson.teacherName && <span className="text-sub text-[12px]">{lesson.teacherName} 선생님</span>}
-          </div>
-          <h2 className="font-bold text-[19px] leading-snug break-words whitespace-pre-wrap">{lesson.title}</h2>
-          {lesson.summary ? (
-            <div className="rounded-[14px] px-4 py-3" style={{ background: "var(--blue-weak)" }}>
-              <p className="text-blue text-[12px] font-bold mb-1">AI 요약</p>
-              <p className="text-[15px] leading-relaxed break-words whitespace-pre-wrap" style={{ color: "var(--sub-2)" }}>
-                {lesson.summary}
-              </p>
+        <div className="lg:grid lg:grid-cols-[1fr_300px] lg:gap-5 lg:items-start flex flex-col gap-4">
+          <section className="rise d1 card p-5 lg:p-7 flex flex-col gap-3 min-w-0">
+            {/* 칩 줄은 모바일에서만 — PC는 우측 레일이 같은 정보를 담는다 */}
+            <div className="flex items-center gap-1.5 flex-wrap lg:hidden">
+              <span className="chip !py-0.5 !px-2 !text-[11px]" style={{ color: "var(--blue)" }}>
+                {fmtDate(lesson.date)} 수업
+              </span>
+              <span className="chip !py-0.5 !px-2 !text-[11px]">{lesson.course ?? "공용"}</span>
+              {lesson.teacherName && <span className="text-sub text-[12px]">{lesson.teacherName} 선생님</span>}
             </div>
-          ) : (
-            <p className="text-sub text-[14px]">이 수업엔 아직 정리된 요약이 없어요.</p>
-          )}
-        </section>
+            <h2 className="font-bold text-[19px] lg:text-[22px] leading-snug break-words whitespace-pre-wrap">
+              {lesson.title}
+            </h2>
+            {lesson.summary ? (
+              <div className="rounded-[14px] px-4 py-3 lg:px-5 lg:py-4" style={{ background: "var(--blue-weak)" }}>
+                <p className="text-blue text-[12px] font-bold mb-1">AI 요약</p>
+                <p className="text-[15px] lg:text-[16px] leading-relaxed break-words whitespace-pre-wrap" style={{ color: "var(--sub-2)" }}>
+                  {lesson.summary}
+                </p>
+              </div>
+            ) : (
+              <p className="text-sub text-[14px]">이 수업엔 아직 정리된 요약이 없어요.</p>
+            )}
+          </section>
+
+          <aside className="rise d2 card p-5 hidden lg:flex flex-col gap-3">
+            <h3 className="font-bold text-[15px]">수업 정보</h3>
+            <dl className="flex flex-col gap-2 text-[14px]">
+              <div className="flex justify-between gap-2">
+                <dt className="text-sub shrink-0">날짜</dt>
+                <dd className="font-bold text-right">{fmtDate(lesson.date)}</dd>
+              </div>
+              <div className="flex justify-between gap-2">
+                <dt className="text-sub shrink-0">강좌</dt>
+                <dd className="font-bold text-right">{lesson.course ?? "공용"}</dd>
+              </div>
+              {lesson.teacherName && (
+                <div className="flex justify-between gap-2">
+                  <dt className="text-sub shrink-0">선생님</dt>
+                  <dd className="font-bold text-right">{lesson.teacherName}</dd>
+                </div>
+              )}
+            </dl>
+            <Link href={home} className="btn btn-gray w-full py-2.5 text-[13px] text-center">
+              {role === "teacher" || role === "admin" ? "대시보드로" : "질문하러 가기"}
+            </Link>
+          </aside>
+        </div>
       )}
     </main>
   );
