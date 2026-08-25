@@ -102,6 +102,35 @@ async function main() {
   }
   console.log("");
 
+  // 소스에서 사라진 문항 정리.
+  // upsert 키가 (source, stem)이라 **파서가 개선돼 stem이 바뀌면 옛 행이 그대로 남는다**.
+  // 그러면 같은 문제의 깨진 버전과 고친 버전이 공존해 회차가 16문항이 되고,
+  // 학생에게는 지문이 뭉개진 옛 문항이 계속 출제된다.
+  {
+    const live = new Set(rows.map((r) => `${r.source}||${r.stem}`));
+    const stale: string[] = [];
+    for (let from = 0; ; from += 1000) {
+      // PostgREST 1000행 캡 — 문제은행은 3천 건이 넘는다
+      const { data, error } = await db
+        .from("bank_questions")
+        .select("id, source, stem")
+        .range(from, from + 999);
+      if (error) {
+        console.error(`❌ 정리 조회 실패: ${error.message}`);
+        break;
+      }
+      if (!data?.length) break;
+      for (const r of data as { id: string; source: string | null; stem: string }[])
+        if (!live.has(`${r.source}||${r.stem}`)) stale.push(r.id);
+      if (data.length < 1000) break;
+    }
+    if (stale.length) {
+      const { error } = await db.from("bank_questions").delete().in("id", stale);
+      if (error) console.error(`❌ 정리 실패: ${error.message}`);
+      else console.log(`🧹 소스에서 사라진 옛 문항 ${stale.length}건 삭제`);
+    }
+  }
+
   // 확인
   const { count: total } = await db.from("bank_questions").select("id", { count: "exact", head: true });
   const { data: byCat } = await db.from("bank_tag_counts").select("category, count");
