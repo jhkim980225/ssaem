@@ -26,11 +26,42 @@ export async function POST(req: Request) {
   if (!Number.isInteger(score) || score < 0 || score > total)
     return NextResponse.json({ error: "score(0~total) required" }, { status: 400 });
 
-  const { error } = await serviceClient()
+  const db = serviceClient();
+  const { data: sess, error } = await db
     .from("bank_sessions")
-    .insert({ user_id: g.uid, subject, source, total, score });
+    .insert({ user_id: g.uid, subject, source, total, score })
+    .select("id")
+    .single();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ ok: true });
+
+  // 이 세션에서 푼 문항들을 세션에 연결 — "이 회차에서 뭘 틀렸나" 상세용.
+  // 한 문제씩 모드는 문항을 풀 때마다 attempt를 따로 남기므로, 완주 시점에 묶어 준다.
+  // 아직 어느 세션에도 안 묶인 마지막 시도만 대상 (다시 푼 문항이 과거 세션을 덮지 않게).
+  const questionIds = (Array.isArray(body?.questionIds) ? body.questionIds : [])
+    .map((v: unknown) => (v ?? "").toString())
+    .filter((v: string) => /^[0-9a-f-]{36}$/i.test(v))
+    .slice(0, 50);
+  if (sess?.id && questionIds.length) {
+    const { data: pending } = await db
+      .from("bank_attempts")
+      .select("id, question_id, created_at")
+      .eq("user_id", g.uid)
+      .is("session_id", null)
+      .in("question_id", questionIds)
+      .order("created_at", { ascending: false });
+    // 같은 문항을 여러 번 시도했으면 가장 최근 것 하나만 이 세션에 속한다
+    const latest = new Map<string, string>();
+    for (const a of pending ?? []) if (!latest.has(a.question_id)) latest.set(a.question_id, a.id);
+    if (latest.size) {
+      const { error: lerr } = await db
+        .from("bank_attempts")
+        .update({ session_id: sess.id })
+        .in("id", [...latest.values()]);
+      // 연결 실패해도 점수 기록은 유효하다 — 상세만 비어 보인다
+      if (lerr) console.error("bank session link:", lerr.message);
+    }
+  }
+  return NextResponse.json({ ok: true, sessionId: sess?.id ?? null });
 }
 
 export async function GET(req: Request) {
@@ -63,19 +94,33 @@ export async function GET(req: Request) {
 
   const { data, error } = await db
     .from("bank_sessions")
-    .select("user_id, subject, source, total, score, created_at")
+    .select("id, user_id, subject, source, total, score, created_at")
     .in("user_id", userIds)
     .order("created_at", { ascending: false })
     .limit(100);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
+  // 어느 기록에 문항 상세가 있는지 미리 알려준다 — 없는 카드에 헛클릭하게 두지 않으려고.
+  // (백필 전 옛 기록·연결 실패분은 상세가 비어 있다)
+  const ids = (data ?? []).map((r) => r.id);
+  const detailed = new Set<string>();
+  if (ids.length) {
+    const { data: linked } = await db
+      .from("bank_attempts")
+      .select("session_id")
+      .in("session_id", ids);
+    for (const a of linked ?? []) if (a.session_id) detailed.add(a.session_id);
+  }
+
   const records = (data ?? []).map((r) => ({
+    id: r.id,
     name: name ? names.get(r.user_id) ?? "" : undefined,
     subject: r.subject,
     source: r.source,
     total: r.total,
     score: r.score,
     at: r.created_at,
+    hasDetail: detailed.has(r.id),
   }));
   return NextResponse.json({ records });
 }

@@ -250,9 +250,12 @@ export default function BankPage() {
         subject: retryMode ? "오답노트" : subject,
         total: score.done,
         score: score.right,
+        // 이 회차에서 푼 문항 — 서버가 채점 기록을 세션에 묶어 "뭘 틀렸나" 상세를 만든다.
+        // 순서대로 진행하므로 앞 done개가 실제 푼 문항이다.
+        questionIds: (qs ?? []).slice(0, score.done).map((x) => x.id),
       }),
     }).catch(() => {});
-  }, [finished, token, subject, score, retryMode]);
+  }, [finished, token, subject, score, retryMode, qs]);
 
   // 이론 채점
   async function pick(i: number) {

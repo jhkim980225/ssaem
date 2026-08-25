@@ -105,7 +105,13 @@ async function gradeBatch(
     .in("id", ids);
   if (!qs?.length) return NextResponse.json({ error: "not found" }, { status: 404 });
 
-  const rows: { question_id: string; user_id: string; chosen_idx: number; is_correct: boolean }[] = [];
+  const rows: {
+    question_id: string;
+    user_id: string;
+    chosen_idx: number;
+    is_correct: boolean;
+    session_id?: string;
+  }[] = [];
   const results = qs.map((q) => {
     const chosen = picked.get(q.id)!;
     const isTheory = Array.isArray(q.choices) && q.choices.length > 0 && q.answer_idx !== null;
@@ -121,25 +127,33 @@ async function gradeBatch(
     };
   });
 
+  // 시험(세션) 기록 — 마이페이지·이름 검색 조회용. subject 없으면 문항에서 유추.
+  // 문항 시도보다 **먼저** 넣는다 — 그래야 각 시도에 session_id를 달아 "이 회차에서 뭘 틀렸나"를 되짚을 수 있다.
+  let sessionId: string | null = null;
+  if (meta.subject || meta.source) {
+    const score = results.filter((r) => r.correct).length;
+    const { data: sess, error: serr } = await db
+      .from("bank_sessions")
+      .insert({
+        user_id: uid,
+        subject: meta.subject || "기출",
+        source: meta.source,
+        total: results.length,
+        score,
+      })
+      .select("id")
+      .single();
+    if (serr) console.error("bank session insert:", serr.message);
+    else sessionId = sess?.id ?? null;
+  }
+
   // 기록 실패는 점수에 영향 없다 (채점은 이미 끝났다)
   let saved = false;
   if (rows.length) {
+    if (sessionId) for (const r of rows) r.session_id = sessionId;
     const { error } = await db.from("bank_attempts").insert(rows);
     if (error) console.error("bank batch insert:", error.message);
     else saved = true;
-  }
-
-  // 시험(세션) 기록 — 마이페이지·이름 검색 조회용. subject 없으면 문항에서 유추
-  if (meta.subject || meta.source) {
-    const score = results.filter((r) => r.correct).length;
-    const { error: serr } = await db.from("bank_sessions").insert({
-      user_id: uid,
-      subject: meta.subject || "기출",
-      source: meta.source,
-      total: results.length,
-      score,
-    });
-    if (serr) console.error("bank session insert:", serr.message);
   }
 
   return NextResponse.json({

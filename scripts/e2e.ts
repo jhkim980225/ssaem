@@ -772,6 +772,38 @@ async function main() {
           "내 시험 기록 조회",
           (myRec.body?.records ?? []).some((r: { source: string | null }) => r.source === "[E2E] 세션")
         );
+
+        // 기록 상세 — "이 회차에서 뭘 틀렸나". 문항별 내 답·정답·해설이 세션에 묶여 있어야 한다
+        type RecRow = { id: string; source: string | null; total: number; hasDetail?: boolean };
+        const mine = (myRec.body?.records ?? []).find((r: RecRow) => r.source === "[E2E] 세션") as
+          | RecRow
+          | undefined;
+        ok("기록 목록에 세션 id·상세 여부 포함", Boolean(mine?.id) && mine?.hasDetail === true);
+        if (mine?.id) {
+          const det = await json(`/api/bank/records/${mine.id}`, { headers: bearer(studentTok) });
+          type DetItem = { id: string; chosen: number | null; correct: boolean; answerIdx: number | null };
+          const items = (det.body?.items ?? []) as DetItem[];
+          ok("기록 상세 200 + 문항 수 일치", det.status === 200 && items.length === batchQs.length, `${items.length}/${batchQs.length}`);
+          ok(
+            "상세에 내 답·정답 포함",
+            items.every((it) => it.chosen === 0 && typeof it.answerIdx === "number")
+          );
+          ok(
+            "상세 정오답이 채점 결과와 일치",
+            items.filter((it) => it.correct).length === det.body?.session?.score
+          );
+          ok(
+            "남의 기록 상세 → 404",
+            (await status(`/api/bank/records/${mine.id}`, { headers: bearer(teacherTok) })) === 404
+          );
+          ok("기록 상세 비인증 → 401", (await status(`/api/bank/records/${mine.id}`)) === 401);
+          ok(
+            "없는 기록 상세 → 404",
+            (await status("/api/bank/records/00000000-0000-4000-8000-000000000000", {
+              headers: bearer(studentTok),
+            })) === 404
+          );
+        }
         const byName = await json(`/api/bank/records?name=${encodeURIComponent("테스트")}`, {
           headers: bearer(teacherTok),
         });

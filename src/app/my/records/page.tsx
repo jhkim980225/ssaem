@@ -5,7 +5,16 @@ import { useGate } from "@/components/RoleGuard";
 import BackButton from "@/components/BackButton";
 import BankStats, { type BankStatsData } from "@/components/BankStats";
 
-type Rec = { subject: string; source: string | null; total: number; score: number; at: string };
+type Rec = {
+  id: string;
+  subject: string;
+  source: string | null;
+  total: number;
+  score: number;
+  at: string;
+  /** 문항별 정오답이 남아 있는 기록만 상세로 들어갈 수 있다 (옛 기록은 점수만 있다) */
+  hasDetail?: boolean;
+};
 
 // 내 기출 시험 기록 (CBT 세션 단위 점수)
 export default function MyRecordsPage() {
@@ -81,8 +90,9 @@ export default function MyRecordsPage() {
       <div className="flex flex-col gap-2">
         {(recs ?? []).map((r, i) => {
           const pct = r.total ? Math.round((r.score / r.total) * 100) : 0;
-          return (
-            <div key={i} className="rise card flex items-center gap-3 p-4">
+          const wrong = r.total - r.score;
+          const body = (
+            <>
               <div className="flex-1 min-w-0">
                 <p className="text-[14px] font-bold truncate">{r.subject === "오답노트" ? "오답노트 다시 풀기" : r.source ? r.source : `${r.subject} 랜덤`}</p>
                 <p className="text-sub text-[12px]">
@@ -93,6 +103,15 @@ export default function MyRecordsPage() {
                     hour: "2-digit",
                     minute: "2-digit",
                   })}
+                  {/* 왜 어떤 카드는 안 눌리는지 알 수 있게 — 옛 기록엔 문항 기록이 없다 */}
+                  {r.hasDetail
+                    ? wrong > 0 && (
+                        <span className="font-bold" style={{ color: "var(--red)" }}>
+                          {" "}
+                          · 틀린 문항 {wrong}개 보기
+                        </span>
+                      )
+                    : " · 문항 기록 없음"}
                 </p>
               </div>
               <div className="text-right shrink-0">
@@ -104,6 +123,19 @@ export default function MyRecordsPage() {
                   {pct}%
                 </p>
               </div>
+            </>
+          );
+          return r.hasDetail ? (
+            <Link
+              key={r.id ?? i}
+              href={`/my/records/${r.id}`}
+              className="rise card flex items-center gap-3 p-4 hover:border-blue transition-colors"
+            >
+              {body}
+            </Link>
+          ) : (
+            <div key={r.id ?? i} className="rise card flex items-center gap-3 p-4">
+              {body}
             </div>
           );
         })}
