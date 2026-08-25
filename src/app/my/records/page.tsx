@@ -40,7 +40,7 @@ export default function MyRecordsPage() {
   const best = (recs ?? []).reduce((m, r) => Math.max(m, r.total ? Math.round((r.score / r.total) * 100) : 0), 0);
 
   return (
-    <main className="flex-1 w-full max-w-2xl mx-auto px-5 py-8 flex flex-col gap-4">
+    <main className="flex-1 w-full max-w-2xl lg:max-w-5xl mx-auto px-5 py-8 flex flex-col gap-4">
       <div className="rise flex items-start justify-between gap-3">
         <div className="flex flex-col gap-1">
           <BackButton fallback="/bank" />
@@ -54,6 +54,9 @@ export default function MyRecordsPage() {
 
       {recs === null && <div className="skel h-40 !rounded-[20px]" />}
 
+      {/* PC는 회차 목록(좌) + 통계(우) 2컬럼 — 통계 막대가 길어 세로로 쌓으면 정작 기록이 화면 밖으로 밀린다 */}
+      <div className="lg:grid lg:grid-cols-[1fr_360px] lg:gap-5 lg:items-start flex flex-col gap-4">
+      <div className="flex flex-col gap-4 min-w-0 lg:order-1">
       {recs && recs.length > 0 && (
         <div className="rise d1 grid grid-cols-2 gap-2">
           {(
@@ -68,13 +71,6 @@ export default function MyRecordsPage() {
             </div>
           ))}
         </div>
-      )}
-
-      {stats && stats.totals.attempts > 0 && (
-        <section className="rise d2 card p-5 flex flex-col gap-3">
-          <h2 className="font-bold text-[16px]">풀이 통계</h2>
-          <BankStats stats={stats} />
-        </section>
       )}
 
       {recs && recs.length === 0 && (
@@ -139,6 +135,16 @@ export default function MyRecordsPage() {
             </div>
           );
         })}
+      </div>
+      </div>
+
+      {/* 통계는 PC에서 우측 레일. 모바일은 기록 목록 다음 — 이 화면의 주인공은 회차 목록이다 */}
+      {stats && stats.totals.attempts > 0 && (
+        <section className="rise d2 card p-5 flex flex-col gap-3 lg:order-2">
+          <h2 className="font-bold text-[16px]">풀이 통계</h2>
+          <BankStats stats={stats} />
+        </section>
+      )}
       </div>
     </main>
   );

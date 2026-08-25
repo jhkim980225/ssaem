@@ -47,7 +47,7 @@ export default function HistoryPage() {
   if (gate) return gate;
 
   return (
-    <main className="flex-1 w-full max-w-lg lg:max-w-3xl mx-auto px-5 py-8 flex flex-col gap-4">
+    <main className="flex-1 w-full max-w-lg lg:max-w-5xl mx-auto px-5 py-8 flex flex-col gap-4">
       <div className="rise">
         <Link href="/teacher" className="text-sub text-[13px]">
           ← 대시보드

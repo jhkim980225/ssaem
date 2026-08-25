@@ -100,7 +100,7 @@ export default function StudentsPage() {
   if (gate) return gate;
 
   return (
-    <main className="flex-1 w-full max-w-lg lg:max-w-3xl mx-auto px-5 py-8 flex flex-col gap-4">
+    <main className="flex-1 w-full max-w-lg lg:max-w-5xl mx-auto px-5 py-8 flex flex-col gap-4">
       <div className="rise">
         <Link href="/teacher" className="text-sub text-[13px]">
           ← 대시보드
@@ -132,7 +132,9 @@ export default function StudentsPage() {
         </div>
       )}
 
-      <div className="flex flex-col gap-2">
+      {/* PC는 카드 2열 — 한 줄에 하나씩 흘리면 넓은 화면에서 스크롤만 길어진다.
+          items-start: 한 카드에서 연락처·메모를 펼쳐도 같은 행의 다른 카드가 늘어나지 않게 */}
+      <div className="flex flex-col gap-2 lg:grid lg:grid-cols-2 lg:gap-3 lg:items-start">
         {students?.map((s, i) => (
           <div key={s.id} className={`rise d${Math.min(i + 1, 6)} card p-4 lg:p-5`}>
             <div className="flex items-center gap-3">

@@ -29,7 +29,7 @@ export default function InsightsPage() {
   const max = Math.max(1, ...(data?.daily.map((d) => d.count) ?? [1]));
 
   return (
-    <main className="flex-1 w-full max-w-lg lg:max-w-3xl mx-auto px-5 py-8 flex flex-col gap-4">
+    <main className="flex-1 w-full max-w-lg lg:max-w-5xl mx-auto px-5 py-8 flex flex-col gap-4">
       <div className="rise">
         <Link href="/teacher" className="text-sub text-[13px]">
           ← 대시보드
@@ -104,6 +104,8 @@ export default function InsightsPage() {
             </div>
           </section>
 
+          {/* 아래 두 카드는 PC에서 나란히 — 각각 목록이 짧아 세로로 쌓으면 여백만 커진다 */}
+          <div className="flex flex-col gap-4 lg:grid lg:grid-cols-2 lg:gap-4 lg:items-start">
           {/* 낮은 평점 답변 */}
           <section className="rise d3 card p-5 flex flex-col gap-2">
             <h2 className="font-bold text-[15px]">아쉬웠던 답변</h2>
@@ -136,6 +138,7 @@ export default function InsightsPage() {
               ))
             )}
           </section>
+          </div>
         </>
       )}
     </main>

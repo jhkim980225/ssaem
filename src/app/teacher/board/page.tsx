@@ -87,7 +87,7 @@ export default function TeacherBoardPage() {
   if (gate) return gate;
 
   return (
-    <main className="flex-1 w-full max-w-3xl mx-auto px-5 py-8 flex flex-col gap-4">
+    <main className="flex-1 w-full max-w-lg lg:max-w-5xl mx-auto px-5 py-8 flex flex-col gap-4">
       <div className="rise flex flex-col gap-1">
         <Link href="/teacher" className="text-sub text-[13px]">
           ← 대시보드
@@ -147,7 +147,8 @@ export default function TeacherBoardPage() {
           <p className="text-sub text-[13px]">필기노트·유인물·공지를 올려 보세요.</p>
         </div>
       )}
-      <div className="flex flex-col gap-2">
+      {/* PC는 게시물 2열 — 제목·설명이 짧아 한 줄에 하나면 여백만 남는다 */}
+      <div className="flex flex-col gap-2 lg:grid lg:grid-cols-2 lg:gap-3 lg:items-start">
         {(posts ?? []).map((p, i) => (
           <div key={p.id} className={`rise d${Math.min(i + 2, 6)} card p-4 lg:p-5 flex flex-col gap-2`}>
             <div className="flex items-start justify-between gap-3">
