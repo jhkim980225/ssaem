@@ -259,7 +259,10 @@ export default function BankPage() {
 
   // 이론 채점
   async function pick(i: number) {
-    if (!q || q.type !== "theory" || graded || !token) return;
+    // picked까지 봐야 한다 — graded는 응답이 와야 세팅되므로, 그 전에 다시 누르면
+    // 같은 문항이 두 번 채점돼 푼 개수·점수가 부풀고 시험 기록이 상세와 어긋난다.
+    // (채점 실패 시엔 아래에서 picked를 되돌려 다시 고를 수 있게 한다)
+    if (!q || q.type !== "theory" || graded || picked !== null || !token) return;
     setPicked(i);
     const r = await fetch("/api/bank/attempt", {
       method: "POST",
@@ -702,7 +705,7 @@ export default function BankPage() {
                   <button
                     key={i}
                     onClick={() => pick(i)}
-                    disabled={!!graded}
+                    disabled={!!graded || picked !== null}
                     style={style}
                     className="text-left rounded-[14px] border border-line px-4 py-3.5 min-h-[54px] text-[15px] leading-[1.65] break-keep transition-colors disabled:cursor-default hover:border-[var(--blue)] flex items-start gap-3"
                   >

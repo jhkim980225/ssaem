@@ -60,7 +60,11 @@ export default function CbtRunner({
         method: "POST",
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
         body: JSON.stringify({
-          answers: Object.entries(picked).map(([questionId, chosen]) => ({ questionId, chosen })),
+          // 답한 순서(Object.entries)가 아니라 **출제 순서**로 보낸다 — 번호판으로 아무 문항이나
+          // 오갈 수 있어 답한 순서는 시험지 순서와 무관하다. 서버가 이 순서를 문항 번호로 저장한다.
+          answers: questions
+            .filter((q) => picked[q.id] !== undefined)
+            .map((q) => ({ questionId: q.id, chosen: picked[q.id] })),
           // 시험 기록(bank_sessions)용 — 마이페이지·이름 검색에서 조회
           subject,
           source,

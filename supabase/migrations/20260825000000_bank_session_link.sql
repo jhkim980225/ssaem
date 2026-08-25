@@ -6,23 +6,37 @@ alter table bank_attempts
 
 create index if not exists bank_attempts_session_idx on bank_attempts (session_id);
 
--- 기존 기록 백필: 채점 시도와 세션 기록은 같은 요청에서 몇 ms 차이로 쌓였다.
--- 같은 사용자의 세션 중 시각이 가장 가까운 것(3분 이내)에 붙인다.
-with m as (
+-- 기존 기록 백필 — **CBT 배치 채점분만** 대상.
+--
+-- CBT는 채점 한 요청 안에서 세션과 시도를 같이 쌓으므로 시각 차이가 ms 단위다.
+-- 반면 "한 문제씩" 모드는 문항을 풀 때마다 시도를 남기고 세션은 완주 시점에야 만든다 —
+-- 시도가 세션보다 몇 분 앞선다. 창을 넓게 잡으면 그 시도들이 **직전 CBT 세션**으로 빨려 들어가
+-- 응시하지도 않은 문항이 그 회차 상세에 섞이고, 정작 자기 세션은 빈 채로 남는다.
+-- 그래서 창은 10초로 좁힌다. 여기 안 걸리는 옛 기록은 연결하지 않는 편이 낫다 —
+-- 화면이 "문항 기록이 남아 있지 않아요"로 이미 처리한다.
+--
+-- 한 세션에 total보다 많이 붙는 일도 막는다(창 안에 두 회차가 겹치는 경우의 안전판).
+with ranked as (
   select
     a.id as attempt_id,
-    (
-      select s.id
-      from bank_sessions s
-      where s.user_id = a.user_id
-        and abs(extract(epoch from (s.created_at - a.created_at))) <= 180
-      order by abs(extract(epoch from (s.created_at - a.created_at))) asc
-      limit 1
-    ) as sid
+    s.id as sid,
+    s.total,
+    row_number() over (
+      partition by s.id
+      order by abs(extract(epoch from (s.created_at - a.created_at))) asc, a.id
+    ) as rn
   from bank_attempts a
+  join lateral (
+    select s.id, s.total, s.created_at
+    from bank_sessions s
+    where s.user_id = a.user_id
+      and abs(extract(epoch from (s.created_at - a.created_at))) <= 10
+    order by abs(extract(epoch from (s.created_at - a.created_at))) asc
+    limit 1
+  ) s on true
   where a.session_id is null
 )
 update bank_attempts a
-set session_id = m.sid
-from m
-where a.id = m.attempt_id and m.sid is not null;
+set session_id = ranked.sid
+from ranked
+where a.id = ranked.attempt_id and ranked.rn <= ranked.total;

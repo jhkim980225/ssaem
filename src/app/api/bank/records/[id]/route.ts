@@ -24,10 +24,13 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
   // 남의 기록은 없는 것과 같이 다룬다 (존재 여부도 알려주지 않는다)
   if (!s || s.user_id !== g.uid) return NextResponse.json({ error: "not found" }, { status: 404 });
 
+  // seq = 출제 순서. 한 회차의 시도는 한 번에 INSERT돼 created_at이 전부 동률이라
+  // 시각으로는 정렬되지 않는다. seq가 없는 옛 기록은 뒤로 보낸다.
   const { data: attempts } = await db
     .from("bank_attempts")
-    .select("question_id, chosen_idx, is_correct, created_at")
+    .select("question_id, chosen_idx, is_correct, seq, created_at")
     .eq("session_id", id)
+    .order("seq", { ascending: true, nullsFirst: false })
     .order("created_at");
 
   const session = {

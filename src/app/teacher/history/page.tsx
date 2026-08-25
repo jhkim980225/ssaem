@@ -116,11 +116,12 @@ export default function HistoryPage() {
                 )}
                 {msgs[c.id]?.map((m) =>
                   m.role === "user" ? (
-                    <div key={m.id} className="self-end max-w-[85%] px-4 py-2.5 text-[14px] leading-relaxed whitespace-pre-wrap bg-blue text-white rounded-[16px] rounded-br-[5px]">
+                    /* PC에서 폭을 넓힌 뒤로 말풍선이 한 줄 60자를 넘어 눈이 못 따라간다 — 읽기 폭 상한 */
+                    <div key={m.id} className="self-end max-w-[85%] lg:max-w-[620px] px-4 py-2.5 text-[14px] leading-relaxed whitespace-pre-wrap bg-blue text-white rounded-[16px] rounded-br-[5px]">
                       {m.content}
                     </div>
                   ) : (
-                    <div key={m.id} className="self-start max-w-[92%] flex flex-col gap-1">
+                    <div key={m.id} className="self-start max-w-[92%] lg:max-w-[680px] flex flex-col gap-1">
                       <div
                         className="px-4 py-2.5 text-[14px] leading-relaxed whitespace-pre-wrap rounded-[16px] rounded-bl-[5px] border border-line"
                         style={{ background: "var(--fill-2)" }}

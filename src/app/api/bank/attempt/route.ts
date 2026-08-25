@@ -105,11 +105,17 @@ async function gradeBatch(
     .in("id", ids);
   if (!qs?.length) return NextResponse.json({ error: "not found" }, { status: 404 });
 
+  // 출제 순서 = 클라이언트가 보낸 answers 순서(picked는 그 순서로 채워진 Map).
+  // 한 회차의 시도는 한 번에 INSERT돼 created_at이 전부 같으므로, 순번을 안 남기면
+  // 나중에 상세에서 문항 순서를 복원할 방법이 없다.
+  const order = new Map(ids.map((id, i) => [id, i + 1]));
+
   const rows: {
     question_id: string;
     user_id: string;
     chosen_idx: number;
     is_correct: boolean;
+    seq: number;
     session_id?: string;
   }[] = [];
   const results = qs.map((q) => {
@@ -117,7 +123,13 @@ async function gradeBatch(
     const isTheory = Array.isArray(q.choices) && q.choices.length > 0 && q.answer_idx !== null;
     const correct = isTheory && chosen === q.answer_idx;
     if (isTheory)
-      rows.push({ question_id: q.id, user_id: uid, chosen_idx: chosen, is_correct: correct });
+      rows.push({
+        question_id: q.id,
+        user_id: uid,
+        chosen_idx: chosen,
+        is_correct: correct,
+        seq: order.get(q.id)!,
+      });
     return {
       questionId: q.id,
       chosen,

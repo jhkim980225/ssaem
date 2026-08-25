@@ -38,6 +38,9 @@ export default function MyRecordsPage() {
   if (gate) return gate;
 
   const best = (recs ?? []).reduce((m, r) => Math.max(m, r.total ? Math.round((r.score / r.total) * 100) : 0), 0);
+  // 통계가 없으면(아직 한 문제도 안 푼 학생) 2컬럼으로 가르지 않는다 — 우측이 빈 채로 남아
+  // 화면이 잘린 것처럼 보인다
+  const hasStats = Boolean(stats && stats.totals.attempts > 0);
 
   return (
     <main className="flex-1 w-full max-w-2xl lg:max-w-5xl mx-auto px-5 py-8 flex flex-col gap-4">
@@ -55,7 +58,11 @@ export default function MyRecordsPage() {
       {recs === null && <div className="skel h-40 !rounded-[20px]" />}
 
       {/* PC는 회차 목록(좌) + 통계(우) 2컬럼 — 통계 막대가 길어 세로로 쌓으면 정작 기록이 화면 밖으로 밀린다 */}
-      <div className="lg:grid lg:grid-cols-[1fr_360px] lg:gap-5 lg:items-start flex flex-col gap-4">
+      <div
+        className={`flex flex-col gap-4 ${
+          hasStats ? "lg:grid lg:grid-cols-[1fr_360px] lg:gap-5 lg:items-start" : ""
+        }`}
+      >
       <div className="flex flex-col gap-4 min-w-0 lg:order-1">
       {recs && recs.length > 0 && (
         <div className="rise d1 grid grid-cols-2 gap-2">

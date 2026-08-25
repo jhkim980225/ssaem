@@ -381,6 +381,16 @@ async function main() {
       "수업 상세 — 없는 id 404",
       (await status(`/api/lessons/00000000-0000-4000-8000-000000000000`, { headers: bearer(studentTok) })) === 404
     );
+    // 목록에 뜨는 수업은 상세도 열려야 한다 — 학원장이 달력에서 눌렀는데 404면 막다른 길
+    {
+      const admList = await json(`/api/lessons?teacher=${tUid}`, { headers: bearer(adminTok) });
+      const first = ((admList.body?.lessons ?? []) as { id: string }[])[0];
+      ok(
+        "수업 상세 — 목록에 보이면 상세도 열린다 (학원장)",
+        Boolean(first) &&
+          (await status(`/api/lessons/${first.id}`, { headers: bearer(adminTok) })) === 200
+      );
+    }
     ok(
       "잘못된 lessonDate는 무시(null)",
       (await (async () => {
@@ -791,6 +801,12 @@ async function main() {
           ok(
             "상세 정오답이 채점 결과와 일치",
             items.filter((it) => it.correct).length === det.body?.session?.score
+          );
+          // 한 회차의 시도는 한 번에 INSERT돼 created_at이 전부 같다 — 순번(seq)이 없으면 순서가 뒤섞인다
+          ok(
+            "상세 문항 순서 = 출제 순서",
+            JSON.stringify(items.map((it) => it.id)) ===
+              JSON.stringify(batchQs.map((q: { id: string }) => q.id))
           );
           ok(
             "남의 기록 상세 → 404",
