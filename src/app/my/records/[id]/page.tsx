@@ -3,7 +3,7 @@ import { use, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useGate } from "@/components/RoleGuard";
 import BackButton from "@/components/BackButton";
-import { StemView, ExplanationView } from "@/components/BankQuestion";
+import { StemView, ExplanationView, ChoiceView } from "@/components/BankQuestion";
 import JournalEntry from "@/components/JournalEntry";
 
 type Item = {
@@ -192,7 +192,7 @@ export default function RecordDetailPage({ params }: { params: Promise<{ id: str
                                       <span className="shrink-0 grid place-items-center w-5 h-5 mt-0.5 rounded-full border border-current text-[11px] font-extrabold">
                                         {ci + 1}
                                       </span>
-                                      <span className="flex-1 min-w-0">{c}</span>
+                                      <span className="flex-1 min-w-0"><ChoiceView text={c} /></span>
                                       {isAnswer && <span className="text-blue text-[11px] font-bold shrink-0">정답</span>}
                                       {isMine && !isAnswer && (
                                         <span className="text-[11px] font-bold shrink-0" style={{ color: "var(--red)" }}>

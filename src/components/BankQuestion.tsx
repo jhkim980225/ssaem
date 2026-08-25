@@ -60,6 +60,22 @@ export function Hi({ text, kw }: { text: string; kw?: string }) {
   );
 }
 
+// 보기 한 개. T계정처럼 보기 자체가 표인 문제가 있어 지문과 같은 표 렌더를 태운다
+// (안 그러면 "[[표]]선수금|∥|150,000원[[/표]]" 원문이 그대로 노출된다).
+export function ChoiceView({ text, highlight }: { text: string; highlight?: string }) {
+  const tm = text.match(TABLE_RE);
+  if (!tm) return <Hi text={text} kw={highlight} />;
+  const before = text.slice(0, tm.index).trim();
+  const after = text.slice((tm.index ?? 0) + tm[0].length).trim();
+  return (
+    <span className="flex flex-col gap-1 min-w-0">
+      {before && <Hi text={before} kw={highlight} />}
+      <TableBlock data={tm[1]} highlight={highlight} />
+      {after && <Hi text={after} kw={highlight} />}
+    </span>
+  );
+}
+
 export function StemView({ stem, images, highlight }: { stem: string; images?: string[] | null; highlight?: string }) {
   const { body, form } = splitStem(stem);
   return (

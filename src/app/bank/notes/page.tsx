@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useGate } from "@/components/RoleGuard";
 import BackButton from "@/components/BackButton";
 import JournalEntry from "@/components/JournalEntry";
-import { StemView, ExplanationView } from "@/components/BankQuestion";
+import { StemView, ExplanationView, ChoiceView } from "@/components/BankQuestion";
 
 type Note = {
   id: string;
@@ -129,7 +129,7 @@ export default function BankNotesPage() {
                             <span className="shrink-0 grid place-items-center w-5 h-5 mt-0.5 rounded-full border border-current text-[11px] font-extrabold">
                               {i + 1}
                             </span>
-                            <span className="flex-1 min-w-0">{c}</span>
+                            <span className="flex-1 min-w-0"><ChoiceView text={c} /></span>
                             {isAnswer && <span className="text-blue text-[11px] font-bold shrink-0">정답</span>}
                             {isMine && !isAnswer && (
                               <span className="text-[11px] font-bold shrink-0" style={{ color: "var(--red)" }}>

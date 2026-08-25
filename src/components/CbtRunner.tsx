@@ -1,6 +1,6 @@
 "use client";
 import { useMemo, useState } from "react";
-import { StemView, ExplanationView } from "@/components/BankQuestion";
+import { StemView, ExplanationView, ChoiceView } from "@/components/BankQuestion";
 
 // 기출 CBT 모드 — 실제 시험처럼 푼다.
 //  · 번호판으로 아무 문항이나 바로 이동 (푼 문제는 색이 찬다). PC에선 우측 sticky
@@ -139,7 +139,7 @@ export default function CbtRunner({
                     <span className="shrink-0 grid place-items-center w-5 h-5 mt-0.5 rounded-full border border-current text-[11px] font-extrabold">
                       {ci + 1}
                     </span>
-                    <span className="flex-1 min-w-0">{c}</span>
+                    <span className="flex-1 min-w-0"><ChoiceView text={c} /></span>
                     {g && ci === g.answerIdx && <span className="text-[11px] font-bold text-blue shrink-0">정답</span>}
                     {g && mine && ci !== g.answerIdx && (
                       <span className="text-[11px] font-bold shrink-0" style={{ color: "var(--red)" }}>
