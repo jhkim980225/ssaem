@@ -51,7 +51,7 @@ function BrowseInner() {
   const [q, setQ] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
-  const [result, setResult] = useState<{ questions: Q[]; total: number; q: string } | null>(null);
+  const [result, setResult] = useState<{ questions: Q[]; total: number; q: string; subject: string } | null>(null);
   // 답안은 바로 보여주지 않는다 — "답안 보기"를 누른 문제만 체크 (문제별 독립)
   const [answered, setAnswered] = useState<Set<string>>(new Set());
   const [page, setPage] = useState(0); // 10문제씩 페이징
@@ -76,22 +76,23 @@ function BrowseInner() {
     return [...c.entries()].sort();
   }, [tree, kind]);
 
-  async function search(useKind: "theory" | "practice" = kind) {
+  // useSubject: 칩을 누른 직후엔 setSubject가 아직 반영 전이라 새 값을 직접 넘긴다
+  async function search(useKind: "theory" | "practice" = kind, useSubject: string = subject) {
     const kw = q.trim();
-    // 이론은 전 급수 통합 검색 — 급수 선택 없음. 실무만 급수를 고른다.
-    if (useKind === "practice" && !subject) return setErr("급수(과목)를 먼저 골라 주세요.");
+    // 실무는 급수 필수. 이론은 급수를 고르면 그 급수만, "전체"면 전 급수 통합 검색.
+    if (useKind === "practice" && !useSubject) return setErr("급수(과목)를 먼저 골라 주세요.");
     if (kw.length < 2) return setErr("검색어는 두 글자 이상 입력해 주세요.");
     if (busy || !token) return;
     setBusy(true);
     setErr("");
     try {
-      const subjQ = useKind === "practice" ? `subject=${encodeURIComponent(subject)}&` : "";
+      const subjQ = useSubject ? `subject=${encodeURIComponent(useSubject)}&` : "";
       const r = await fetch(`/api/bank/search?${subjQ}q=${encodeURIComponent(kw)}&kind=${useKind}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const d = await r.json().catch(() => null);
       if (!r.ok) return setErr(d?.error ?? "검색하지 못했어요.");
-      setResult({ questions: d.questions ?? [], total: d.total ?? 0, q: kw });
+      setResult({ questions: d.questions ?? [], total: d.total ?? 0, q: kw, subject: useSubject });
       setAnswered(new Set());
       setPage(0);
     } finally {
@@ -104,14 +105,26 @@ function BrowseInner() {
     window.scrollTo({ top: 0 }); // 페이지 넘기면 첫 문제부터 보이게
   }
 
+  // 급수 칩 — 같은 칩을 다시 누르면 해제(이론은 "전체"로 돌아감). 결과가 떠 있으면 바로 재검색
+  function pickSubject(s: string) {
+    const next = subject === s ? "" : s;
+    if (next === subject) return;
+    setSubject(next);
+    if (result && q.trim().length >= 2 && !(kind === "practice" && !next)) search(kind, next);
+  }
+
   // 이론/실무 탭 전환 — 결과가 떠 있으면 같은 검색어로 새 탭에서 재검색
   function switchKind(k: "theory" | "practice") {
     if (k === kind) return;
     setKind(k);
     window.history.replaceState({}, "", `/bank/browse${k === "practice" ? "?kind=practice" : ""}`);
     setErr("");
+    // 급수 선택은 두 탭이 공유 — 새 탭에 그 급수 문항이 없으면 풀어 준다 (칩이 안 보이는데 선택만 남지 않게)
+    const has = (tree ?? []).some((t) => t.subject === subject && (t.category === "이론") === (k === "theory"));
+    const nextSubject = has ? subject : "";
+    if (nextSubject !== subject) setSubject(nextSubject);
     // 실무로 넘어가는데 급수 미선택이면 이전 탭 결과만 비운다 (급수 고르고 재검색)
-    if (result && q.trim().length >= 2 && !(k === "practice" && !subject)) search(k);
+    if (result && q.trim().length >= 2 && !(k === "practice" && !nextSubject)) search(k, nextSubject);
     else setResult(null);
   }
 
@@ -128,7 +141,7 @@ function BrowseInner() {
           <p className="text-sub text-[14px]">
             {kind === "practice"
               ? "급수를 고르고 키워드를 검색하면 그 말이 들어간 실무(일반전표·매입매출·결산) 기출문제를 전부 모아 보여줘요."
-              : "키워드를 검색하면 전 급수의 이론(4지선다) 기출문제를 한 번에 모아 보여줘요. 문제마다 급수가 표시돼요."}
+              : "급수를 고르거나 전체로 두고 키워드를 검색하면 이론(4지선다) 기출문제를 모아 보여줘요. 문제마다 급수가 표시돼요."}
           </p>
         </div>
         <Link href="/bank" className="chip shrink-0 !text-[13px]">
@@ -157,20 +170,26 @@ function BrowseInner() {
           <div className="skel h-20 !rounded-[16px]" />
         ) : (
           <>
-            {/* 이론은 전 급수 통합 — 급수 선택은 실무에만 (결과엔 급수 태그가 붙는다) */}
-            {kind === "practice" && (
-              <div className="flex gap-1.5 flex-wrap">
-                {subjects.map(([s, n]) => (
-                  <button
-                    key={s}
-                    onClick={() => setSubject(subject === s ? "" : s)}
-                    className={`chip !text-[13px] ${subject === s ? "chip-on" : ""}`}
-                  >
-                    {s} <b className="font-semibold" style={{ color: "var(--sub)" }}>{n}</b>
-                  </button>
-                ))}
-              </div>
-            )}
+            {/* 급수 선택 — 이론은 "전체"(전 급수 통합, 결과에 급수 태그)가 기본이고 급수로 좁힐 수 있다. 실무는 급수 필수 */}
+            <div className="flex gap-1.5 flex-wrap">
+              {kind === "theory" && (
+                <button
+                  onClick={() => pickSubject("")}
+                  className={`chip !text-[13px] ${subject === "" ? "chip-on" : ""}`}
+                >
+                  전체 <b className="font-semibold" style={{ color: "var(--sub)" }}>{subjects.reduce((sum, [, n]) => sum + n, 0)}</b>
+                </button>
+              )}
+              {subjects.map(([s, n]) => (
+                <button
+                  key={s}
+                  onClick={() => pickSubject(s)}
+                  className={`chip !text-[13px] ${subject === s ? "chip-on" : ""}`}
+                >
+                  {s} <b className="font-semibold" style={{ color: "var(--sub)" }}>{n}</b>
+                </button>
+              ))}
+            </div>
             <div className="flex gap-2">
               <input
                 className="field flex-1"
@@ -197,7 +216,7 @@ function BrowseInner() {
       {result && (
         <>
           <p className="rise text-sub text-[13px]">
-            &ldquo;{result.q}&rdquo; 포함 문제 <b className="text-blue">{result.total}</b>건
+            {result.subject && `${result.subject} · `}&ldquo;{result.q}&rdquo; 포함 문제 <b className="text-blue">{result.total}</b>건
             {result.total > result.questions.length ? ` (최근 회차부터 ${result.questions.length}건 표시)` : ""}
           </p>
           {result.questions.length === 0 && (
