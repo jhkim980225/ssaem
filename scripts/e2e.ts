@@ -935,6 +935,26 @@ async function main() {
           `${arQs.length}건`
         );
 
+        // 실무 유형 필터 (v0.53.0) — category를 주면 그 유형만. 이론을 넣어도 실무 탭에서 이론이 새지 않는다
+        const pt = await json(
+          `/api/bank/search?subject=${encodeURIComponent("전산세무2급")}&q=${encodeURIComponent("외상")}&kind=practice&category=${encodeURIComponent("매입매출전표")}`,
+          { headers: bearer(studentTok) }
+        );
+        const ptQs = (pt.body?.questions ?? []) as SearchQ[];
+        ok(
+          "실무 유형 검색 — category=매입매출전표면 그 유형만",
+          pt.status === 200 && ptQs.length > 0 && ptQs.every((x) => x.category === "매입매출전표"),
+          `${ptQs.length}건`
+        );
+        const leak = await json(
+          `/api/bank/search?q=${encodeURIComponent("재무")}&kind=practice&category=${encodeURIComponent("이론")}`,
+          { headers: bearer(studentTok) }
+        );
+        ok(
+          "실무 유형 검색 — category=이론이어도 이론 미포함",
+          leak.status === 200 && ((leak.body?.questions ?? []) as SearchQ[]).every((x) => x.category !== "이론")
+        );
+
         // 실무 재분류 (v0.39.0): 세무는 일반전표·매입매출전표·결산 3분류, 회계는 일반전표·결산 2분류
         type TR = { subject: string; category: string };
         const cats = (subj2: string) =>

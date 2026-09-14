@@ -36,6 +36,9 @@ const AREAS: [string, string][] = [
 ];
 const areaLabel = (a: string) => AREAS.find(([v]) => v === a)?.[1] ?? a;
 
+// 실무 유형 뱃지 — DB category 값 그대로. 매입매출전표는 전산세무2급만 있다(회계 급수는 일반전표·결산 2분류)
+const PRACTICE_TYPES = ["일반전표", "매입매출전표", "결산"];
+
 // 문제검색 — 급수를 고르고 키워드를 검색하면 지문에 그 말이 포함된 문제를 전부 보여준다.
 // 이론(4지선다)/실무(일반전표·매입매출전표·결산) 탭으로 나뉜다 — 실무는 정답이 분개 표라 보는 방식이 다르다.
 // 정답은 바로 보여주지 않고 "답안 보기"를 눌러야 체크된다 (스스로 생각해 볼 여지).
@@ -56,6 +59,7 @@ function BrowseInner() {
   const [tree, setTree] = useState<TreeRow[] | null>(null);
   const [subject, setSubject] = useState("");
   const [area, setArea] = useState(""); // 이론 영역 뱃지 ("" = 전체 영역)
+  const [ptype, setPtype] = useState(""); // 실무 유형 뱃지 ("" = 전체 유형)
   // 이론(4지선다) / 실무(일반전표·매입매출전표·결산) 탭
   const [kind, setKind] = useState<"theory" | "practice">(
     params.get("kind") === "practice" ? "practice" : "theory"
@@ -63,7 +67,14 @@ function BrowseInner() {
   const [q, setQ] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
-  const [result, setResult] = useState<{ questions: Q[]; total: number; q: string; subject: string; area: string } | null>(null);
+  const [result, setResult] = useState<{
+    questions: Q[];
+    total: number;
+    q: string;
+    subject: string;
+    area: string;
+    ptype: string;
+  } | null>(null);
   // 답안은 바로 보여주지 않는다 — "답안 보기"를 누른 문제만 체크 (문제별 독립)
   const [answered, setAnswered] = useState<Set<string>>(new Set());
   const [page, setPage] = useState(0); // 10문제씩 페이징
@@ -95,11 +106,19 @@ function BrowseInner() {
       .reduce((sum, t) => sum + t.count, 0);
   }
 
+  // 실무 유형별 문항 수 — category가 곧 유형이라 그대로 센다
+  function typeCount(subj: string, c: string): number {
+    return (tree ?? [])
+      .filter((t) => t.category === c && (!subj || t.subject === subj))
+      .reduce((sum, t) => sum + t.count, 0);
+  }
+
   // over: 칩을 누른 직후엔 setState가 아직 반영 전이라 새 값을 직접 넘긴다
-  async function search(over: { kind?: "theory" | "practice"; subject?: string; area?: string } = {}) {
+  async function search(over: { kind?: "theory" | "practice"; subject?: string; area?: string; ptype?: string } = {}) {
     const useKind = over.kind ?? kind;
     const useSubject = over.subject ?? subject;
     const useArea = useKind === "theory" ? over.area ?? area : ""; // 영역 뱃지는 이론 탭 전용
+    const useType = useKind === "practice" ? over.ptype ?? ptype : ""; // 유형 뱃지는 실무 탭 전용
     const kw = q.trim();
     // 실무는 급수 필수. 이론은 급수를 고르면 그 급수만, "전체"면 전 급수 통합 검색.
     if (useKind === "practice" && !useSubject) return setErr("급수(과목)를 먼저 골라 주세요.");
@@ -110,12 +129,13 @@ function BrowseInner() {
     try {
       const subjQ = useSubject ? `subject=${encodeURIComponent(useSubject)}&` : "";
       const areaQ = useArea ? `area=${encodeURIComponent(useArea)}&` : "";
-      const r = await fetch(`/api/bank/search?${subjQ}${areaQ}q=${encodeURIComponent(kw)}&kind=${useKind}`, {
+      const typeQ = useType ? `category=${encodeURIComponent(useType)}&` : "";
+      const r = await fetch(`/api/bank/search?${subjQ}${areaQ}${typeQ}q=${encodeURIComponent(kw)}&kind=${useKind}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const d = await r.json().catch(() => null);
       if (!r.ok) return setErr(d?.error ?? "검색하지 못했어요.");
-      setResult({ questions: d.questions ?? [], total: d.total ?? 0, q: kw, subject: useSubject, area: useArea });
+      setResult({ questions: d.questions ?? [], total: d.total ?? 0, q: kw, subject: useSubject, area: useArea, ptype: useType });
       setAnswered(new Set());
       setPage(0);
     } finally {
@@ -132,11 +152,14 @@ function BrowseInner() {
   function pickSubject(s: string) {
     const next = subject === s ? "" : s;
     if (next === subject) return;
-    // 새 급수에 고른 영역 문항이 없으면 영역은 전체로 (예: 전산회계2급은 재무뿐)
+    // 새 급수에 고른 영역·유형 문항이 없으면 전체로 (예: 전산회계2급은 재무뿐, 매입매출전표는 전산세무2급만)
     const nextArea = area && areaCount(next, area) === 0 ? "" : area;
+    const nextType = ptype && typeCount(next, ptype) === 0 ? "" : ptype;
     setSubject(next);
     setArea(nextArea);
-    if (result && q.trim().length >= 2 && !(kind === "practice" && !next)) search({ subject: next, area: nextArea });
+    setPtype(nextType);
+    if (result && q.trim().length >= 2 && !(kind === "practice" && !next))
+      search({ subject: next, area: nextArea, ptype: nextType });
   }
 
   // 영역 뱃지 (이론) — 같은 뱃지를 다시 누르면 전체 영역. 결과가 떠 있으면 바로 재검색
@@ -145,6 +168,14 @@ function BrowseInner() {
     if (next === area) return;
     setArea(next);
     if (result && q.trim().length >= 2) search({ area: next });
+  }
+
+  // 유형 뱃지 (실무) — 같은 뱃지를 다시 누르면 전체 유형. 급수가 골라져 있고 결과가 떠 있으면 바로 재검색
+  function pickType(c: string) {
+    const next = ptype === c ? "" : c;
+    if (next === ptype) return;
+    setPtype(next);
+    if (result && q.trim().length >= 2 && subject) search({ ptype: next });
   }
 
   // 이론/실무 탭 전환 — 결과가 떠 있으면 같은 검색어로 새 탭에서 재검색
@@ -174,7 +205,7 @@ function BrowseInner() {
           </h1>
           <p className="text-sub text-[14px]">
             {kind === "practice"
-              ? "급수를 고르고 키워드를 검색하면 그 말이 들어간 실무(일반전표·매입매출·결산) 기출문제를 전부 모아 보여줘요."
+              ? "급수를 고르고 키워드를 검색하면 그 말이 들어간 실무 기출문제를 모아 보여줘요. 일반전표·매입매출전표·결산으로 나눠 볼 수도 있어요."
               : "급수·영역을 고르거나 전체로 두고 키워드를 검색하면 이론(4지선다) 기출문제를 모아 보여줘요. 문제마다 급수가 표시돼요."}
           </p>
         </div>
@@ -245,6 +276,27 @@ function BrowseInner() {
                 })}
               </div>
             )}
+            {/* 유형 뱃지 (실무 전용) — 수는 고른 급수 기준. 그 급수에 없는 유형은 비활성 (매입매출전표는 전산세무2급만) */}
+            {kind === "practice" && (
+              <div className="flex gap-1.5 flex-wrap">
+                <button onClick={() => pickType("")} className={`chip !text-[13px] ${ptype === "" ? "chip-on" : ""}`}>
+                  전체 유형
+                </button>
+                {PRACTICE_TYPES.map((c) => {
+                  const n = typeCount(subject, c);
+                  return (
+                    <button
+                      key={c}
+                      onClick={() => pickType(c)}
+                      disabled={n === 0}
+                      className={`chip !text-[13px] ${ptype === c ? "chip-on" : ""} disabled:opacity-40 disabled:cursor-not-allowed`}
+                    >
+                      {c} <b className="font-semibold" style={{ color: "var(--sub)" }}>{n}</b>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
             <div className="flex gap-2">
               <input
                 className="field flex-1"
@@ -271,7 +323,7 @@ function BrowseInner() {
       {result && (
         <>
           <p className="rise text-sub text-[13px]">
-            {[result.subject, result.area && areaLabel(result.area)].filter(Boolean).map((s) => `${s} · `).join("")}
+            {[result.subject, result.area && areaLabel(result.area), result.ptype].filter(Boolean).map((s) => `${s} · `).join("")}
             &ldquo;{result.q}&rdquo; 포함 문제 <b className="text-blue">{result.total}</b>건
             {result.total > result.questions.length ? ` (최근 회차부터 ${result.questions.length}건 표시)` : ""}
           </p>
@@ -300,7 +352,8 @@ function BrowseInner() {
                       </span>
                     )}
                     <span className="chip !py-0.5 !px-2 !text-[11px] !cursor-default">{n.typeTag}</span>
-                    <span className="chip !py-0.5 !px-2 !text-[11px] !cursor-default">{isTheory ? "이론" : "실무"}</span>
+                    {/* 실무는 유형(일반전표·매입매출전표·결산)을 그대로 — 전체 유형으로 찾았을 때 어느 쪽인지 보이게 */}
+                    <span className="chip !py-0.5 !px-2 !text-[11px] !cursor-default">{isTheory ? "이론" : n.category || "실무"}</span>
                   </div>
                   <StemView stem={n.stem} images={n.images} highlight={result.q} />
                   {isTheory && (
