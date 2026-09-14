@@ -21,9 +21,20 @@ type Q = {
   explanation: string | null;
   images?: string[] | null;
 };
-type TreeRow = { subject: string; category: string; count: number };
+type TreeRow = { subject: string; area: string; category: string; count: number };
 
 const PER = 10; // 페이지당 문제 수
+
+// 이론 영역 뱃지 — [DB area 값, 화면 이름]. 법인세는 아직 0문항(전산세무1급 자료 없음)이라 비활성으로 보이고,
+// 적재되면 트리 집계에 잡혀 자동으로 켜진다.
+const AREAS: [string, string][] = [
+  ["재무회계", "재무"],
+  ["원가회계", "원가"],
+  ["부가가치세", "부가가치세"],
+  ["소득세", "소득세"],
+  ["법인세", "법인세"],
+];
+const areaLabel = (a: string) => AREAS.find(([v]) => v === a)?.[1] ?? a;
 
 // 문제검색 — 급수를 고르고 키워드를 검색하면 지문에 그 말이 포함된 문제를 전부 보여준다.
 // 이론(4지선다)/실무(일반전표·매입매출전표·결산) 탭으로 나뉜다 — 실무는 정답이 분개 표라 보는 방식이 다르다.
@@ -44,6 +55,7 @@ function BrowseInner() {
 
   const [tree, setTree] = useState<TreeRow[] | null>(null);
   const [subject, setSubject] = useState("");
+  const [area, setArea] = useState(""); // 이론 영역 뱃지 ("" = 전체 영역)
   // 이론(4지선다) / 실무(일반전표·매입매출전표·결산) 탭
   const [kind, setKind] = useState<"theory" | "practice">(
     params.get("kind") === "practice" ? "practice" : "theory"
@@ -51,7 +63,7 @@ function BrowseInner() {
   const [q, setQ] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
-  const [result, setResult] = useState<{ questions: Q[]; total: number; q: string; subject: string } | null>(null);
+  const [result, setResult] = useState<{ questions: Q[]; total: number; q: string; subject: string; area: string } | null>(null);
   // 답안은 바로 보여주지 않는다 — "답안 보기"를 누른 문제만 체크 (문제별 독립)
   const [answered, setAnswered] = useState<Set<string>>(new Set());
   const [page, setPage] = useState(0); // 10문제씩 페이징
@@ -76,8 +88,18 @@ function BrowseInner() {
     return [...c.entries()].sort();
   }, [tree, kind]);
 
-  // useSubject: 칩을 누른 직후엔 setSubject가 아직 반영 전이라 새 값을 직접 넘긴다
-  async function search(useKind: "theory" | "practice" = kind, useSubject: string = subject) {
+  // 이론 영역별 문항 수 — subj가 ""면 전 급수. 급수를 바꾸기 직전 새 급수 기준으로도 세야 해서 함수로 둔다
+  function areaCount(subj: string, a: string): number {
+    return (tree ?? [])
+      .filter((t) => t.category === "이론" && t.area === a && (!subj || t.subject === subj))
+      .reduce((sum, t) => sum + t.count, 0);
+  }
+
+  // over: 칩을 누른 직후엔 setState가 아직 반영 전이라 새 값을 직접 넘긴다
+  async function search(over: { kind?: "theory" | "practice"; subject?: string; area?: string } = {}) {
+    const useKind = over.kind ?? kind;
+    const useSubject = over.subject ?? subject;
+    const useArea = useKind === "theory" ? over.area ?? area : ""; // 영역 뱃지는 이론 탭 전용
     const kw = q.trim();
     // 실무는 급수 필수. 이론은 급수를 고르면 그 급수만, "전체"면 전 급수 통합 검색.
     if (useKind === "practice" && !useSubject) return setErr("급수(과목)를 먼저 골라 주세요.");
@@ -87,12 +109,13 @@ function BrowseInner() {
     setErr("");
     try {
       const subjQ = useSubject ? `subject=${encodeURIComponent(useSubject)}&` : "";
-      const r = await fetch(`/api/bank/search?${subjQ}q=${encodeURIComponent(kw)}&kind=${useKind}`, {
+      const areaQ = useArea ? `area=${encodeURIComponent(useArea)}&` : "";
+      const r = await fetch(`/api/bank/search?${subjQ}${areaQ}q=${encodeURIComponent(kw)}&kind=${useKind}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const d = await r.json().catch(() => null);
       if (!r.ok) return setErr(d?.error ?? "검색하지 못했어요.");
-      setResult({ questions: d.questions ?? [], total: d.total ?? 0, q: kw, subject: useSubject });
+      setResult({ questions: d.questions ?? [], total: d.total ?? 0, q: kw, subject: useSubject, area: useArea });
       setAnswered(new Set());
       setPage(0);
     } finally {
@@ -109,8 +132,19 @@ function BrowseInner() {
   function pickSubject(s: string) {
     const next = subject === s ? "" : s;
     if (next === subject) return;
+    // 새 급수에 고른 영역 문항이 없으면 영역은 전체로 (예: 전산회계2급은 재무뿐)
+    const nextArea = area && areaCount(next, area) === 0 ? "" : area;
     setSubject(next);
-    if (result && q.trim().length >= 2 && !(kind === "practice" && !next)) search(kind, next);
+    setArea(nextArea);
+    if (result && q.trim().length >= 2 && !(kind === "practice" && !next)) search({ subject: next, area: nextArea });
+  }
+
+  // 영역 뱃지 (이론) — 같은 뱃지를 다시 누르면 전체 영역. 결과가 떠 있으면 바로 재검색
+  function pickArea(a: string) {
+    const next = area === a ? "" : a;
+    if (next === area) return;
+    setArea(next);
+    if (result && q.trim().length >= 2) search({ area: next });
   }
 
   // 이론/실무 탭 전환 — 결과가 떠 있으면 같은 검색어로 새 탭에서 재검색
@@ -124,7 +158,7 @@ function BrowseInner() {
     const nextSubject = has ? subject : "";
     if (nextSubject !== subject) setSubject(nextSubject);
     // 실무로 넘어가는데 급수 미선택이면 이전 탭 결과만 비운다 (급수 고르고 재검색)
-    if (result && q.trim().length >= 2 && !(k === "practice" && !nextSubject)) search(k, nextSubject);
+    if (result && q.trim().length >= 2 && !(k === "practice" && !nextSubject)) search({ kind: k, subject: nextSubject });
     else setResult(null);
   }
 
@@ -141,7 +175,7 @@ function BrowseInner() {
           <p className="text-sub text-[14px]">
             {kind === "practice"
               ? "급수를 고르고 키워드를 검색하면 그 말이 들어간 실무(일반전표·매입매출·결산) 기출문제를 전부 모아 보여줘요."
-              : "급수를 고르거나 전체로 두고 키워드를 검색하면 이론(4지선다) 기출문제를 모아 보여줘요. 문제마다 급수가 표시돼요."}
+              : "급수·영역을 고르거나 전체로 두고 키워드를 검색하면 이론(4지선다) 기출문제를 모아 보여줘요. 문제마다 급수가 표시돼요."}
           </p>
         </div>
         <Link href="/bank" className="chip shrink-0 !text-[13px]">
@@ -177,7 +211,7 @@ function BrowseInner() {
                   onClick={() => pickSubject("")}
                   className={`chip !text-[13px] ${subject === "" ? "chip-on" : ""}`}
                 >
-                  전체 <b className="font-semibold" style={{ color: "var(--sub)" }}>{subjects.reduce((sum, [, n]) => sum + n, 0)}</b>
+                  전체 급수 <b className="font-semibold" style={{ color: "var(--sub)" }}>{subjects.reduce((sum, [, n]) => sum + n, 0)}</b>
                 </button>
               )}
               {subjects.map(([s, n]) => (
@@ -190,6 +224,27 @@ function BrowseInner() {
                 </button>
               ))}
             </div>
+            {/* 영역 뱃지 (이론 전용) — 수는 고른 급수 기준. 그 급수에 없는 영역은 비활성 (예: 전산회계2급은 재무뿐) */}
+            {kind === "theory" && (
+              <div className="flex gap-1.5 flex-wrap">
+                <button onClick={() => pickArea("")} className={`chip !text-[13px] ${area === "" ? "chip-on" : ""}`}>
+                  전체 영역
+                </button>
+                {AREAS.map(([a, label]) => {
+                  const n = areaCount(subject, a);
+                  return (
+                    <button
+                      key={a}
+                      onClick={() => pickArea(a)}
+                      disabled={n === 0}
+                      className={`chip !text-[13px] ${area === a ? "chip-on" : ""} disabled:opacity-40 disabled:cursor-not-allowed`}
+                    >
+                      {label} <b className="font-semibold" style={{ color: "var(--sub)" }}>{n}</b>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
             <div className="flex gap-2">
               <input
                 className="field flex-1"
@@ -216,7 +271,8 @@ function BrowseInner() {
       {result && (
         <>
           <p className="rise text-sub text-[13px]">
-            {result.subject && `${result.subject} · `}&ldquo;{result.q}&rdquo; 포함 문제 <b className="text-blue">{result.total}</b>건
+            {[result.subject, result.area && areaLabel(result.area)].filter(Boolean).map((s) => `${s} · `).join("")}
+            &ldquo;{result.q}&rdquo; 포함 문제 <b className="text-blue">{result.total}</b>건
             {result.total > result.questions.length ? ` (최근 회차부터 ${result.questions.length}건 표시)` : ""}
           </p>
           {result.questions.length === 0 && (

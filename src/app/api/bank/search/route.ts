@@ -4,10 +4,11 @@ import { requireUser } from "@/lib/auth";
 import { rateLimit, clientIp } from "@/lib/ratelimit";
 
 // 문제모음 검색: 키워드 → 지문에 키워드가 포함된 문제 전부 (정답·해설 포함, 열람용).
-// GET ?q=재무&kind=theory|practice&subject=전산회계2급
+// GET ?q=재무&kind=theory|practice&subject=전산회계2급&area=부가가치세
 //   kind=theory  → 이론(4지선다)만
 //   kind=practice → 실무(일반전표·매입매출전표·결산 — 이론이 아닌 전부)
 //   subject 생략 → 전 급수 통합 검색 (결과 행에 subject가 실려 태그로 표시)
+//   area 생략 → 전 영역. 주면 그 영역(재무회계·원가회계·부가가치세·소득세·법인세)만
 export async function GET(req: Request) {
   const g = await requireUser(req);
   if ("res" in g) return g.res;
@@ -16,6 +17,7 @@ export async function GET(req: Request) {
 
   const url = new URL(req.url);
   const subject = (url.searchParams.get("subject") ?? "").trim().slice(0, 30);
+  const area = (url.searchParams.get("area") ?? "").trim().slice(0, 30);
   const q = (url.searchParams.get("q") ?? "").trim().slice(0, 50);
   const kindParam = url.searchParams.get("kind");
   const kind = kindParam === "practice" ? "practice" : kindParam === "theory" ? "theory" : "";
@@ -33,6 +35,7 @@ export async function GET(req: Request) {
     )
     .ilike("stem", like);
   if (subject) qb = qb.eq("subject", subject);
+  if (area) qb = qb.eq("area", area);
   if (kind === "theory") qb = qb.eq("category", "이론");
   if (kind === "practice") qb = qb.neq("category", "이론");
   const { data, error, count } = await qb.order("source", { ascending: false }).limit(100);

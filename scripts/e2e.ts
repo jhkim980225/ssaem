@@ -922,6 +922,19 @@ async function main() {
           `${unQs.length}건 · 급수 ${[...new Set(unQs.map((x) => x.subject))].join("·")}`
         );
 
+        // 이론 영역 필터 (v0.52.0) — area를 주면 그 영역 문제만
+        const ar = await json(
+          `/api/bank/search?q=${encodeURIComponent("세금계산서")}&kind=theory&area=${encodeURIComponent("부가가치세")}`,
+          { headers: bearer(studentTok) }
+        );
+        type ArQ = { area: string; category: string };
+        const arQs = (ar.body?.questions ?? []) as ArQ[];
+        ok(
+          "이론 영역 검색 — area=부가가치세면 그 영역만",
+          ar.status === 200 && arQs.length > 0 && arQs.every((x) => x.area === "부가가치세" && x.category === "이론"),
+          `${arQs.length}건`
+        );
+
         // 실무 재분류 (v0.39.0): 세무는 일반전표·매입매출전표·결산 3분류, 회계는 일반전표·결산 2분류
         type TR = { subject: string; category: string };
         const cats = (subj2: string) =>
