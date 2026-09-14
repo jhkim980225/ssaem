@@ -4,6 +4,7 @@ import Link from "next/link";
 import { avatarEmoji } from "@/lib/avatar";
 import { useGate } from "@/components/RoleGuard";
 import BackButton from "@/components/BackButton";
+import { renderMd } from "@/components/Markdown";
 
 type Conv = {
   id: string;
@@ -74,10 +75,10 @@ export default function MyHistoryPage() {
         ) : (
           <div key={m.id} className="self-start max-w-[92%] flex flex-col gap-1">
             <div
-              className="px-4 py-2.5 text-[14px] leading-relaxed whitespace-pre-wrap rounded-[16px] rounded-bl-[5px] border border-line"
+              className="md min-w-0 px-4 py-2.5 text-[14px] leading-relaxed whitespace-pre-wrap rounded-[16px] rounded-bl-[5px] border border-line"
               style={{ background: "var(--fill-2)" }}
             >
-              {m.content}
+              {renderMd(m.content)}
             </div>
             {m.rating !== null && (
               <span className="text-sub text-[12px] pl-1">

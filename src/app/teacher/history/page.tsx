@@ -2,8 +2,16 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useGate } from "@/components/RoleGuard";
+import { renderMd } from "@/components/Markdown";
 
-type Conv = { id: string; title: string | null; created_at: string; messages: number; needs_review?: boolean };
+type Conv = {
+  id: string;
+  title: string | null;
+  created_at: string;
+  messages: number;
+  needs_review?: boolean;
+  student_name: string | null; // null = 비로그인으로 질문(또는 탈퇴한 학생)
+};
 type Msg = {
   id: string;
   role: "user" | "assistant";
@@ -87,14 +95,17 @@ export default function HistoryPage() {
           <div key={c.id} className={`rise d${Math.min(i + 1, 6)} card overflow-hidden`}>
             <button onClick={() => toggle(c.id)} className="w-full text-left p-4 lg:p-5 cursor-pointer">
               <div className="flex items-center justify-between gap-3">
-                <p className="font-bold text-[15px] truncate">
-                  {c.needs_review && (
-                    <span className="mr-1.5 text-[11px] font-bold px-1.5 py-0.5 rounded-md align-middle" style={{ color: "var(--red)", background: "var(--red-weak)" }}>
-                      확인 필요
-                    </span>
-                  )}
-                  {c.title || "제목 없음"}
-                </p>
+                <div className="min-w-0">
+                  <p className="font-bold text-[15px] truncate">
+                    {c.needs_review && (
+                      <span className="mr-1.5 text-[11px] font-bold px-1.5 py-0.5 rounded-md align-middle" style={{ color: "var(--red)", background: "var(--red-weak)" }}>
+                        확인 필요
+                      </span>
+                    )}
+                    {c.title || "제목 없음"}
+                  </p>
+                  <p className="text-sub text-[12px] truncate mt-0.5">{c.student_name ?? "비로그인 학생"}</p>
+                </div>
                 <span className="text-sub text-[12px] shrink-0">
                   메시지 {c.messages} ·{" "}
                   {new Date(c.created_at).toLocaleString("ko-KR", {
@@ -123,10 +134,10 @@ export default function HistoryPage() {
                   ) : (
                     <div key={m.id} className="self-start max-w-[92%] lg:max-w-[680px] flex flex-col gap-1">
                       <div
-                        className="px-4 py-2.5 text-[14px] leading-relaxed whitespace-pre-wrap rounded-[16px] rounded-bl-[5px] border border-line"
+                        className="md min-w-0 px-4 py-2.5 text-[14px] leading-relaxed whitespace-pre-wrap rounded-[16px] rounded-bl-[5px] border border-line"
                         style={{ background: "var(--fill-2)" }}
                       >
-                        {m.content}
+                        {renderMd(m.content)}
                       </div>
                       {m.rating !== null && (
                         <span className="text-sub text-[12px] pl-1">

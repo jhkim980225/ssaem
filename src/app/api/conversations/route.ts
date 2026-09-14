@@ -49,7 +49,7 @@ export async function GET(req: Request) {
   const { data, error } = await db
     .from("conversations")
     .select(
-      "id, title, created_at, teacher_id, messages(count), teacher:profiles!conversations_teacher_id_fkey(name)"
+      "id, title, created_at, teacher_id, messages(count), teacher:profiles!conversations_teacher_id_fkey(name), student:profiles!conversations_student_id_fkey(name)"
     )
     .eq(asStudent ? "student_id" : "teacher_id", uid)
     .order("created_at", { ascending: false })
@@ -75,6 +75,7 @@ export async function GET(req: Request) {
     id: string; title: string | null; created_at: string; teacher_id: string;
     messages: { count: number }[];
     teacher: { name: string } | { name: string }[] | null;
+    student: { name: string } | { name: string }[] | null;
   };
   const conversations = ((data ?? []) as Row[])
     .map((c) => ({
@@ -83,6 +84,8 @@ export async function GET(req: Request) {
       created_at: c.created_at,
       teacher_id: c.teacher_id,
       teacher_name: Array.isArray(c.teacher) ? c.teacher[0]?.name ?? null : c.teacher?.name ?? null,
+      // 강사 질문 이력에 "누가 물었는지" — 비로그인 질문은 student_id가 없어 null
+      student_name: Array.isArray(c.student) ? c.student[0]?.name ?? null : c.student?.name ?? null,
       messages: c.messages?.[0]?.count ?? 0,
       needs_review: flagged.has(c.id),
     }))

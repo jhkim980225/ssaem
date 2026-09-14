@@ -37,5 +37,5 @@
 
 ## 대화 이력 조회 — GET /api/conversations (강사·학생 공용)
 
-- 무인자: 내 대화 목록 (최근 50, 대화별 메시지 수). `profiles.role`로 분기 — 강사는 `teacher_id`, 학생은 `student_id` 필터. 학생 목록엔 강사 이름 포함. 응답에 `role` 동봉.
+- 무인자: 내 대화 목록 (최근 50, 대화별 메시지 수). `profiles.role`로 분기 — 강사는 `teacher_id`, 학생은 `student_id` 필터. 대화마다 `teacher_name`·`student_name`(비로그인 질문은 null) 포함 — 강사 질문 이력이 "누가 물었는지" 표시. 응답에 `role` 동봉.
 - `?id=<uuid>`: 해당 대화 메시지 전체 — 당사자(강사 또는 학생) 확인 후 반환, 아니면 404.
