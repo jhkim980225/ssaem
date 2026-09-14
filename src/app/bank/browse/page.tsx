@@ -193,6 +193,16 @@ function BrowseInner() {
     else setResult(null);
   }
 
+  // 헤더 "문제검색"·푸터 "문제검색(이론)/(실무)"는 ?kind만 다른 같은 페이지라 눌러도 리마운트되지 않는다.
+  // kind를 useState 초기값으로만 잡으면 실무 화면에서 이론 링크를 눌러도 URL만 바뀌고 실무 탭이 남는다.
+  // URL의 kind가 바뀌면 탭 버튼을 누른 것과 똑같이 전환한다 (탭 버튼은 kind를 먼저 바꾸므로 여기선 그냥 지나감).
+  const urlKind = params.get("kind") === "practice" ? "practice" : "theory";
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- URL(kind) 변화에 탭 상태를 맞추는 동기화 (링크 이동 시 1회)
+    if (urlKind !== kind) switchKind(urlKind);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- URL(kind) 변화에만 반응
+  }, [urlKind]);
+
   if (gate) return gate;
 
   return (
