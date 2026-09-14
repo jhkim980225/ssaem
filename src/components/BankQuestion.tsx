@@ -15,8 +15,80 @@ const NOTE_RE = /^\s*[(（]?\s*단[,，]/;
 // 파이프라인(hwp)이 직렬화한 표: [[표]]셀|셀∥셀|셀[[/표]] — 행 ∥, 셀 |
 const TABLE_RE = /\[\[표\]\](.*?)\[\[\/표\]\]/;
 
+// 항목 표지 — ㆍ·• 또는 a. / 가. 시험지에서 나란히 놓인 자료 나열이 표로 직렬화되면서
+// 한 셀에 항목 여러 개가 뭉친다("ㆍ총매출액：1,000,000원 ㆍ매출에누리액：16,000원|ㆍ…"). 표지 앞에서 끊어 되돌린다.
+const KO_MARKS = "가나다라마바사아자차카타파하";
+const LETTER_START = new RegExp(`^(?:[a-z]|[${KO_MARKS}])\\.\\s`);
+const MARK_START = new RegExp(`^(?:[ㆍ·•‧]|(?:[a-z]|[${KO_MARKS}])\\.\\s)`);
+const MARK_SPLIT = new RegExp(`\\s+(?=[ㆍ·•‧]|(?:[a-z]|[${KO_MARKS}])\\.\\s)`);
+
+function splitItems(cell: string): string[] {
+  return cell
+    .split(MARK_SPLIT)
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+const isItemList = (items: string[]) => items.length > 1 && items.every((it) => MARK_START.test(it));
+
+// a./가. 표지 순번 — 행 단위로 직렬화된 2단 목록(a d | b e | c)을 원래 순서로 되돌릴 때 쓴다
+const markRank = (s: string) => (KO_MARKS.includes(s[0]) ? KO_MARKS.indexOf(s[0]) : s.charCodeAt(0) - 97);
+
+// 표 칸 안에 항목이 여러 개면 한 줄에 하나씩 — 한 줄로 이어 붙이면 칸이 끝없이 넓어진다
+function CellText({ text, highlight }: { text: string; highlight?: string }) {
+  const items = splitItems(text);
+  if (!isItemList(items)) return <Hi text={text} kw={highlight} />;
+  return (
+    <>
+      {items.map((it, k) => (
+        <div key={k} className="text-left">
+          <Hi text={it} kw={highlight} />
+        </div>
+      ))}
+    </>
+  );
+}
+
 function TableBlock({ data, highlight }: { data: string; highlight?: string }) {
   const rows = data.split("∥").map((r) => r.split("|"));
+
+  // 칸마다 표지 붙은 항목만 있는 표는 격자가 아니라 시험지의 자료 나열(나란히 배치)이다. 표로 그리면 칸이 옆으로만
+  // 늘어나 가로 스크롤이 생긴다(예: 전산회계1급 101회 부가세 과세표준 자료) — 몇 줄짜리든 아래로 줄바꿈되는 블록으로 편다.
+  const cells = rows.flat().map((c) => c.trim()).filter(Boolean);
+  if (!cells.length) return null;
+  const items = cells.flatMap(splitItems);
+  const box = { background: "var(--fill-2)" };
+  if (isItemList(items)) {
+    const ranks = items.map(markRank);
+    const ordered =
+      items.every((it) => LETTER_START.test(it)) && new Set(ranks).size === ranks.length
+        ? items.map((it, i) => ({ it, r: ranks[i] })).sort((a, b) => a.r - b.r).map((x) => x.it)
+        : items;
+    return (
+      // PC는 시험지처럼 2단(열 우선으로 채워 원래 읽는 순서 유지), 좁은 화면은 한 줄에 하나
+      <div className="mt-1 rounded-[12px] border border-line px-4 py-3 sm:columns-2 sm:gap-x-8" style={box}>
+        {ordered.map((it, i) => (
+          <p key={i} className="text-[15px] leading-[1.7] tabular-nums break-keep break-inside-avoid">
+            <Hi text={it} kw={highlight} />
+          </p>
+        ))}
+      </div>
+    );
+  }
+
+  if (rows.length === 1) {
+    // 표지 없는 한 줄(분개 한 줄·절차 나열 등)도 격자가 아니다 — 칸 단위로 이어 쓰고 넘치면 줄바꿈
+    return (
+      <div className="mt-1 rounded-[12px] border border-line px-4 py-2.5 flex flex-wrap gap-x-5 gap-y-1" style={box}>
+        {cells.map((c, i) => (
+          <span key={i} className="text-[15px] leading-[1.7] tabular-nums break-keep">
+            <Hi text={c} kw={highlight} />
+          </span>
+        ))}
+      </div>
+    );
+  }
+
   return (
     <div className="overflow-x-auto mt-1">
       <table className="border-collapse text-[14px]">
@@ -29,7 +101,7 @@ function TableBlock({ data, highlight }: { data: string; highlight?: string }) {
                   className="border border-line px-3 py-1.5 text-center whitespace-nowrap tabular-nums"
                   style={i === 0 ? { background: "var(--fill-2)", fontWeight: 700 } : undefined}
                 >
-                  <Hi text={c} kw={highlight} />
+                  <CellText text={c} highlight={highlight} />
                 </td>
               ))}
             </tr>
@@ -150,7 +222,26 @@ export function ExplanationView({ text }: { text: string }) {
     <div className="flex flex-col gap-1 break-keep">
       {text.split("\n").map((line, i) => {
         const tm = line.match(TABLE_RE);
-        if (tm) return <TableBlock key={i} data={tm[1]} />;
+        if (tm) {
+          // 표 앞뒤에 이어 붙은 풀이("… [[/표]] (2) 완성품 환산량")가 있다 — 표만 그리면 그 글이 통째로 사라진다
+          const before = line.slice(0, tm.index).trim();
+          const after = line.slice((tm.index ?? 0) + tm[0].length).trim();
+          return (
+            <div key={i} className="flex flex-col gap-1">
+              {before && (
+                <p className="text-[15px] leading-[1.75] whitespace-pre-wrap" style={{ color: "var(--text-2)" }}>
+                  {before}
+                </p>
+              )}
+              <TableBlock data={tm[1]} />
+              {after && (
+                <p className="text-[15px] leading-[1.75] whitespace-pre-wrap" style={{ color: "var(--text-2)" }}>
+                  {after}
+                </p>
+              )}
+            </div>
+          );
+        }
         const m = line.match(/^\s*[·•‧\-]?\s*(.+?)\s*[:：=]\s*([\d,]+\s*원?)\s*$/);
         if (m)
           return (
