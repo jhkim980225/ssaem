@@ -49,7 +49,8 @@ function CellText({ text, highlight }: { text: string; highlight?: string }) {
   );
 }
 
-function TableBlock({ data, highlight }: { data: string; highlight?: string }) {
+// grid: 칸 정렬이 곧 뜻인 서식(세금계산서·급여명세 등)은 항목 목록으로 펴지 말고 격자 그대로
+function TableBlock({ data, highlight, grid }: { data: string; highlight?: string; grid?: boolean }) {
   const rows = data.split("∥").map((r) => r.split("|"));
 
   // 칸마다 표지 붙은 항목만 있는 표는 격자가 아니라 시험지의 자료 나열(나란히 배치)이다. 표로 그리면 칸이 옆으로만
@@ -58,7 +59,7 @@ function TableBlock({ data, highlight }: { data: string; highlight?: string }) {
   if (!cells.length) return null;
   const items = cells.flatMap(splitItems);
   const box = { background: "var(--fill-2)" };
-  if (isItemList(items)) {
+  if (!grid && isItemList(items)) {
     const ranks = items.map(markRank);
     const ordered =
       items.every((it) => LETTER_START.test(it)) && new Set(ranks).size === ranks.length
@@ -76,7 +77,7 @@ function TableBlock({ data, highlight }: { data: string; highlight?: string }) {
     );
   }
 
-  if (rows.length === 1) {
+  if (!grid && rows.length === 1) {
     // 표지 없는 한 줄(분개 한 줄·절차 나열 등)도 격자가 아니다 — 칸 단위로 이어 쓰고 넘치면 줄바꿈
     return (
       <div className="mt-1 rounded-[12px] border border-line px-4 py-2.5 flex flex-wrap gap-x-5 gap-y-1" style={box}>
@@ -193,13 +194,42 @@ export function StemView({ stem, images, highlight }: { stem: string; images?: s
           </p>
         );
       })}
+      {/* 첨부 서식(카드매출전표·세금계산서·급여명세 등). 표는 격자로 그린다 —
+          원문을 그대로 찍으면 "[[표]]카드매출전표||∥…" 기호가 그대로 보인다(183문항). */}
       {form && (
-        <pre
+        <div
           className="text-[12px] leading-snug overflow-x-auto rounded-[12px] border border-line p-3 mt-1"
           style={{ background: "var(--fill-2)" }}
         >
-          {form}
-        </pre>
+          {form.split("\n").map((line, i) => {
+            const tm = line.match(TABLE_RE);
+            if (!tm)
+              return line.trim() ? (
+                <p key={i} className="whitespace-pre-wrap">
+                  <Hi text={line} kw={highlight} />
+                </p>
+              ) : (
+                <div key={i} className="h-1" />
+              );
+            const before = line.slice(0, tm.index).trim();
+            const after = line.slice((tm.index ?? 0) + tm[0].length).trim();
+            return (
+              <div key={i}>
+                {before && (
+                  <p className="whitespace-pre-wrap">
+                    <Hi text={before} kw={highlight} />
+                  </p>
+                )}
+                <TableBlock data={tm[1]} highlight={highlight} grid />
+                {after && (
+                  <p className="whitespace-pre-wrap">
+                    <Hi text={after} kw={highlight} />
+                  </p>
+                )}
+              </div>
+            );
+          })}
+        </div>
       )}
       {/* 그림 자료 (증빙 캡처 등) — PDF에서 잘라 온 문제 첨부 이미지 */}
       {(images ?? []).map((src) => (

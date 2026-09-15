@@ -114,6 +114,8 @@ async function main() {
       const { data, error } = await db
         .from("bank_questions")
         .select("id, source, stem")
+        // 정렬 없이 페이지를 넘기면 경계에서 행이 중복·누락된다 — 정리 대상을 놓치지 않게 id 순
+        .order("id", { ascending: true })
         .range(from, from + 999);
       if (error) {
         console.error(`❌ 정리 조회 실패: ${error.message}`);

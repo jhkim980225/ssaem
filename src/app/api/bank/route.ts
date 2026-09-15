@@ -79,7 +79,13 @@ export async function GET(req: Request) {
   //   ① 400문항 초과 과목(전 과목 644~719문항)은 고정된 일부만 출제됐고
   //   ② mode=wrong이 그 400 안에 없는 오답을 놓쳐 오답노트 재풀이가 불완전했다.
   const filteredIds = () => {
-    let q = db.from("bank_questions").select("id").order("created_at", { ascending: true });
+    // id를 2차 정렬키로 — 적재가 배치 upsert라 created_at이 수백 건씩 동률이다. 동률이면 페이지마다
+    // 순서가 달라져 1000행 경계에서 같은 문항이 두 번 담기고 그만큼 빠졌다(전 과목 3,100건에서 8건).
+    let q = db
+      .from("bank_questions")
+      .select("id")
+      .order("created_at", { ascending: true })
+      .order("id", { ascending: true });
     if (subject) q = q.eq("subject", subject);
     if (category) q = q.eq("category", category);
     if (areas.length) q = q.in("area", areas);
