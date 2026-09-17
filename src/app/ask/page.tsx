@@ -59,6 +59,19 @@ export default function AskPage() {
   });
   const [convs, setConvs] = useState<Conv[]>([]);
 
+  // 강사·원장이 "학생 화면 미리보기"(/ask?preview=1)로 들어온 상태.
+  // 이 화면은 role이 student가 아니면 학생 전용 영역(선생님 코드·과제 제출·내 현황)을 숨긴다 —
+  // 그래서 강사가 그냥 /ask를 열면 "학생에게 어떻게 보이는지"를 볼 수 없었다.
+  // URL은 이 페이지의 기존 방식대로 이펙트에서 읽는다(useSearchParams는 Suspense 경계를 요구).
+  const [previewParam, setPreviewParam] = useState(false);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- URL(preview) 값을 상태로 한 번 옮기는 동기화
+    setPreviewParam(new URLSearchParams(window.location.search).get("preview") === "1");
+  }, []);
+  const previewing = previewParam && (role === "teacher" || role === "admin");
+  // 학생 배치로 그릴지 — 진짜 학생이거나 미리보기. 기록(대화·제출)은 학생 계정에 묶여 있어 미리보기에선 비어 있다.
+  const asStudent = role === "student" || previewing;
+
   // 강사 목록 — 세션 확정 후 로드 (로그인 학생은 초대된 비공개 강사 포함)
   useEffect(() => {
     if (!allowed || !session) return;
@@ -161,7 +174,7 @@ export default function AskPage() {
 
   async function submitHomework(documentId: string) {
     const content = (hwDraft[documentId] ?? mySubs[documentId]?.content ?? "").trim();
-    if (!content || !session || hwBusy) return;
+    if (!content || !session || hwBusy || previewing) return; // 미리보기에선 실제 제출 금지
     setHwBusy(documentId);
     try {
       const r = await fetch("/api/submissions", {
@@ -216,7 +229,7 @@ export default function AskPage() {
 
   async function joinByCode() {
     const code = joinCode.trim();
-    if (!code || joinBusy || !session) return;
+    if (!code || joinBusy || !session || previewing) return; // 미리보기에선 실제 등록 금지
     setJoinBusy(true);
     setJoinMsg(null);
     try {
@@ -290,6 +303,23 @@ export default function AskPage() {
 
   return (
     <main className="flex-1 w-full max-w-[1600px] mx-auto px-5 lg:px-8 py-5 lg:py-7">
+      {previewing && (
+        <div
+          className="rise mb-4 rounded-[16px] border border-line p-4 flex flex-wrap items-center justify-between gap-3"
+          style={{ background: "var(--blue-weak)" }}
+        >
+          <div className="min-w-0">
+            <p className="text-[14px] font-extrabold text-blue">학생 화면 미리보기</p>
+            <p className="text-sub text-[13px] leading-relaxed">
+              학생에게는 이렇게 보여요. 대화 이력·과제 제출은 학생 계정에 저장되는 것이라 여기서는 비어 있고,
+              제출·등록 버튼도 눌리지 않아요. 학생은 자기가 등록된 선생님과 ROOM만 봐요.
+            </p>
+          </div>
+          <Link href="/teacher" className="chip !text-[13px] shrink-0">
+            미리보기 끝내기
+          </Link>
+        </div>
+      )}
       <div className="grid gap-4 lg:gap-5 lg:grid-cols-[240px_minmax(0,1fr)] xl:grid-cols-[240px_minmax(0,1fr)_300px] 2xl:grid-cols-[280px_minmax(0,1fr)_340px] items-start">
         {/* ── 좌측 레일: 검색 · 선생님 · 내 이력 ───────────────── */}
         {/* min-w-0: 그리드 자식 기본 min-width:auto 때문에 내부 가로 스크롤이 페이지를 밀어냄 */}
@@ -383,7 +413,7 @@ export default function AskPage() {
           </div>
 
           {/* 선생님 코드 입력 — 초대코드(s./c.)로 수강 등록. 자동 연결이 없으니 이게 정식 입구 */}
-          {session && role === "student" && (
+          {session && asStudent && (
             <div className="lg-card lg:p-3 flex flex-col gap-2">
               <p className="text-sub text-[12px] font-bold px-1">선생님 코드 입력</p>
               <input
@@ -395,7 +425,7 @@ export default function AskPage() {
                   if (e.key === "Enter" && !e.nativeEvent.isComposing) joinByCode();
                 }}
               />
-              <button onClick={joinByCode} disabled={joinBusy} className="btn btn-primary py-2.5 !text-[13px] disabled:opacity-50">
+              <button onClick={joinByCode} disabled={joinBusy || previewing} className="btn btn-primary py-2.5 !text-[13px] disabled:opacity-50">
                 {joinBusy ? "등록 중…" : "선생님 등록"}
               </button>
               {joinMsg && (
@@ -487,7 +517,7 @@ export default function AskPage() {
                         </Link>
                       </p>
                       {/* 과제 제출 — 로그인 학생만. 제출하면 선생님 ROOM 화면에 바로 보인다 */}
-                      {session && role === "student" && (
+                      {session && asStudent && (
                         <details className="mt-1.5">
                           <summary className="text-[12px] font-bold text-blue cursor-pointer select-none">
                             {mySubs[l.id]
@@ -503,7 +533,7 @@ export default function AskPage() {
                           />
                           <button
                             onClick={() => submitHomework(l.id)}
-                            disabled={hwBusy === l.id || !(hwDraft[l.id] ?? mySubs[l.id]?.content ?? "").trim()}
+                            disabled={previewing || hwBusy === l.id || !(hwDraft[l.id] ?? mySubs[l.id]?.content ?? "").trim()}
                             className="btn btn-primary w-full py-2 mt-1.5 !text-[13px] disabled:opacity-50"
                           >
                             {hwBusy === l.id ? "제출 중…" : mySubs[l.id] ? "다시 제출" : "제출"}
@@ -544,7 +574,7 @@ export default function AskPage() {
           )}
 
           {/* 내 질문 이력 (로그인 학생) */}
-          {session && role === "student" && convs.length > 0 && (
+          {session && asStudent && convs.length > 0 && (
             <div className="lg-card lg:p-3">
               <div className="flex items-center justify-between px-1 pb-1">
                 <p className="text-sub text-[12px] font-bold">내 질문 이력</p>
@@ -728,11 +758,11 @@ export default function AskPage() {
           <div className="rise d1 card p-5">
             <div className="flex items-baseline justify-between mb-4">
               <h2 className="font-extrabold text-[15px]">
-                {session && role === "student" ? "나의 학습 현황" : "우리 학원 현황"}
+                {session && asStudent ? "나의 학습 현황" : "우리 학원 현황"}
               </h2>
             </div>
             <div className="grid grid-cols-3 gap-2 text-center">
-              {(session && role === "student"
+              {(session && asStudent
                 ? ([
                     ["내 대화", convs.length],
                     ["주고받은 글", convs.reduce((s, c) => s + c.messages, 0)],

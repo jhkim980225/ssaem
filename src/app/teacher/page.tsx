@@ -1149,8 +1149,9 @@ function Dashboard({ session }: { session: Session }) {
         )}
       </section>
 
-      <Link href="/ask" className="rise d4 btn btn-ghost py-4 text-center">
-        학생 화면으로 보기 →
+      {/* 학생에게 보이는 배치 그대로 — preview=1이 없으면 강사에겐 학생 전용 영역이 숨겨진다 */}
+      <Link href={`/ask?preview=1&teacher=${uid}`} className="rise d4 btn btn-ghost py-4 text-center">
+        학생 화면 미리보기 →
       </Link>
       </div>
       </div>
