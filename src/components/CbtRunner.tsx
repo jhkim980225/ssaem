@@ -3,11 +3,12 @@ import { useMemo, useState } from "react";
 import { StemView, ExplanationView, ChoiceView } from "@/components/BankQuestion";
 
 // 기출 CBT 모드 — 실제 시험처럼 푼다.
-//  · 푸는 동안: 번호판으로 아무 문항이나 바로 이동 (푼 문제는 색이 찬다). PC에선 우측 sticky
-//  · 한 문제씩 보며 답만 체크하고, 마지막에 **한 번에 채점**
-//  · 채점 뒤: 번호판·점수 카드를 걷어내고 **전 문항을 세로로 펼친다** — 시험지 되돌아보듯
-//    아래로 훑으며 틀린 문제와 해설을 확인한다. 번호판을 눌러 한 문제씩 오가는 방식은
-//    어디를 틀렸는지 한눈에 안 보이고, 다 확인했는지도 알 수 없었다.
+//  · 푸는 동안: 한 문제씩 한 줄로. 이전/다음으로 오가고 **마지막 문항에서 '다음'이
+//    '채점하기'로 바뀐다**. 사이드바(번호판·채점 버튼)는 두지 않는다 — 문제 옆에 붙어
+//    읽는 폭을 좁히고, 모바일에선 번호판이 문제 위에 쌓여 첫 화면을 다 먹었다.
+//  · 답만 체크하고 마지막에 **한 번에 채점**. 덜 푼 문항이 있으면 채점 전에 묻는다
+//  · 채점 뒤: **전 문항을 세로로 펼친다** — 시험지 되돌아보듯 아래로 훑으며 틀린 문제와
+//    해설을 확인한다. 한 문제씩 오가는 방식은 어디를 틀렸는지 한눈에 안 보였다
 //
 // 즉시채점(기존 방식)과 달리 중간에 답을 바꿀 수 있다 — 시험이니까.
 
@@ -154,8 +155,8 @@ export default function CbtRunner({
         method: "POST",
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
         body: JSON.stringify({
-          // 답한 순서(Object.entries)가 아니라 **출제 순서**로 보낸다 — 번호판으로 아무 문항이나
-          // 오갈 수 있어 답한 순서는 시험지 순서와 무관하다. 서버가 이 순서를 문항 번호로 저장한다.
+          // 답한 순서(Object.entries)가 아니라 **출제 순서**로 보낸다 — 이전으로 돌아가 답을
+          // 고치면 답한 순서가 시험지 순서와 어긋난다. 서버가 이 순서를 문항 번호로 저장한다.
           answers: questions
             .filter((item) => picked[item.id] !== undefined)
             .map((item) => ({ questionId: item.id, chosen: picked[item.id] })),
@@ -244,81 +245,47 @@ export default function CbtRunner({
     );
   }
 
-  // ── 푸는 중: 한 문제씩 + 번호판(PC 우측 sticky)
+  // ── 푸는 중: 한 문제씩, 한 줄로. 번호판·채점 사이드바는 두지 않는다 —
+  //    이전/다음으로만 오가고 **마지막 문항에서 '다음'이 '채점하기'로 바뀐다**.
+  //    (사이드바가 문제 옆에 붙어 있으면 읽는 폭을 좁히고, 모바일에선 번호판이
+  //     문제 위에 쌓여 첫 화면을 다 먹었다)
+  const isLast = idx >= questions.length - 1;
   return (
     <div className="flex flex-col gap-4">
       {header}
 
-      {/* PC(lg~): 문제 65 : 번호판·채점 35(sticky). 모바일: 번호판 → 문제 → 채점 세로 */}
-      <div className="flex flex-col gap-4 lg:grid lg:grid-cols-[minmax(0,1.55fr)_minmax(300px,0.85fr)] lg:gap-6 lg:items-start">
-        {/* 문제 */}
-        <div className="order-2 lg:order-1 flex flex-col gap-4 min-w-0">
-          <div key={q.id} className="animate-pop">
-            <QuestionCard
-              item={q}
-              n={idx + 1}
-              g={undefined}
-              mineIdx={picked[q.id]}
-              locked={false}
-              onPick={pick(q.id)}
-            />
-          </div>
+      <div key={q.id} className="animate-pop">
+        <QuestionCard item={q} n={idx + 1} g={undefined} mineIdx={picked[q.id]} locked={false} onPick={pick(q.id)} />
+      </div>
 
-          {/* 이동 — 터치하기 편하게 동일폭·52px */}
-          <div className="grid grid-cols-2 gap-2.5">
-            <button
-              onClick={() => setIdx((i) => Math.max(i - 1, 0))}
-              disabled={idx === 0}
-              className="btn btn-gray py-3.5 min-h-[52px] disabled:opacity-50"
-            >
-              이전
-            </button>
-            <button
-              onClick={() => setIdx((i) => Math.min(i + 1, questions.length - 1))}
-              disabled={idx >= questions.length - 1}
-              className="btn btn-gray py-3.5 min-h-[52px] disabled:opacity-50"
-            >
-              다음
-            </button>
-          </div>
-
-          {err && (
-            <p className="text-[13px] font-bold" style={{ color: "var(--red)" }}>
-              {err}
-            </p>
-          )}
-        </div>
-
-        {/* 번호판 + 채점 — PC에선 스크롤해도 따라오게 sticky */}
-        <div className="order-1 lg:order-2 flex flex-col gap-4 min-w-0 lg:sticky lg:top-[76px]">
-          <div className="card p-3">
-            <div className="grid grid-cols-8 sm:grid-cols-10 lg:grid-cols-6 gap-1.5">
-              {questions.map((item, i) => {
-                const done = picked[item.id] !== undefined;
-                const style: React.CSSProperties = done
-                  ? { background: "var(--blue-weak)", color: "var(--blue)", borderColor: "var(--blue)" }
-                  : {};
-                return (
-                  <button
-                    key={item.id}
-                    onClick={() => setIdx(i)}
-                    style={style}
-                    className={`h-9 rounded-[10px] border border-line text-[13px] font-bold tabular-nums transition-colors ${
-                      i === idx ? "ring-2 ring-[var(--blue)] ring-offset-1" : ""
-                    }`}
-                  >
-                    {i + 1}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          <button onClick={submit} disabled={busy} className="btn btn-primary py-4 min-h-[52px] disabled:opacity-60">
+      {/* 이동 — 터치하기 편하게 동일폭·52px. 마지막 문항이면 오른쪽이 채점하기 */}
+      <div className="grid grid-cols-2 gap-2.5">
+        <button
+          onClick={() => setIdx((i) => Math.max(i - 1, 0))}
+          disabled={idx === 0}
+          className="btn btn-gray py-3.5 min-h-[52px] disabled:opacity-50"
+        >
+          이전
+        </button>
+        {isLast ? (
+          <button onClick={submit} disabled={busy} className="btn btn-primary py-3.5 min-h-[52px] disabled:opacity-60">
             {busy ? "채점 중…" : `채점하기 (${answered}/${questions.length})`}
           </button>
-        </div>
+        ) : (
+          <button
+            onClick={() => setIdx((i) => Math.min(i + 1, questions.length - 1))}
+            className="btn btn-gray py-3.5 min-h-[52px]"
+          >
+            다음
+          </button>
+        )}
       </div>
+
+      {err && (
+        <p className="text-[13px] font-bold" style={{ color: "var(--red)" }}>
+          {err}
+        </p>
+      )}
     </div>
   );
 }
