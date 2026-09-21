@@ -100,18 +100,26 @@ export function clean(raw: string): string {
         continue;
       }
       const cells = ln.split("│").map((c) => c.replace(/\s+/g, " ").trim());
-      while (cells.length && cells[0] === "") cells.shift();
-      while (cells.length && cells[cells.length - 1] === "") cells.pop();
-      if (!cells.length) continue;
-      // 한 칸이 두 줄로 조판된 경우(세율표의 "1,400만원 초과 / 5,000만원 이하")는
-      // 뒷줄의 나머지 칸이 비어 첫 칸만 남는다 — 앞 행의 첫 칸에 이어 붙인다.
-      // 안 합치면 표가 "구간 윗줄 / 아랫줄"로 쪼개져 학생이 구간을 읽을 수 없다.
-      const prev = rows[rows.length - 1];
-      if (cells.length === 1 && prev?.includes(" | ")) {
-        const [head, ...rest] = prev.split(" | ");
-        rows[rows.length - 1] = [`${head} ${cells[0]}`, ...rest].join(" | ");
+      // 바깥 테두리로 생긴 앞뒤 빈 칸을 **하나씩만** 떼어낸다. 몽땅 떼면 칸 위치가
+      // 어긋나 이어짐 조각이 엉뚱한 칸에 가서 붙는다 (근로소득공제표의 "100분의 5"가
+      // 세율 칸이 아니라 구간 칸에 붙어 "…1억원 이하 5)"가 됐다).
+      if (cells.length && cells[0] === "") cells.shift();
+      if (cells.length && cells[cells.length - 1] === "") cells.pop();
+      if (!cells.length || cells.every((c) => !c)) continue;
+
+      // 한 칸이 두 줄로 조판된 이어짐 행: 비어 있지 않은 칸이 딱 하나다.
+      // 그 칸을 앞 행의 **같은 자리** 칸에 이어 붙인다.
+      // (세율표 "1,400만원 초과 / 5,000만원 이하" = 0번 칸, 근로소득공제표
+      //  "100분의 / 5)" = 1번 칸)
+      const filled = cells.map((c, k) => (c ? k : -1)).filter((k) => k >= 0);
+      const prevCells = rows.length ? rows[rows.length - 1].split(" | ") : null;
+      if (filled.length === 1 && prevCells && prevCells.length > filled[0]) {
+        const k = filled[0];
+        prevCells[k] = `${prevCells[k]} ${cells[k]}`.trim();
+        rows[rows.length - 1] = prevCells.join(" | ");
         continue;
       }
+      while (cells.length && cells[cells.length - 1] === "") cells.pop();
       rows.push(cells.join(" | "));
     }
     s = rows.join("\n");
