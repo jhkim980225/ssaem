@@ -45,7 +45,8 @@ export async function GET(req: Request) {
     c(db.from("quiz_attempts").select("*", head).gte("created_at", since30Iso)),
     c(db.from("bank_attempts").select("*", head).gte("created_at", since30Iso)),
     c(db.from("bank_sessions").select("*", head).gte("created_at", since30Iso)),
-    c(db.from("documents").select("*", head)),
+    // 공용 참고자료(법령, teacher_id NULL)는 강사가 올린 자료가 아니다 — 제외
+    c(db.from("documents").select("*", head).not("teacher_id", "is", null)),
     db
       .from("visit_days")
       .select("student_id, day, count")

@@ -9,7 +9,8 @@ async function getStats() {
     const db = serviceClient();
     const [t, d, a] = await Promise.all([
       db.from("teacher_profiles").select("id", { count: "exact", head: true }).eq("is_public", true),
-      db.from("documents").select("id", { count: "exact", head: true }),
+      // 공용 참고자료(법령, teacher_id NULL)는 "강사가 올린 자료" 수가 아니다 — 제외
+      db.from("documents").select("id", { count: "exact", head: true }).not("teacher_id", "is", null),
       db.from("messages").select("id", { count: "exact", head: true }).eq("role", "assistant"),
     ]);
     return { teachers: t.count ?? 0, docs: d.count ?? 0, answers: a.count ?? 0 };

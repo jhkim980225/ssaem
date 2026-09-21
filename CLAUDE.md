@@ -22,6 +22,7 @@ npm run lint       # eslint
 # 검증 스크립트 (외부 API 키 불필요)
 npx tsx scripts/test-chunk.ts           # 문서 청킹 검증
 npx tsx scripts/verify-instructors.ts   # 강사 자료/검색/프롬프트
+npx tsx scripts/verify-law.ts           # 공용 법령 참고자료 (적재·조문검색·프롬프트) — 키 필요
 
 # E2E (서버 실행 중이어야 함). 인증·역할가드·질문답변·퀴즈·PWA 전 구간
 npx tsx scripts/e2e.ts
@@ -33,6 +34,7 @@ E2E_BASE=https://<도메인> npx tsx scripts/e2e.ts   # 배포본 검사
 # 시드 (Supabase 셋업 후)
 npx tsx scripts/seed.ts                 # 강사 10명 생성. 로그인 <id>@a.test / 123456
 npx tsx scripts/import-bank.ts           # 문제은행 적재 (마이그레이션 선행). BANK_SRC로 소스 json 지정
+npx tsx scripts/import-law.ts            # 현행 법령 적재 (기본: 소득세법 + 시행령). 재실행 시 이어서
 ```
 
 테스트 프레임워크 없음 — 위 tsx 스크립트가 assert 기반 셀프체크.
@@ -53,6 +55,25 @@ npx tsx scripts/import-bank.ts           # 문제은행 적재 (마이그레이�
 - **검색** (`src/lib/retrieve.ts`): 임베딩 가능하면 pgvector `match_chunks` RPC, `null`이면 lexical 랭킹(`src/lib/lexical.ts`) 폴백.
 
 프로바이더 교체는 해당 lib 파일 하나만 수정하면 되도록 격리돼 있음. 이 격리를 유지할 것.
+
+### 공용 참고자료 (현행 법령)
+
+세법은 해마다 바뀌는데 기출 해설·모델 지식은 출제 당시에 멈춰 있다. `documents`/`chunks`의
+`teacher_id IS NULL` = **전 강사 공용 참고자료**로, 국가법령정보센터 오픈API에서 받은 현행
+조문을 원문 그대로 담는다 (`scripts/import-law.ts`, 마이그레이션 `20260921010000`).
+
+- 검색은 **따로 한다** — `match_chunks`(강사 것만) + `match_reference_chunks`(공용)를 각각
+  부르고 `retrieve`가 법령을 정해진 몫(2건)만 뒤에 붙인다. 한 순위표에 섞으면 소득세 질문
+  하나에 조문이 상위 k개를 다 차지해 그 선생님 자료가 밀려난다.
+- 별도 테이블을 안 쓴 이유: `message_citations.chunk_id`가 `chunks(id)`를 참조한다 —
+  법령을 다른 테이블에 두면 근거(출처) 기록이 끊긴다.
+- 프롬프트(`src/lib/prompt.ts`)는 강사 자료와 법령 섹션을 **나눠서** 넣고, "기출 해설과
+  다르면 출제 당시 기준 / 현행 기준으로 구분해 설명하라"를 지시한다. 안 넣으면 학생이
+  기출 해설과 답변이 어긋나는 이유를 알 수 없다.
+- 임베딩은 요청당 글자수 상한(~15,000자)에 걸린다 — 적재 스크립트가 글자수로 묶고
+  429면 쉬었다 이어서 넣는다.
+
+상세(임계값 실측치·원문 가공 함정·한계): `docs/법령-참고자료.md`
 
 ### /api/ask 플로우 (가장 복잡한 경로)
 

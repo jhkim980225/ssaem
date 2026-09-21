@@ -62,9 +62,11 @@ create index if not exists enrollments_student_idx on enrollments(student_id);
 -- ─────────────────────────────────────────────
 create table if not exists documents (
   id uuid primary key default gen_random_uuid(),
-  teacher_id uuid not null references profiles(id) on delete cascade,
+  -- NULL = 공용 참고자료(현행 법령). 강사 소유가 아니라 전 강사 답변에서 함께 검색된다
+  -- (마이그레이션 20260921010000). 강사 자료 조회는 전부 eq(teacher_id)라 섞이지 않는다.
+  teacher_id uuid references profiles(id) on delete cascade,
   course_id uuid references courses(id) on delete set null,  -- NULL = 강사 전체 공용
-  kind text not null default 'problem' check (kind in ('problem', 'style')),
+  kind text not null default 'problem' check (kind in ('problem', 'style', 'law')),
   title text,
   source text not null default 'text' check (source in ('text', 'pdf')),
   raw_text text not null,     -- 재청킹용 원본 보존
@@ -76,13 +78,14 @@ create index if not exists documents_teacher_idx on documents(teacher_id, create
 create table if not exists chunks (
   id uuid primary key default gen_random_uuid(),
   document_id uuid not null references documents(id) on delete cascade,
-  teacher_id uuid not null references profiles(id) on delete cascade,  -- 비정규화: ANN 필터용
+  teacher_id uuid references profiles(id) on delete cascade,  -- 비정규화: ANN 필터용. NULL = 공용 참고자료
   ord int not null default 0,
   content text not null,
   embedding vector(1536),     -- NULL이면 lexical 폴백 대상
   created_at timestamptz default now()
 );
 create index if not exists chunks_teacher_idx on chunks(teacher_id);
+create index if not exists chunks_reference_idx on chunks(teacher_id) where teacher_id is null;
 create index if not exists chunks_document_idx on chunks(document_id, ord);
 -- HNSW: ivfflat 대비 recall/속도 우수, lists 사전 튜닝 불필요
 create index if not exists chunks_embedding_idx
@@ -374,6 +377,24 @@ language sql stable as $$
     and c.embedding is not null
     and d.kind <> 'style'   -- 말투 자료는 검색 근거에서 제외 (마이그레이션 20260810과 정렬)
     and (p_course is null or d.course_id is null or d.course_id = p_course)
+  order by c.embedding <=> p_query
+  limit p_k;
+$$;
+
+-- 공용 참고자료(현행 법령, teacher_id IS NULL) 검색 — 강사·강좌와 무관하다.
+-- 강사 자료와 한 쿼리에서 섞지 않는 이유: 소득세 질문 하나에 조문이 상위 k개를 다
+-- 차지해 정작 그 선생님 자료가 밀려난다. 앱(retrieve.ts)이 정해진 몫만 합친다.
+create or replace function match_reference_chunks(
+  p_query vector(1536),
+  p_k int default 3
+) returns table (id uuid, document_id uuid, content text, kind text, similarity float)
+language sql stable as $$
+  select c.id, c.document_id, c.content, d.kind,
+         1 - (c.embedding <=> p_query) as similarity
+  from chunks c
+  join documents d on d.id = c.document_id
+  where c.teacher_id is null
+    and c.embedding is not null
   order by c.embedding <=> p_query
   limit p_k;
 $$;

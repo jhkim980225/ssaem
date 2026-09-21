@@ -31,7 +31,7 @@ const TutorBubble = memo(function TutorBubble({
               {sources.map((s, i) => (
                 <li key={i} className="text-sub text-[12px] leading-snug">
                   <span className="font-bold">
-                    {s.kind === "style" ? "설명 스타일" : "문제/풀이"}
+                    {s.kind === "law" ? "현행 법령" : s.kind === "style" ? "설명 스타일" : "문제/풀이"}
                   </span>{" "}
                   · {s.preview}…
                 </li>
