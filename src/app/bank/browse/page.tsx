@@ -22,6 +22,8 @@ type Q = {
   images?: string[] | null;
 };
 type TreeRow = { subject: string; area: string; category: string; count: number };
+// 영역 안의 세부 파트 — 지금은 소득세만 나뉘어 있다(근로소득·사업소득·소득공제·세액공제 …)
+type PartRow = { subject: string; area: string; category: string; part: string; count: number };
 
 const PER = 10; // 페이지당 문제 수
 
@@ -59,6 +61,8 @@ function BrowseInner() {
   const [tree, setTree] = useState<TreeRow[] | null>(null);
   const [subject, setSubject] = useState("");
   const [area, setArea] = useState(""); // 이론 영역 뱃지 ("" = 전체 영역)
+  const [parts, setParts] = useState<PartRow[]>([]);
+  const [part, setPart] = useState(""); // 영역 안 파트 뱃지 ("" = 그 영역 전부)
   const [ptype, setPtype] = useState(""); // 실무 유형 뱃지 ("" = 전체 유형)
   // 이론(4지선다) / 실무(일반전표·매입매출전표·결산) 탭
   const [kind, setKind] = useState<"theory" | "practice">(
@@ -74,6 +78,7 @@ function BrowseInner() {
     subject: string;
     area: string;
     ptype: string;
+    part: string;
   } | null>(null);
   // 답안은 바로 보여주지 않는다 — "답안 보기"를 누른 문제만 체크 (문제별 독립)
   const [answered, setAnswered] = useState<Set<string>>(new Set());
@@ -84,7 +89,10 @@ function BrowseInner() {
     if (!token) return;
     fetch("/api/bank", { headers: { Authorization: `Bearer ${token}` } })
       .then((r) => r.json())
-      .then((d) => setTree(d.tree ?? []))
+      .then((d) => {
+        setTree(d.tree ?? []);
+        setParts(d.parts ?? []);
+      })
       .catch(() => setTree([]));
   }, [token]);
 
@@ -106,6 +114,18 @@ function BrowseInner() {
       .reduce((sum, t) => sum + t.count, 0);
   }
 
+  // 고른 급수·영역에 있는 파트 목록 (문항 수 많은 순)
+  const partList = useMemo(() => {
+    if (!area) return [] as [string, number][];
+    const c = new Map<string, number>();
+    for (const p of parts) {
+      if (p.category !== "이론" || p.area !== area) continue;
+      if (subject && p.subject !== subject) continue;
+      c.set(p.part, (c.get(p.part) ?? 0) + p.count);
+    }
+    return [...c.entries()].sort((a, b) => b[1] - a[1]);
+  }, [parts, area, subject]);
+
   // 실무 유형별 문항 수 — category가 곧 유형이라 그대로 센다
   function typeCount(subj: string, c: string): number {
     return (tree ?? [])
@@ -114,11 +134,12 @@ function BrowseInner() {
   }
 
   // over: 칩을 누른 직후엔 setState가 아직 반영 전이라 새 값을 직접 넘긴다
-  async function search(over: { kind?: "theory" | "practice"; subject?: string; area?: string; ptype?: string } = {}) {
+  async function search(over: { kind?: "theory" | "practice"; subject?: string; area?: string; ptype?: string; part?: string } = {}) {
     const useKind = over.kind ?? kind;
     const useSubject = over.subject ?? subject;
     const useArea = useKind === "theory" ? over.area ?? area : ""; // 영역 뱃지는 이론 탭 전용
     const useType = useKind === "practice" ? over.ptype ?? ptype : ""; // 유형 뱃지는 실무 탭 전용
+    const usePart = useKind === "theory" ? over.part ?? part : ""; // 파트는 영역 안에서만 의미가 있다
     const kw = q.trim();
     // 실무는 급수 필수. 이론은 급수를 고르면 그 급수만, "전체"면 전 급수 통합 검색.
     if (useKind === "practice" && !useSubject) return setErr("급수(과목)를 먼저 골라 주세요.");
@@ -130,12 +151,13 @@ function BrowseInner() {
       const subjQ = useSubject ? `subject=${encodeURIComponent(useSubject)}&` : "";
       const areaQ = useArea ? `area=${encodeURIComponent(useArea)}&` : "";
       const typeQ = useType ? `category=${encodeURIComponent(useType)}&` : "";
-      const r = await fetch(`/api/bank/search?${subjQ}${areaQ}${typeQ}q=${encodeURIComponent(kw)}&kind=${useKind}`, {
+      const partQ = usePart ? `part=${encodeURIComponent(usePart)}&` : "";
+      const r = await fetch(`/api/bank/search?${subjQ}${areaQ}${typeQ}${partQ}q=${encodeURIComponent(kw)}&kind=${useKind}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const d = await r.json().catch(() => null);
       if (!r.ok) return setErr(d?.error ?? "검색하지 못했어요.");
-      setResult({ questions: d.questions ?? [], total: d.total ?? 0, q: kw, subject: useSubject, area: useArea, ptype: useType });
+      setResult({ questions: d.questions ?? [], total: d.total ?? 0, q: kw, subject: useSubject, area: useArea, ptype: useType, part: usePart });
       setAnswered(new Set());
       setPage(0);
     } finally {
@@ -155,11 +177,17 @@ function BrowseInner() {
     // 새 급수에 고른 영역·유형 문항이 없으면 전체로 (예: 전산회계2급은 재무뿐, 매입매출전표는 전산세무2급만)
     const nextArea = area && areaCount(next, area) === 0 ? "" : area;
     const nextType = ptype && typeCount(next, ptype) === 0 ? "" : ptype;
+    // 파트도 마찬가지 — 새 급수·영역에 그 파트 문항이 없으면 푼다
+    const nextPart =
+      part && nextArea && parts.some((p) => p.part === part && p.area === nextArea && (!next || p.subject === next))
+        ? part
+        : "";
     setSubject(next);
     setArea(nextArea);
     setPtype(nextType);
+    setPart(nextPart);
     if (result && q.trim().length >= 2 && !(kind === "practice" && !next))
-      search({ subject: next, area: nextArea, ptype: nextType });
+      search({ subject: next, area: nextArea, ptype: nextType, part: nextPart });
   }
 
   // 영역 뱃지 (이론) — 같은 뱃지를 다시 누르면 전체 영역. 결과가 떠 있으면 바로 재검색
@@ -167,7 +195,16 @@ function BrowseInner() {
     const next = area === a ? "" : a;
     if (next === area) return;
     setArea(next);
-    if (result && q.trim().length >= 2) search({ area: next });
+    setPart(""); // 영역이 바뀌면 파트는 의미가 없어진다
+    if (result && q.trim().length >= 2) search({ area: next, part: "" });
+  }
+
+  // 파트 뱃지 (영역 안) — 같은 뱃지를 다시 누르면 그 영역 전부
+  function pickPart(p: string) {
+    const next = part === p ? "" : p;
+    if (next === part) return;
+    setPart(next);
+    if (result && q.trim().length >= 2) search({ part: next });
   }
 
   // 유형 뱃지 (실무) — 같은 뱃지를 다시 누르면 전체 유형. 급수가 골라져 있고 결과가 떠 있으면 바로 재검색
@@ -286,6 +323,24 @@ function BrowseInner() {
                 })}
               </div>
             )}
+            {/* 파트 뱃지 — 영역을 고르면 그 안의 세부 묶음이 나온다(지금은 소득세만 나뉘어 있다) */}
+            {kind === "theory" && partList.length > 0 && (
+              <div className="flex gap-1.5 flex-wrap items-center">
+                <span className="text-[12px] text-sub font-bold pr-0.5">{areaLabel(area)} 파트</span>
+                <button onClick={() => pickPart("")} className={`chip !text-[13px] ${part === "" ? "chip-on" : ""}`}>
+                  전체
+                </button>
+                {partList.map(([p, n]) => (
+                  <button
+                    key={p}
+                    onClick={() => pickPart(p)}
+                    className={`chip !text-[13px] ${part === p ? "chip-on" : ""}`}
+                  >
+                    {p} <b className="font-semibold" style={{ color: "var(--sub)" }}>{n}</b>
+                  </button>
+                ))}
+              </div>
+            )}
             {/* 유형 뱃지 (실무 전용) — 수는 고른 급수 기준. 그 급수에 없는 유형은 비활성 (매입매출전표는 전산세무2급만) */}
             {kind === "practice" && (
               <div className="flex gap-1.5 flex-wrap">
@@ -333,7 +388,7 @@ function BrowseInner() {
       {result && (
         <>
           <p className="rise text-sub text-[13px]">
-            {[result.subject, result.area && areaLabel(result.area), result.ptype].filter(Boolean).map((s) => `${s} · `).join("")}
+            {[result.subject, result.area && areaLabel(result.area), result.part, result.ptype].filter(Boolean).map((s) => `${s} · `).join("")}
             &ldquo;{result.q}&rdquo; 포함 문제 <b className="text-blue">{result.total}</b>건
             {result.total > result.questions.length ? ` (최근 회차부터 ${result.questions.length}건 표시)` : ""}
           </p>

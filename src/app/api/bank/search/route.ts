@@ -9,6 +9,7 @@ import { rateLimit, clientIp } from "@/lib/ratelimit";
 //   kind=practice → 실무(일반전표·매입매출전표·결산 — 이론이 아닌 전부)
 //   subject 생략 → 전 급수 통합 검색 (결과 행에 subject가 실려 태그로 표시)
 //   area 생략 → 전 영역. 주면 그 영역(재무회계·원가회계·부가가치세·소득세·법인세)만
+//   part → 영역 안의 세부 파트(소득세: 근로소득·소득공제·세액공제 등). 생략하면 그 영역 전부
 //   category → kind=practice일 때 그 유형(일반전표·매입매출전표·결산)만. 생략하면 실무 전부
 export async function GET(req: Request) {
   const g = await requireUser(req);
@@ -19,6 +20,7 @@ export async function GET(req: Request) {
   const url = new URL(req.url);
   const subject = (url.searchParams.get("subject") ?? "").trim().slice(0, 30);
   const area = (url.searchParams.get("area") ?? "").trim().slice(0, 30);
+  const part = (url.searchParams.get("part") ?? "").trim().slice(0, 40);
   const category = (url.searchParams.get("category") ?? "").trim().slice(0, 20);
   const q = (url.searchParams.get("q") ?? "").trim().slice(0, 50);
   const kindParam = url.searchParams.get("kind");
@@ -38,6 +40,7 @@ export async function GET(req: Request) {
     .ilike("stem", like);
   if (subject) qb = qb.eq("subject", subject);
   if (area) qb = qb.eq("area", area);
+  if (part) qb = qb.eq("part", part);
   if (kind === "theory") qb = qb.eq("category", "이론");
   // 실무 유형을 주면 그 유형만 — "이론"을 넣어 실무 탭에서 이론이 새지 않게 막는다
   if (kind === "practice")
