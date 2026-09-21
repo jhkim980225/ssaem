@@ -86,7 +86,7 @@ export default function SiteFooter() {
             <span>·</span>
             <Link href="/legal/privacy" className="hover:text-blue transition-colors">개인정보처리방침</Link>
             <span className="hidden sm:inline">·</span>
-            <span className="hidden sm:inline">전산회계 2급 · 1급 · 전산세무 2급 지원</span>
+            <span className="hidden sm:inline">전산회계 2급 · 1급 · 전산세무 2급 · 1급 지원</span>
           </div>
         </div>
       </div>

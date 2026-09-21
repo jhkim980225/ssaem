@@ -27,8 +27,8 @@ type PartRow = { subject: string; area: string; category: string; part: string; 
 
 const PER = 10; // 페이지당 문제 수
 
-// 이론 영역 뱃지 — [DB area 값, 화면 이름]. 법인세는 아직 0문항(전산세무1급 자료 없음)이라 비활성으로 보이고,
-// 적재되면 트리 집계에 잡혀 자동으로 켜진다.
+// 이론 영역 뱃지 — [DB area 값, 화면 이름]. 뱃지는 트리 집계(문항 수)로 켜지고 꺼진다
+// — 법인세는 전산세무1급에만 있어 다른 급수에서는 비활성으로 보인다.
 const AREAS: [string, string][] = [
   ["재무회계", "재무"],
   ["원가회계", "원가"],
@@ -38,7 +38,7 @@ const AREAS: [string, string][] = [
 ];
 const areaLabel = (a: string) => AREAS.find(([v]) => v === a)?.[1] ?? a;
 
-// 실무 유형 뱃지 — DB category 값 그대로. 매입매출전표는 전산세무2급만 있다(회계 급수는 일반전표·결산 2분류)
+// 실무 유형 뱃지 — DB category 값 그대로. 매입매출전표는 전산세무 급수만 있다(회계 급수는 일반전표·결산 2분류)
 const PRACTICE_TYPES = ["일반전표", "매입매출전표", "결산"];
 
 // 문제검색 — 급수를 고르고 키워드를 검색하면 지문에 그 말이 포함된 문제를 전부 보여준다.
@@ -174,7 +174,7 @@ function BrowseInner() {
   function pickSubject(s: string) {
     const next = subject === s ? "" : s;
     if (next === subject) return;
-    // 새 급수에 고른 영역·유형 문항이 없으면 전체로 (예: 전산회계2급은 재무뿐, 매입매출전표는 전산세무2급만)
+    // 새 급수에 고른 영역·유형 문항이 없으면 전체로 (예: 전산회계2급은 재무뿐, 법인세는 전산세무1급만)
     const nextArea = area && areaCount(next, area) === 0 ? "" : area;
     const nextType = ptype && typeCount(next, ptype) === 0 ? "" : ptype;
     // 파트도 마찬가지 — 새 급수·영역에 그 파트 문항이 없으면 푼다
@@ -341,7 +341,7 @@ function BrowseInner() {
                 ))}
               </div>
             )}
-            {/* 유형 뱃지 (실무 전용) — 수는 고른 급수 기준. 그 급수에 없는 유형은 비활성 (매입매출전표는 전산세무2급만) */}
+            {/* 유형 뱃지 (실무 전용) — 수는 고른 급수 기준. 그 급수에 없는 유형은 비활성 (매입매출전표는 전산세무 급수만) */}
             {kind === "practice" && (
               <div className="flex gap-1.5 flex-wrap">
                 <button onClick={() => pickType("")} className={`chip !text-[13px] ${ptype === "" ? "chip-on" : ""}`}>

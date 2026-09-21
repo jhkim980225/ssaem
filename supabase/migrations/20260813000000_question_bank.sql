@@ -14,10 +14,10 @@
 -- ─────────────────────────────────────────────
 create table if not exists bank_questions (
   id           uuid primary key default gen_random_uuid(),
-  subject      text not null,                        -- 전산회계1급 | 전산회계2급 | 전산세무2급
+  subject      text not null,                        -- 전산회계1급 | 전산회계2급 | 전산세무2급 | 전산세무1급
   category     text not null,                        -- 이론 | 실무분개 | 결산
   type_tag     text not null default '미분류',
-  area         text not null default '재무회계',       -- 재무회계 | 원가회계 | 부가가치세 | 소득세
+  area         text not null default '재무회계',       -- 재무회계 | 원가회계 | 부가가치세 | 소득세 | 법인세(세무1급)
   stem         text not null unique,                 -- 중복 적재 방지. upsert 충돌 키
   choices      jsonb,                                -- 이론: ["보기1",...4개]. 실무: null
   answer_idx   int check (answer_idx between 0 and 3),  -- 실무: null

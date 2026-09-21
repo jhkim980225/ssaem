@@ -22,7 +22,12 @@ const BUCKET = "bank-images";
 const norm = (s: string) => s.replace(/\s+/g, "");
 
 // Storage 키는 ASCII만 안전 — 과목 한글을 슬러그로 (예: "전산회계2급 111회" → "ca2-111")
-const SUBJECT_SLUG: Record<string, string> = { 전산회계1급: "ca1", 전산회계2급: "ca2", 전산세무2급: "ct2" };
+const SUBJECT_SLUG: Record<string, string> = {
+  전산회계1급: "ca1",
+  전산회계2급: "ca2",
+  전산세무2급: "ct2",
+  전산세무1급: "ct1",
+};
 function slugSource(source: string): string {
   const m = source.match(/^(\S+)\s*(\d+)회$/);
   const subj = m ? SUBJECT_SLUG[m[1]] : undefined;

@@ -31,6 +31,7 @@ type Row = {
   answer_text?: string | null;
   explanation?: string | null;
   source?: string | null;
+  seq?: number | null;   // 시험지 문항번호 — 회차 CBT 출제 순서
 };
 
 function valid(r: Row): boolean {
@@ -85,6 +86,7 @@ async function main() {
       answer_text: r.answer_text ?? null,
       explanation: r.explanation ?? null,
       source: r.source ?? null,
+      seq: r.seq ?? null,
     });
   }
   console.log(`중복 ${dup} · 부적합 ${invalid} 제외 → 적재 대상 ${rows.length}건`);
@@ -106,14 +108,20 @@ async function main() {
   // upsert 키가 (source, stem)이라 **파서가 개선돼 stem이 바뀌면 옛 행이 그대로 남는다**.
   // 그러면 같은 문제의 깨진 버전과 고친 버전이 공존해 회차가 16문항이 되고,
   // 학생에게는 지문이 뭉개진 옛 문항이 계속 출제된다.
+  //
+  // ⚠️ 정리 범위는 **소스에 들어 있는 과목(subject)으로 한정**한다. 한 과목만 담긴
+  //    산출물(예: 전산세무1급만 파싱한 questions.json)로 돌릴 때 전 과목을 훑으면
+  //    나머지 과목 문항이 통째로 "소스에서 사라진 것"이 되어 지워진다.
   {
+    const subjects = new Set(rows.map((r) => r.subject));
     const live = new Set(rows.map((r) => `${r.source}||${r.stem}`));
     const stale: string[] = [];
     for (let from = 0; ; from += 1000) {
       // PostgREST 1000행 캡 — 문제은행은 3천 건이 넘는다
       const { data, error } = await db
         .from("bank_questions")
-        .select("id, source, stem")
+        .select("id, subject, source, stem")
+        .in("subject", [...subjects])
         // 정렬 없이 페이지를 넘기면 경계에서 행이 중복·누락된다 — 정리 대상을 놓치지 않게 id 순
         .order("id", { ascending: true })
         .range(from, from + 999);
@@ -129,7 +137,7 @@ async function main() {
     if (stale.length) {
       const { error } = await db.from("bank_questions").delete().in("id", stale);
       if (error) console.error(`❌ 정리 실패: ${error.message}`);
-      else console.log(`🧹 소스에서 사라진 옛 문항 ${stale.length}건 삭제`);
+      else console.log(`🧹 소스에서 사라진 옛 문항 ${stale.length}건 삭제 (${[...subjects].join(", ")})`);
     }
   }
 
