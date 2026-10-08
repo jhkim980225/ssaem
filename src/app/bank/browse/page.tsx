@@ -5,7 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { useGate } from "@/components/RoleGuard";
 import BackButton from "@/components/BackButton";
 import JournalEntry from "@/components/JournalEntry";
-import { StemView, ExplanationView, Hi } from "@/components/BankQuestion";
+import { StemView, ExplanationView, ChoiceView } from "@/components/BankQuestion";
 import { ExcelTry } from "@/components/ExcelPad";
 
 type Q = {
@@ -447,7 +447,7 @@ function BrowseInner() {
                           <span className="shrink-0 grid place-items-center w-5 h-5 mt-0.5 rounded-full border border-current text-[11px] font-extrabold">
                             {i + 1}
                           </span>
-                          <span className="flex-1 min-w-0"><Hi text={c} kw={result.q} /></span>
+                          <span className="flex-1 min-w-0"><ChoiceView text={c} highlight={result.q} /></span>
                           {show && n.answerIdx === i && <span className="text-blue text-[11px] font-bold shrink-0">정답</span>}
                         </div>
                       ))}

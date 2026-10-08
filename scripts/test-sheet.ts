@@ -190,10 +190,15 @@ ok("날짜+1 표시", show("=A1+1", { A1: "2020-07-04" }) === "2020-07-05", show
 ok("날짜-날짜는 일수", show("=A2-A1", { A1: "2020-07-01", A2: "2020-07-04" }) === "3");
 ok("백분율 입력 표시", new Sheet({ A1: "50%" }).display(0, 0).text === "50%");
 ok("큰 수 지수 표기", show("=10^12") === "1E+12", show("=10^12"));
-ok("1/3 표시", show("=1/3") === "0.3333333333", show("=1/3"));
+ok("1/3 표시 (일반 서식 11자)", show("=1/3") === "0.333333333", show("=1/3"));
 // 오류·순환·파싱
-eq("=A1", "#CIRC!", { A1: "=A1" });
-eq("=A1+1", "#CIRC!", { A1: "=Z200" });
+// 순환 참조 — 엑셀처럼 0으로 두고 경고
+{
+  const s = new Sheet({ A1: "=A1+1", B1: "=C1", C1: "=B1+1", D1: "=A1+5" });
+  ok("순환 참조 → 0", s.value(0, 0) === 0 && s.value(0, 1) === 0 && s.value(0, 2) === 0, JSON.stringify([s.value(0, 0), s.value(0, 1), s.value(0, 2)]));
+  ok("순환 표시", s.isCircular(0, 0) && s.isCircular(0, 1) && !!s.display(0, 0).error);
+  ok("순환 칸을 참조한 칸", s.value(0, 3) === 5 && !s.isCircular(0, 3));
+}
 eq("=FOO(1)", "#NAME?");
 eq("=OFFSET(A1,1,1)", "#NAME?");
 eq("=abc", "#NAME?");
@@ -221,6 +226,62 @@ ok("채우기: 수식은 상대 이동", fillSeries(["=A1*2"], 2, { dr: 1, dc: 0
 ok("채우기: 오른쪽", fillSeries(["=A$1+$B2"], 1, { dr: 0, dc: 1 })[0] === "=B$1+$B2");
 ok("함수 도움말 위치", JSON.stringify(funcContext('=VLOOKUP(A1,B1:C5,')) === '{"name":"VLOOKUP","arg":2}');
 ok("함수 도움말 — 문자열 안 쉼표 무시", funcContext('=IF(A1="a,b",')?.arg === 1);
+
+// ── QA(2026-10-08)에서 엑셀과 다르게 나온 것들 — 회귀 방지
+eq("=LEFT(A1,6)", "900101", { A1: "9001011234567" }); // 숫자→글자는 15자리 그대로
+eq("=LEN(A1)", 13, { A1: "9001011234567" });
+eq('=""&1/3', "0.333333333333333");
+eq("=MID(123456789012,1,3)", "123");
+eq("=ROUNDUP(3.0000000001,0)", 4);
+eq("=ROUNDDOWN(2.9999999999,0)", 2);
+eq("=TRUNC(2.9999999999)", 2);
+eq("=ROUNDUP(0.0000001,2)", 0.01);
+eq("=ROUNDDOWN(0.0000001,2)", 0);
+eq("=TRUNC(0.00000012345,9)", 0.000000123);
+eq("=ROUNDUP(0.1*3,1)", 0.3); // 유효숫자 15자리 정리
+eq("=ROUND(2.675,2)", 2.68);
+eq("=CEILING(2.5,-2)", "#NUM!");
+eq("=FLOOR(2.5,-2)", "#NUM!");
+eq("=CEILING(-2.5,2)", -2);
+eq("=FLOOR(-2.5,2)", -4);
+eq("=ISNA(NA())", true);
+eq("=ERROR.TYPE(1/0)", 2);
+eq("=DATE(1900,2,29)", 60);
+eq("=YEAR(A9)", 1900);
+eq("=MONTH(0)", 1);
+eq("=DAY(0)", 0);
+eq("=WEEKDAY(1)", 1); // 엑셀은 1900-01-01을 일요일로 본다
+eq("=WEEKDAY(DATE(2020,7,6),11)", 1);
+eq("=WEEKDAY(DATE(2020,7,6),17)", 2);
+eq('=DATEVALUE("2020년 7월 4일")', toSerial(2020, 7, 4));
+eq('=TEXT(3,"#.##")', "3.");
+eq('=TEXT(1234,"#,##0.0,")', "1.2");
+eq('=TEXT(12345,"0.00E+00")', "1.23E+04");
+eq('=TEXT(1.5,"[h]:mm")', "36:00");
+ok("작은 수 지수 표기", show("=0.0000005") === "5E-07", show("=0.0000005"));
+ok("쉼표 입력은 쉼표로 표시", new Sheet({ A1: "1,000" }).display(0, 0).text === "1,000");
+ok("쉼표 칸 합", show("=A1+A2", { A1: "1,000", A2: "2,500" }) === "3,500", show("=A1+A2", { A1: "1,000", A2: "2,500" }));
+eq('=SUMIF(C2:C7,"영업",B2)', 155, { B2: "85", B3: "92", B4: "70", B5: "60", C2: "영업", C3: "기획", C4: "영업", C5: "총무" }); // 합계 범위를 조건 범위 크기로
+eq('=AVERAGEIF(C2:C7,"영업",B2)', 77.5, { B2: "85", B3: "92", B4: "70", C2: "영업", C3: "기획", C4: "영업" });
+// D함수 수식 조건 — 머리가 데이터에 없는 열 + 첫 레코드를 가리키는 수식
+{
+  const d: Cells = { A1: "이름", B1: "국어", A2: "가", B2: "85", A3: "나", B3: "70", A4: "다", B4: "95", A5: "라", B5: "60", D1: "조건", D2: "=B2>80", E1: "평균이상", E2: "=B2>=AVERAGE($B$2:$B$5)" };
+  eq('=DCOUNT(A1:B5,"국어",D1:D2)', 2, d);
+  eq('=DSUM(A1:B5,"국어",E1:E2)', 180, d);
+}
+ok("F4 범위는 양 끝 함께", cycleRef("=RANK.EQ(E2,E2:E6", 17)?.text === "=RANK.EQ(E2,$E$2:$E$6", cycleRef("=RANK.EQ(E2,E2:E6", 17)?.text);
+ok("F4 문자열 안은 그대로", cycleRef('=COUNTIF(B1:B5,"A1")', 17) === null);
+ok("열 전체 참조 이동", shiftFormula("=SUM(A:A)+$B:$B", 0, 1) === "=SUM(B:B)+$B:$B", shiftFormula("=SUM(A:A)+$B:$B", 0, 1));
+ok("위로 채우기: 날짜는 하루씩 빼기", fillSeries(["2020-07-04"], 2, { dr: -1, dc: 0 }).join() === "2020-07-03,2020-07-02");
+ok("위로 채우기: 월 → 일, 토", fillSeries(["월"], 2, { dr: -1, dc: 0 }).join() === "일,토");
+ok("왼쪽 채우기: 갑 → 계, 임, 신", fillSeries(["갑"], 3, { dr: 0, dc: -1 }).join() === "계,임,신");
+ok("위로 채우기: 3반 → 2반, 1반", fillSeries(["3반"], 2, { dr: -1, dc: 0 }).join() === "2반,1반");
+ok("퍼센트 채우기", fillSeries(["10%", "20%"], 2, { dr: 1, dc: 0 }).join() === "30%,40%");
+ok("12월 다음은 1월", fillSeries(["12월"], 1, { dr: 1, dc: 0 })[0] === "1월" && fillSeries(["4사분기"], 1, { dr: 1, dc: 0 })[0] === "1사분기");
+ok("채우기 15자리", fillSeries(["1", "2", "4"], 1, { dr: 1, dc: 0 })[0] === "5.33333333333333", fillSeries(["1", "2", "4"], 1, { dr: 1, dc: 0 })[0]);
+for (const bad of ["TODAY(B19)", "PI(1)"])
+  ok(`인수 없는 함수에 인수: =${bad}`, (() => { try { parseFormula(bad); return false; } catch (e) { return e instanceof FormulaError; } })());
+ok("이름 정의 안내", /이름 정의/.test(String((new Sheet({ A1: "=SUM(범위1)" }).display(0, 0).error))));
 
 console.log("2) 기출 교차 검증 (컴활2급 \"수식 ⇒ 결과\" 보기)");
 const SRC = process.env.BANK_SRC_CU || "C:/dev/acct_quiz/pipeline/out/comhwal2/questions.json";

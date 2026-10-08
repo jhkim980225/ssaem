@@ -319,3 +319,10 @@ body {
   -webkit-user-drag: none;
   user-drag: none;
 }
+
+/* break-keep(한글을 낱말 단위로 줄바꿈)만 쓰면 띄어쓰기 없는 긴 글자 — 컴활 수식
+   =IF(OR(F2>=160,"우수",IF(… — 가 줄바꿈 자리를 못 찾아 카드 밖으로 넘친다(모바일 가로 스크롤).
+   넘칠 때만 아무 데서나 끊는다. 한글 낱말 단위 줄바꿈은 그대로다 */
+.break-keep {
+  overflow-wrap: anywhere;
+}

@@ -20,11 +20,14 @@ import {
 // 문제 카드 안(접었다 펴기)과 /bank/excel(넓은 연습장) 두 곳에서 쓴다.
 //
 // 엑셀처럼 동작하는 것: 수식 입력줄·이름 상자, 수식 입력 중 칸을 누르면 주소 삽입(끌면 범위),
-// F4 절대/상대 참조 전환, 채우기 핸들(상대 참조 이동·요일·갑을병정·숫자 증가), Ctrl+C/V(참조 이동),
-// Ctrl+D/R, 상태 표시줄의 평균·개수·합계. 계산은 src/lib/sheet.ts.
+// F4 절대/상대 참조 전환, 채우기 핸들(상대 참조 이동·요일·갑을병정·숫자 증가, 위·왼쪽은 거꾸로),
+// Ctrl+C/V(참조 이동), Ctrl+D/R(복사), Ctrl+Z/Y, 상태 표시줄의 평균·개수·합계, 긴 글자는 빈 옆 칸으로 넘침.
+// 계산은 src/lib/sheet.ts.
 //
 // 입력 받는 방식: 선택한 칸 위에 늘 투명한 입력창을 띄워 둔다. 글자를 치면(한글 조합 포함) 그대로
 // 편집이 시작된다 — keydown으로 글자를 가로채면 한글 IME 첫 글자가 사라진다.
+// 투명 입력창은 편집 중이 아니면 pointer-events를 끈다 — 안 끄면 모바일에서 칸을 탭할 때마다
+// 입력창이 눌려 가상 키보드가 올라온다.
 
 type Pos = { r: number; c: number };
 type Rect = { r0: number; c0: number; r1: number; c1: number };
@@ -41,6 +44,9 @@ const rectName = (x: Rect) =>
 // 수식 입력 중 칸 클릭이 "주소 넣기"가 되는 자리 — 연산자·괄호·쉼표 바로 뒤
 const POINTABLE = /[=(,+\-*/^&<>:]\s*$/;
 const FN_NAMES = Object.keys(FUNCS).sort();
+// 선택된 행·열 머리 — 고정(sticky) 칸이라 반투명이면 스크롤된 글자가 비친다. 불투명하게 섞는다
+const HEAD_ON = "color-mix(in srgb, var(--blue) 16%, var(--surface))";
+const HISTORY = 100;
 
 function setRaw(next: Cells, p: Pos, v: string) {
   const k = addr(p.r, p.c);
@@ -48,7 +54,8 @@ function setRaw(next: Cells, p: Pos, v: string) {
   else next[k] = v;
 }
 
-// 채우기 — 원본 영역의 줄마다(아래·위로 끌면 각 열, 옆으로 끌면 각 행) fillSeries
+// 채우기 핸들 — 원본 영역의 줄마다(아래·위로 끌면 각 열, 옆으로 끌면 각 행) fillSeries.
+// 위·왼쪽으로 끌면 원본을 끄는 방향 순서로 뒤집어 넘기고 방향도 음수로 — 날짜·요일이 거꾸로 이어진다
 function fillCells(prev: Cells, src: Rect, to: Rect): Cells {
   const next = { ...prev };
   const get = (r: number, c: number) => prev[addr(r, c)] ?? "";
@@ -79,6 +86,21 @@ function fillCells(prev: Cells, src: Rect, to: Rect): Cells {
   return next;
 }
 
+// Ctrl+D·Ctrl+R — 채우기 핸들과 달리 연속 데이터가 아니라 **복사**(월 → 월). 수식은 상대 참조만 옮긴다
+function copyCells(prev: Cells, src: Rect, to: Rect): Cells {
+  const next = { ...prev };
+  const h = src.r1 - src.r0 + 1;
+  const w = src.c1 - src.c0 + 1;
+  for (let r = to.r0; r <= to.r1; r++)
+    for (let c = to.c0; c <= to.c1; c++) {
+      if (inRect(r, c, src)) continue;
+      const sr = src.r0 + ((((r - src.r0) % h) + h) % h);
+      const sc = src.c0 + ((((c - src.c0) % w) + w) % w);
+      setRaw(next, { r, c }, shiftFormula(prev[addr(sr, sc)] ?? "", r - sr, c - sc));
+    }
+  return next;
+}
+
 function loadCells(key?: string): Cells | null {
   if (!key) return null;
   try {
@@ -105,6 +127,8 @@ export default function ExcelPad({
   initial?: Cells;
 }) {
   const [cells, setCells] = useState<Cells>(() => initial ?? {});
+  // 저장본을 읽기 전엔 저장하지 않는다 — 안 그러면 첫 렌더의 initial(예제)이 저장본을 덮는다
+  const [ready, setReady] = useState(!storageKey);
   const [cur, setCur] = useState<Pos>({ r: 0, c: 0 });
   const [sel, setSel] = useState<Rect>({ r0: 0, c0: 0, r1: 0, c1: 0 });
   const [editing, setEditing] = useState(false);
@@ -116,35 +140,60 @@ export default function ExcelPad({
 
   const cellInput = useRef<HTMLInputElement>(null);
   const barInput = useRef<HTMLInputElement>(null);
-  const gridRef = useRef<HTMLDivElement>(null);
   const drag = useRef<null | "select" | "point" | "fill">(null);
   const point = useRef<{ start: number; anchor: Pos } | null>(null);
   const touch = useRef(false);
   const touched = useRef(false); // 한 번이라도 만졌나 — 처음 펼칠 때 포커스를 뺏지 않게
+  const past = useRef<Cells[]>([]); // Ctrl+Z
+  const future = useRef<Cells[]>([]); // Ctrl+Y
 
   // 브라우저 저장본 — 첫 렌더 뒤에 읽어 서버 렌더와 어긋나지 않게
   useEffect(() => {
     const saved = loadCells(storageKey);
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- 마운트 1회 복원 (localStorage는 렌더 중 못 읽는다)
+    /* eslint-disable react-hooks/set-state-in-effect -- 마운트 1회 복원 (localStorage는 렌더 중 못 읽는다) */
     if (saved) setCells(saved);
+    setReady(true);
+    /* eslint-enable react-hooks/set-state-in-effect */
   }, [storageKey]);
   useEffect(() => {
-    if (!storageKey) return;
+    if (!storageKey || !ready) return;
     try {
       localStorage.setItem(storageKey, JSON.stringify(cells));
     } catch {
       /* 저장 못 해도 연습장은 동작한다 */
     }
-  }, [cells, storageKey]);
+  }, [cells, storageKey, ready]);
 
   const sheet = useMemo(() => new Sheet(cells), [cells]);
   const raw = (p: Pos) => cells[addr(p.r, p.c)] ?? "";
+
+  // 시트 바꾸기 — 되돌리기 기록을 남긴다. 한 이벤트에서 두 번 부르지 말 것(두 번째가 첫 번째를 덮는다)
+  function change(next: Cells) {
+    if (next === cells) return;
+    past.current.push(cells);
+    if (past.current.length > HISTORY) past.current.shift();
+    future.current = [];
+    setCells(next);
+  }
+  function undo() {
+    const p = past.current.pop();
+    if (!p) return;
+    future.current.push(cells);
+    setCells(p);
+  }
+  function redo() {
+    const n = future.current.pop();
+    if (!n) return;
+    past.current.push(cells);
+    setCells(n);
+  }
 
   const focusCell = useCallback(() => {
     if (!touch.current && touched.current) cellInput.current?.focus({ preventScroll: true });
   }, []);
 
   // 칸 위 입력창은 선택한 칸을 따라 새로 그려진다 — 렌더가 끝난 뒤에 포커스·스크롤
+  // (칸의 scroll-margin이 고정 머리 높이만큼이라 위·왼쪽으로 가도 머리에 가리지 않는다)
   useEffect(() => {
     if (!touched.current) return;
     cellInput.current?.closest("td")?.scrollIntoView({ block: "nearest", inline: "nearest" });
@@ -168,23 +217,29 @@ export default function ExcelPad({
     point.current = null;
   }
 
+  // 수식 검사 — 엑셀이 입력을 거부하는 수식이면 이유, 아니면 null
+  function formulaProblem(v: string): string | null {
+    if (v === "=") return "수식이 비어 있어요. = 뒤에 계산할 식을 써 주세요.";
+    if (!v.startsWith("=")) return null;
+    try {
+      parseFormula(v.slice(1));
+      return null;
+    } catch (e) {
+      return e instanceof FormulaError ? e.message : "수식을 이해하지 못했어요.";
+    }
+  }
+
   // 확정 — 수식이 깨졌으면 엑셀처럼 확정을 막고 이유를 보여 준다
   function commit(move?: Pos): boolean {
     if (!editing) return true;
-    const v = draft;
-    if (v.startsWith("=") && v.length > 1) {
-      try {
-        parseFormula(v.slice(1));
-      } catch (e) {
-        setMsg({ text: e instanceof FormulaError ? `수식에 문제가 있어요: ${e.message}` : "수식에 문제가 있어요.", bad: true });
-        return false;
-      }
+    const problem = formulaProblem(draft);
+    if (problem) {
+      setMsg({ text: `수식에 문제가 있어요: ${problem}`, bad: true });
+      return false;
     }
-    setCells((prev) => {
-      const next = { ...prev };
-      setRaw(next, cur, v);
-      return next;
-    });
+    const next = { ...cells };
+    setRaw(next, cur, draft);
+    change(next);
     setEditing(false);
     setQuick(false);
     setDraft("");
@@ -248,36 +303,47 @@ export default function ExcelPad({
     }
   }
 
+  // 채우기 핸들을 p 칸까지 끌었을 때 채울 영역 — 선택 영역 밖으로 더 멀리 나간 축 하나만
+  const fillTarget = useCallback((p: Pos): Rect | null => {
+    const down = p.r > sel.r1 ? p.r - sel.r1 : 0;
+    const up = p.r < sel.r0 ? sel.r0 - p.r : 0;
+    const right = p.c > sel.c1 ? p.c - sel.c1 : 0;
+    const left = p.c < sel.c0 ? sel.c0 - p.c : 0;
+    const m = Math.max(down, up, right, left);
+    if (m === 0) return null;
+    if (m === down) return { ...sel, r1: p.r };
+    if (m === up) return { ...sel, r0: p.r };
+    if (m === right) return { ...sel, c1: p.c };
+    return { ...sel, c0: p.c };
+  }, [sel]);
+
   function onGridMove(e: React.PointerEvent) {
     if (!drag.current) return;
     const p = cellAt(e.clientX, e.clientY);
     if (!p) return;
     if (drag.current === "select") setSel(rectOf(cur, p));
     else if (drag.current === "point" && point.current) putRef(point.current.anchor, p);
-    else if (drag.current === "fill") {
-      // 끄는 방향: 선택 영역 밖으로 더 멀리 나간 축 하나만
-      const down = p.r > sel.r1 ? p.r - sel.r1 : 0;
-      const up = p.r < sel.r0 ? sel.r0 - p.r : 0;
-      const right = p.c > sel.c1 ? p.c - sel.c1 : 0;
-      const left = p.c < sel.c0 ? sel.c0 - p.c : 0;
-      const m = Math.max(down, up, right, left);
-      if (m === 0) setFillTo(null);
-      else if (m === down) setFillTo({ ...sel, r1: p.r });
-      else if (m === up) setFillTo({ ...sel, r0: p.r });
-      else if (m === right) setFillTo({ ...sel, c1: p.c });
-      else setFillTo({ ...sel, c0: p.c });
-    }
+    else if (drag.current === "fill") setFillTo(fillTarget(p));
   }
 
-  const applyFill = (src: Rect, to: Rect) => setCells((prev) => fillCells(prev, src, to));
-
+  // 끌기 끝 — 시트 밖에서 손을 떼도 잡히게 window에서 듣는다.
+  // 채울 영역은 손을 뗀 **좌표로 다시 계산**한다 — 마지막 이동 뒤 화면이 다시 그려지기 전에 떼면
+  // fillTo 상태가 한 박자 늦어 아무것도 안 채워졌다 (빠르게 휙 끌 때)
   useEffect(() => {
-    const up = () => {
-      if (drag.current === "fill" && fillTo) {
-        setCells((prev) => fillCells(prev, sel, fillTo));
-        setSel(fillTo);
+    const up = (e: PointerEvent) => {
+      if (drag.current === "fill") {
+        // pointercancel = 브라우저가 스크롤 등으로 가져감 — 채우지 않는다
+        const p = e.type === "pointerup" ? cellAt(e.clientX, e.clientY) : null;
+        const to = p ? fillTarget(p) : null;
+        if (to) {
+          past.current.push(cells);
+          if (past.current.length > HISTORY) past.current.shift();
+          future.current = [];
+          setCells(fillCells(cells, sel, to));
+          setSel(to);
+        }
+        setFillTo(null);
       }
-      if (drag.current === "fill") setFillTo(null);
       drag.current = null;
     };
     window.addEventListener("pointerup", up);
@@ -286,14 +352,12 @@ export default function ExcelPad({
       window.removeEventListener("pointerup", up);
       window.removeEventListener("pointercancel", up);
     };
-  }, [fillTo, sel]);
+  }, [fillTarget, sel, cells]);
 
   function clearSel() {
-    setCells((prev) => {
-      const next = { ...prev };
-      for (let r = sel.r0; r <= sel.r1; r++) for (let c = sel.c0; c <= sel.c1; c++) delete next[addr(r, c)];
-      return next;
-    });
+    const next = { ...cells };
+    for (let r = sel.r0; r <= sel.r1; r++) for (let c = sel.c0; c <= sel.c1; c++) delete next[addr(r, c)];
+    change(next);
   }
 
   function copySel() {
@@ -315,24 +379,36 @@ export default function ExcelPad({
     const data = internal ? clip.data : text.replace(/\r/g, "").replace(/\n$/, "").split("\n").map((l) => l.split("\t"));
     const dr = internal ? cur.r - clip.from.r0 : 0;
     const dc = internal ? cur.c - clip.from.c0 : 0;
-    setCells((prev) => {
-      const next = { ...prev };
-      data.forEach((row, i) =>
-        row.forEach((v, j) => {
-          const r = cur.r + i;
-          const c = cur.c + j;
-          if (r < rows && c < cols) setRaw(next, { r, c }, internal ? shiftFormula(v, dr, dc) : v);
-        })
-      );
-      return next;
-    });
+    const next = { ...cells };
+    data.forEach((row, i) =>
+      row.forEach((v, j) => {
+        const r = cur.r + i;
+        const c = cur.c + j;
+        if (r < rows && c < cols) setRaw(next, { r, c }, internal ? shiftFormula(v, dr, dc) : v);
+      })
+    );
+    change(next);
     setSel({ r0: cur.r, c0: cur.c, r1: Math.min(rows - 1, cur.r + data.length - 1), c1: Math.min(cols - 1, cur.c + (data[0]?.length ?? 1) - 1) });
+  }
+
+  // Ctrl+D(아래로)·Ctrl+R(오른쪽으로) — 범위면 첫 행(열)을 나머지에, 한 칸이면 위(왼쪽) 칸을 그 칸에 복사
+  function copyFill(down: boolean) {
+    if (down) {
+      if (sel.r1 > sel.r0) change(copyCells(cells, { ...sel, r1: sel.r0 }, sel));
+      else if (sel.r0 > 0) change(copyCells(cells, { ...sel, r0: sel.r0 - 1, r1: sel.r0 - 1 }, { ...sel, r0: sel.r0 - 1 }));
+    } else {
+      if (sel.c1 > sel.c0) change(copyCells(cells, { ...sel, c1: sel.c0 }, sel));
+      else if (sel.c0 > 0) change(copyCells(cells, { ...sel, c0: sel.c0 - 1, c1: sel.c0 - 1 }, { ...sel, c0: sel.c0 - 1 }));
+    }
   }
 
   function onKey(e: React.KeyboardEvent<HTMLInputElement>, from: "cell" | "bar") {
     touched.current = true;
     if (e.nativeEvent.isComposing || e.key === "Process") return;
     const mod = e.ctrlKey || e.metaKey;
+    const k = e.key.toLowerCase();
+    // Ctrl+R(새로고침)·Ctrl+D(북마크)는 연습장 안에선 언제나 막는다 — CBT 답안이 날아간다
+    if (mod && (k === "r" || k === "d")) e.preventDefault();
     if (editing) {
       if (e.key === "Enter") {
         e.preventDefault();
@@ -380,16 +456,17 @@ export default function ExcelPad({
     } else if (e.key === "F2") {
       e.preventDefault();
       startEdit(raw(cur), false);
-    } else if (mod && e.key.toLowerCase() === "c") {
+    } else if (mod && k === "c") {
       e.preventDefault();
       copySel();
-    } else if (mod && e.key.toLowerCase() === "d" && sel.r1 > sel.r0) {
+    } else if (mod && k === "z" && !e.shiftKey) {
       e.preventDefault();
-      applyFill({ ...sel, r1: sel.r0 }, sel);
-    } else if (mod && e.key.toLowerCase() === "r" && sel.c1 > sel.c0) {
+      undo();
+    } else if (mod && (k === "y" || (k === "z" && e.shiftKey))) {
       e.preventDefault();
-      applyFill({ ...sel, c1: sel.c0 }, sel);
-    }
+      redo();
+    } else if (mod && k === "d") copyFill(true);
+    else if (mod && k === "r") copyFill(false);
   }
 
   function onCellInput(v: string) {
@@ -399,12 +476,20 @@ export default function ExcelPad({
   }
 
   function insertFormula(f: string) {
-    if (editing && !commit()) return;
-    setCells((prev) => {
-      const next = { ...prev };
-      setRaw(next, cur, f);
-      return next;
-    });
+    // 엑셀이 입력을 거부하는 보기(괄호가 안 맞는 오답 보기 등)는 넣지 않고 이유를 보여 준다
+    const problem = formulaProblem(f);
+    if (problem) {
+      setMsg({ text: `이 수식은 엑셀에서 입력되지 않아요 — ${problem}`, bad: true });
+      return;
+    }
+    // 편집 중이던 내용은 버리고 보기 수식으로 바꾼다 (같은 이벤트에서 change를 두 번 부르지 않게)
+    setEditing(false);
+    setQuick(false);
+    setDraft("");
+    point.current = null;
+    const next = { ...cells };
+    setRaw(next, cur, f);
+    change(next);
     setMsg({ text: `${addr(cur.r, cur.c)}에 넣었어요. 수식이 가리키는 칸에 문제의 값을 채워 결과를 확인해 보세요.` });
     focusCell();
   }
@@ -434,6 +519,10 @@ export default function ExcelPad({
 
   const curDisp = sheet.display(cur.r, cur.c);
   const shown = editing ? draft : raw(cur);
+  const markTouch = (e: React.PointerEvent) => {
+    touch.current = e.pointerType === "touch";
+    e.preventDefault();
+  };
 
   return (
     <div className="flex flex-col gap-2.5 min-w-0 w-full max-w-full">
@@ -444,7 +533,7 @@ export default function ExcelPad({
             <button
               key={f.label + f.formula}
               type="button"
-              onPointerDown={(e) => e.preventDefault()}
+              onPointerDown={markTouch}
               onClick={() => {
                 touched.current = true;
                 insertFormula(f.formula);
@@ -505,7 +594,7 @@ export default function ExcelPad({
               <button
                 key={n}
                 type="button"
-                onPointerDown={(e) => e.preventDefault()}
+                onPointerDown={markTouch}
                 onClick={() => {
                   setDraft((d) => d.slice(0, d.length - (fnPrefix?.length ?? 0)) + n + "(");
                   point.current = null;
@@ -520,7 +609,8 @@ export default function ExcelPad({
           <FuncHelp help={help} arg={ctx!.arg} />
         ) : !editing && curDisp.error ? (
           <p className="line-clamp-2" style={{ color: "var(--red)" }}>
-            <b>{curDisp.text}</b> {curDisp.error}
+            {curDisp.text.startsWith("#") && <b>{curDisp.text} </b>}
+            {curDisp.error}
           </p>
         ) : (
           <p className="text-sub truncate">
@@ -531,7 +621,6 @@ export default function ExcelPad({
 
       {/* 시트 */}
       <div
-        ref={gridRef}
         className="overflow-auto max-w-full rounded-[10px] border border-line select-none max-h-[420px]"
         style={{ background: "var(--surface)", overscrollBehavior: "contain" }}
         onPointerMove={onGridMove}
@@ -557,7 +646,7 @@ export default function ExcelPad({
                   key={c}
                   className="sticky top-0 z-10 h-[24px] border-b border-r border-line text-[12px] font-semibold"
                   style={{
-                    background: c >= sel.c0 && c <= sel.c1 ? "var(--blue-weak)" : "var(--fill)",
+                    background: c >= sel.c0 && c <= sel.c1 ? HEAD_ON : "var(--fill)",
                     color: c >= sel.c0 && c <= sel.c1 ? "var(--blue)" : "var(--sub)",
                   }}
                 >
@@ -572,7 +661,7 @@ export default function ExcelPad({
                 <th
                   className="sticky left-0 z-10 h-[28px] border-b border-r border-line text-[12px] font-semibold"
                   style={{
-                    background: r >= sel.r0 && r <= sel.r1 ? "var(--blue-weak)" : "var(--fill)",
+                    background: r >= sel.r0 && r <= sel.r1 ? HEAD_ON : "var(--fill)",
                     color: r >= sel.r0 && r <= sel.r1 ? "var(--blue)" : "var(--sub)",
                   }}
                 >
@@ -585,6 +674,10 @@ export default function ExcelPad({
                   const inFill = fillTo && inRect(r, c, fillTo) && !inRect(r, c, sel);
                   const isRef = refs.some((x) => inRect(r, c, x));
                   const isFillCorner = !editing && r === sel.r1 && c === sel.c1;
+                  // 긴 글자는 엑셀처럼 오른쪽 빈 칸들로 넘쳐 보인다 (내용 있는 칸 앞에서 멈춤)
+                  let spill = 0;
+                  if (d && d.align === "left" && d.text)
+                    while (c + spill + 1 < cols && !cells[addr(r, c + spill + 1)] && !(editing && cur.r === r && cur.c === c + spill + 1)) spill++;
                   return (
                     <td
                       key={c}
@@ -598,13 +691,13 @@ export default function ExcelPad({
                           requestAnimationFrame(() => cellInput.current?.focus());
                         }
                       }}
-                      className="relative h-[28px] border-b border-r border-line px-1.5 overflow-hidden whitespace-nowrap text-ellipsis cursor-cell"
+                      className="relative h-[28px] p-0 border-b border-r border-line cursor-cell"
                       style={{
-                        textAlign: d?.align,
-                        color: d?.error ? "var(--red)" : undefined,
                         background: isRef ? "rgba(240, 160, 40, 0.16)" : inFill ? "var(--fill)" : inSel ? "var(--blue-weak)" : undefined,
                         outline: isCur ? "2px solid var(--blue)" : inFill ? "1px dashed var(--sub)" : undefined,
                         outlineOffset: -2,
+                        scrollMarginTop: 26, // 고정 열 머리 높이
+                        scrollMarginLeft: 38, // 고정 행 머리 폭
                       }}
                     >
                       {isCur ? (
@@ -632,23 +725,39 @@ export default function ExcelPad({
                           style={
                             editing
                               ? { background: "var(--surface)", zIndex: 5 }
-                              : { opacity: 0, caretColor: "transparent", cursor: "cell" }
+                              : { opacity: 0, caretColor: "transparent", pointerEvents: "none" }
                           }
                         />
                       ) : null}
-                      {d?.text}
+                      {d?.text ? (
+                        <div
+                          className="h-full px-1.5 leading-[27px] whitespace-nowrap overflow-hidden"
+                          style={{
+                            textAlign: d.align,
+                            color: d.error ? "var(--red)" : undefined,
+                            textOverflow: spill ? "clip" : "ellipsis",
+                            ...(spill ? { position: "relative", zIndex: 1, width: `calc(${spill + 1} * 100%)`, pointerEvents: "none" } : {}),
+                          }}
+                        >
+                          {d.text}
+                        </div>
+                      ) : null}
                       {isFillCorner && (
+                        // 손잡이는 9px지만 누르는 자리는 20px — 손가락으로도 잡히게. touch-action:none이라 끌어도 화면이 안 밀린다
                         <span
                           aria-label="채우기 핸들"
                           onPointerDown={(e) => {
                             e.stopPropagation();
                             e.preventDefault();
                             touch.current = e.pointerType === "touch";
+                            touched.current = true;
                             drag.current = "fill";
                           }}
-                          className="absolute right-[-1px] bottom-[-1px] w-[9px] h-[9px] z-10 cursor-crosshair"
-                          style={{ background: "var(--blue)", border: "1.5px solid var(--surface)", touchAction: "none" }}
-                        />
+                          className="absolute right-[-10px] bottom-[-10px] w-[20px] h-[20px] z-[6] grid place-items-center cursor-crosshair"
+                          style={{ touchAction: "none" }}
+                        >
+                          <span className="block w-[9px] h-[9px]" style={{ background: "var(--blue)", border: "1.5px solid var(--surface)" }} />
+                        </span>
                       )}
                     </td>
                   );
@@ -673,6 +782,9 @@ export default function ExcelPad({
           )}
         </span>
         <span className="flex gap-1.5">
+          <button type="button" onClick={undo} className="chip !text-[12px] !py-1" title="Ctrl+Z">
+            되돌리기
+          </button>
           <button type="button" onClick={copySel} className="chip !text-[12px] !py-1">
             복사
           </button>
@@ -685,7 +797,7 @@ export default function ExcelPad({
             type="button"
             onClick={() => {
               if (Object.keys(cells).length && !confirm("시트를 모두 지울까요?")) return;
-              setCells({});
+              change({});
               cancel();
             }}
             className="chip !text-[12px] !py-1"
@@ -720,6 +832,27 @@ function FuncHelp({ help, arg }: { help: string; arg: number }) {
   );
 }
 
+// "=" 다음 수식 한 덩어리 — ⇒·→ 또는 괄호 밖의 한글(설명 문장)이 나오면 끝
+function formulaHead(s: string): string | null {
+  if (!s.startsWith("=")) return null;
+  let depth = 0;
+  let inStr = false;
+  let end = s.length;
+  for (let i = 1; i < s.length; i++) {
+    const ch = s[i];
+    if (ch === '"') inStr = !inStr;
+    if (inStr) continue;
+    if (ch === "(") depth++;
+    else if (ch === ")") depth--;
+    else if (ch === "⇒" || ch === "→" || (ch === "=" && s[i + 1] === ">") || (depth <= 0 && /[가-힣]/.test(ch) && /\s/.test(s[i - 1] ?? ""))) {
+      end = i;
+      break;
+    }
+  }
+  const f = s.slice(0, end).trim();
+  return /^=\s*[A-Za-z$(\d"-]/.test(f) ? f : null;
+}
+
 // 문제(지문·보기)에서 연습장 버튼으로 넣을 수식 뽑기 — "=MOD(13,-3) ⇒ -2" → "=MOD(13,-3)"
 export function formulasFrom(stem: string, choices: string[] | null | undefined): { label: string; formula: string }[] {
   const out: { label: string; formula: string }[] = [];
@@ -731,8 +864,8 @@ export function formulasFrom(stem: string, choices: string[] | null | undefined)
       .replace(/[‘’]/g, "'")
       .trim();
   (choices ?? []).forEach((c, i) => {
-    const m = clean(c).match(/^(=[^⇒→]+?)\s*(?:⇒|→|=>|$)/);
-    if (m && /^=\s*[A-Za-z$(\d"-]/.test(m[1])) out.push({ label: `${marks[i] ?? i + 1} ${m[1].trim()}`, formula: m[1].trim() });
+    const f = formulaHead(clean(c));
+    if (f) out.push({ label: `${marks[i] ?? i + 1} ${f}`, formula: f });
   });
   // 지문 속 수식 — "[D2] 셀에 =IF(…)를 입력하고" 같은 꼴. 괄호 짝이 맞는 데까지
   const s = clean(stem);

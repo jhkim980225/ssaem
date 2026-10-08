@@ -873,10 +873,13 @@ async function main() {
           { headers: bearer(studentTok) }
         );
         ok(
+          // 검색은 지문 + 보기를 본다 (search_text, 2026-10-08) — 키워드가 둘 중 어디엔가 있어야 한다
           "문제모음 검색 — 키워드 포함 문제 반환",
           bs.status === 200 &&
             (bs.body?.questions ?? []).length > 0 &&
-            (bs.body.questions as { stem: string }[]).every((x) => x.stem.includes("재무"))
+            (bs.body.questions as { stem: string; choices: string[] | null }[]).every((x) =>
+              `${x.stem} ${(x.choices ?? []).join(" ")}`.includes("재무")
+            )
         );
         ok(
           "문제모음 검색 — 한 글자 400",

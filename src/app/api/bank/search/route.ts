@@ -3,7 +3,7 @@ import { serviceClient } from "@/lib/supabase";
 import { requireUser } from "@/lib/auth";
 import { rateLimit, clientIp } from "@/lib/ratelimit";
 
-// 문제모음 검색: 키워드 → 지문에 키워드가 포함된 문제 전부 (정답·해설 포함, 열람용).
+// 문제모음 검색: 키워드 → 지문 또는 보기에 키워드가 포함된 문제 전부 (정답·해설 포함, 열람용).
 // GET ?q=재무&kind=theory|practice&subject=전산회계2급&area=부가가치세
 //   kind=theory  → 이론(4지선다)만
 //   kind=practice → 실무(일반전표·매입매출전표·결산 — 이론이 아닌 전부)
@@ -31,21 +31,28 @@ export async function GET(req: Request) {
   const db = serviceClient();
   // ilike 특수문자(%, _)는 그대로 두면 와일드카드로 동작 — 이스케이프
   const like = `%${q.replace(/[%_\\]/g, (c) => `\\${c}`)}%`;
-  let qb = db
-    .from("bank_questions")
-    .select(
-      "id, subject, category, type_tag, area, source, stem, choices, answer_idx, answer_text, explanation, images",
-      { count: "exact" }
-    )
-    .ilike("stem", like);
-  if (subject) qb = qb.eq("subject", subject);
-  if (area) qb = qb.eq("area", area);
-  if (part) qb = qb.eq("part", part);
-  if (kind === "theory") qb = qb.eq("category", "이론");
-  // 실무 유형을 주면 그 유형만 — "이론"을 넣어 실무 탭에서 이론이 새지 않게 막는다
-  if (kind === "practice")
-    qb = category && category !== "이론" ? qb.eq("category", category) : qb.neq("category", "이론");
-  const { data, error, count } = await qb.order("source", { ascending: false }).limit(100);
+  // search_text = 지문 + 보기, 글 속 그림 URL 제외 (마이그레이션 20261008000000).
+  // 컴활 2과목은 함수가 보기에만 나오는 문항이 많아 지문만 보면 "VLOOKUP"이 1건뿐이었다
+  const run = (col: "search_text" | "stem") => {
+    let qb = db
+      .from("bank_questions")
+      .select(
+        "id, subject, category, type_tag, area, source, stem, choices, answer_idx, answer_text, explanation, images",
+        { count: "exact" }
+      )
+      .ilike(col, like);
+    if (subject) qb = qb.eq("subject", subject);
+    if (area) qb = qb.eq("area", area);
+    if (part) qb = qb.eq("part", part);
+    if (kind === "theory") qb = qb.eq("category", "이론");
+    // 실무 유형을 주면 그 유형만 — "이론"을 넣어 실무 탭에서 이론이 새지 않게 막는다
+    if (kind === "practice")
+      qb = category && category !== "이론" ? qb.eq("category", category) : qb.neq("category", "이론");
+    return qb.order("source", { ascending: false }).limit(100);
+  };
+  let { data, error, count } = await run("search_text");
+  // 마이그레이션 전 DB(열 없음, 42703)에선 예전처럼 지문만
+  if (error?.code === "42703" || /search_text/.test(error?.message ?? "")) ({ data, error, count } = await run("stem"));
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   const questions = (data ?? []).map((r) => ({

@@ -42,6 +42,8 @@ const roundLabel = (s: string) => {
 
 // 유형 표시 순서 — 급수마다 있는 유형이 다르므로(세무: 매입매출전표 있음) 목록은 트리에서 동적으로 뽑는다
 const CATEGORY_ORDER = ["이론", "일반전표", "매입매출전표", "결산"];
+// 영역 표시 순서 (목록에 없는 영역은 맨 뒤)
+const AREA_ORDER = ["재무회계", "원가회계", "부가가치세", "소득세", "법인세", "컴퓨터 일반", "스프레드시트 일반"];
 // 과목 "전체" 선택 — 전 과목 섞어서 출제 (API에는 all=1로 나간다)
 const ALL = "전체";
 
@@ -130,7 +132,9 @@ export default function BankPage() {
         .filter((t) => (!subjFilter || t.subject === subjFilter) && (!category || t.category === category))
         .map((t) => t.area)
     );
-    return [...set];
+    // 시험지 순서대로 — 집계 뷰는 순서가 없어 컴활이 "스프레드시트 일반 | 컴퓨터 일반"으로 뒤집혀 나왔다
+    const rank = (a: string) => (AREA_ORDER.includes(a) ? AREA_ORDER.indexOf(a) : AREA_ORDER.length);
+    return [...set].sort((a, b) => rank(a) - rank(b));
   }, [tree, subjFilter, category]);
   // 급수별 실제 존재하는 유형만 — 회계는 일반전표·결산, 세무는 매입매출전표까지
   const categories = useMemo(() => {

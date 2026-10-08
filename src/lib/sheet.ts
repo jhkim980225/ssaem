@@ -25,7 +25,7 @@ export class XErr {
 export type Scalar = number | string | boolean | null | XErr; // null = 빈 칸
 type Arr = Scalar[][]; // 범위·배열 (행 우선)
 type Val = Scalar | Arr;
-export type Fmt = "date" | "time" | "datetime" | "percent" | null;
+export type Fmt = "date" | "time" | "datetime" | "percent" | "comma" | null;
 
 export const MAX_COL = 26; // A~Z
 export const MAX_ROW = 200;
@@ -58,14 +58,18 @@ export function parseAddr(a: string): { r: number; c: number } | null {
 const DAY = 86400000;
 const BASE = Date.UTC(1899, 11, 30);
 export function toSerial(y: number, m: number, d: number): number {
+  if (y === 1900 && m === 2 && d === 29) return 60; // 엑셀에만 있는 날
   const s = Math.round((Date.UTC(y, m - 1, d) - BASE) / DAY);
   return s < 61 ? s - 1 : s; // 1900-03-01 전은 하루 당김 (엑셀이 1900-02-29를 60으로 끼워 넣었다)
 }
 export function fromSerial(n: number): { y: number; m: number; d: number; wd: number } {
   const whole = Math.floor(n);
-  if (whole === 60) return { y: 1900, m: 2, d: 29, wd: 3 };
+  // 요일은 일련번호로 센다 — 엑셀은 1900-01-01(1)을 일요일로 본다(실제론 월요일). 0 = 토요일
+  const wd = (((whole % 7) + 7) % 7 + 6) % 7;
+  if (whole === 0) return { y: 1900, m: 1, d: 0, wd }; // 엑셀의 "1900-01-00"
+  if (whole === 60) return { y: 1900, m: 2, d: 29, wd };
   const t = new Date(BASE + (whole < 60 ? whole + 1 : whole) * DAY);
-  return { y: t.getUTCFullYear(), m: t.getUTCMonth() + 1, d: t.getUTCDate(), wd: t.getUTCDay() };
+  return { y: t.getUTCFullYear(), m: t.getUTCMonth() + 1, d: t.getUTCDate(), wd };
 }
 function todaySerial(): number {
   const t = new Date();
@@ -79,14 +83,15 @@ export function parseLiteral(raw: string): { v: Scalar; f: Fmt } {
   if (raw === "") return { v: null, f: null };
   if (raw.startsWith("'")) return { v: raw.slice(1), f: null };
   const t = raw.trim();
-  if (/^[+-]?(\d{1,3}(,\d{3})+|\d+)(\.\d+)?([eE][+-]?\d+)?$/.test(t) || /^[+-]?\.\d+$/.test(t))
-    return { v: Number(t.replace(/,/g, "")), f: null };
+  // "1,000"처럼 쉼표를 넣어 치면 엑셀은 #,##0 서식을 같이 건다
+  if (/^[+-]?\d{1,3}(,\d{3})+(\.\d+)?$/.test(t)) return { v: Number(t.replace(/,/g, "")), f: "comma" };
+  if (/^[+-]?\d+(\.\d+)?([eE][+-]?\d+)?$/.test(t) || /^[+-]?\.\d+$/.test(t)) return { v: Number(t), f: null };
   let m = t.match(/^([+-]?\d+(?:\.\d+)?)%$/);
   if (m) return { v: Number(m[1]) / 100, f: "percent" };
-  m = t.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})\.?$/);
+  m = t.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})\.?$/) ?? t.match(/^(\d{4})년\s*(\d{1,2})월\s*(\d{1,2})일$/);
   if (m && +m[2] >= 1 && +m[2] <= 12 && +m[3] >= 1 && +m[3] <= 31)
     return { v: toSerial(+m[1], +m[2], +m[3]), f: "date" };
-  m = t.match(/^(\d{1,2})[-/](\d{1,2})$/);
+  m = t.match(/^(\d{1,2})[-/](\d{1,2})$/) ?? t.match(/^(\d{1,2})월\s*(\d{1,2})일$/);
   if (m && +m[1] >= 1 && +m[1] <= 12 && +m[2] >= 1 && +m[2] <= 31)
     return { v: toSerial(new Date().getFullYear(), +m[1], +m[2]), f: "date" };
   m = t.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
@@ -107,6 +112,8 @@ type Tok =
   | { k: "op"; v: string };
 
 export class FormulaError extends Error {}
+
+const NO_ARGS = new Set(["TODAY", "NOW", "PI", "RAND", "NA", "TRUE", "FALSE"]);
 
 const ERR_LITERALS: ErrCode[] = ["#DIV/0!", "#N/A", "#NAME?", "#NUM!", "#REF!", "#VALUE!"];
 
@@ -157,7 +164,8 @@ function tokenize(src: string): Tok[] {
       i += num[0].length;
       continue;
     }
-    const id = src.slice(i).match(/^[A-Za-z_$][A-Za-z0-9_.$]*/);
+    // 한글 이름(이름 정의 "범위1", "점수")도 이름으로 읽는다 — 평가에서 "이름 정의 미지원"으로 안내
+    const id = src.slice(i).match(/^[A-Za-z_$가-힣][A-Za-z0-9_.$가-힣]*/);
     if (id) {
       out.push({ k: "id", v: id[0] });
       i += id[0].length;
@@ -339,6 +347,8 @@ export function parseFormula(src: string): Node {
           }
         }
         expect(")", `${name} 함수의 괄호가 닫히지 않았어요.`);
+        // 인수가 없는 함수에 인수를 넣으면 엑셀은 입력 자체를 받지 않는다 (=TODAY(B19) 같은 오답 보기)
+        if (NO_ARGS.has(name) && args.length) throw new FormulaError(`${name} 함수에는 인수를 넣지 않아요 — ${name}() 처럼 써요.`);
         return { t: "call", name, args };
       }
       const a = cellOrCol(tk.v);
@@ -399,8 +409,24 @@ function toStr(v: Val): string | XErr {
   if (typeof s === "string") return s;
   if (typeof s === "boolean") return s ? "TRUE" : "FALSE";
   if (isErr(s)) return s;
-  return general(s);
+  return textOf(s);
 }
+
+// 숫자 → 글자 (LEFT·LEN·& 등) — 칸 표시("일반", 11자)가 아니라 유효숫자 15자리 그대로.
+// 표시용 general()을 쓰면 주민번호 9001011234567이 "9.00101E+12"가 되어 LEFT·LEN이 틀린다
+export function textOf(n: number): string {
+  if (!isFinite(n)) return "#NUM!";
+  if (Object.is(n, -0)) n = 0;
+  const v = Number(n.toPrecision(15));
+  return Math.abs(v) >= 1e15 || (v !== 0 && Math.abs(v) < 1e-9) ? expo(v) : String(v).includes("e") ? expo(v) : String(v);
+}
+const withCommas = (s: string) => (s.includes("E") ? s : s.replace(/^(-?\d+)/, (m) => m.replace(/\B(?=(\d{3})+(?!\d))/g, ",")));
+const expo = (n: number) =>
+  n
+    .toExponential(5)
+    .replace(/\.?0+e/, "e")
+    .replace("e", "E")
+    .replace(/E([+-])(\d)$/, "E$10$2");
 function toBool(v: Val): boolean | XErr {
   const s = first(v);
   if (s === null) return false;
@@ -413,19 +439,19 @@ function toBool(v: Val): boolean | XErr {
 }
 const flat = (v: Val): Scalar[] => (isArr(v) ? v.flat() : [v]);
 
-// 셀 표시 형식 "일반"
+// 셀 표시 형식 "일반" — 기본 열 너비에 들어가는 11자 안에서 소수 자릿수를 줄인다
+// (1/3 → 0.333333333). 11자리 넘는 큰 수·0.000001 미만은 지수 표기(1.23457E+11, 5E-07)
 export function general(n: number): string {
   if (!isFinite(n)) return "#NUM!";
   if (Object.is(n, -0)) n = 0;
   const a = Math.abs(n);
-  if (Number.isInteger(n) && a < 1e11) return String(n);
-  if (a >= 1e11 || (a > 0 && a < 1e-9))
-    return n
-      .toExponential(5)
-      .replace(/\.?0+e/, "e")
-      .replace("e", "E")
-      .replace(/E([+-])(\d)$/, "E$10$2");
-  return String(Number(n.toPrecision(10)));
+  if (a === 0) return "0";
+  if (a >= 1e11 || a < 1e-6) return expo(n);
+  for (let d = 10; d > 0; d--) {
+    const s = String(Number(roundHalfAway(n, d).toFixed(d)));
+    if (s.length <= 11) return s;
+  }
+  return String(roundHalfAway(n, 0));
 }
 
 // 비교 — 숫자 < 글자 < 논리값, 글자는 대소문자 무시
@@ -562,7 +588,8 @@ function formatDate(n: number, fmt: string): string {
   const h12 = hh % 12 === 0 ? 12 : hh % 12;
   const pad = (x: number) => String(x).padStart(2, "0");
   // 토큰 단위로 바꾼다. m은 h 뒤·s 앞이면 분, 아니면 월
-  const toks = fmt.match(/"[^"]*"|\\.|yyyy|yy|mmmm|mmm|mm|m|dddd|ddd|dd|d|aaaa|aaa|hh|h|ss|s|AM\/PM|오전\/오후|./gi) ?? [];
+  const toks = fmt.match(/"[^"]*"|\\.|\[h+\]|\[m+\]|\[s+\]|yyyy|yy|mmmm|mmm|mm|m|dddd|ddd|dd|d|aaaa|aaa|hh|h|ss|s|AM\/PM|오전\/오후|./gi) ?? [];
+  const total = Math.round(n * 86400); // 경과 시간 [h]:mm — 24시간을 넘겨도 그대로 센다
   let out = "";
   let prevH = false;
   toks.forEach((tk, i) => {
@@ -570,6 +597,9 @@ function formatDate(n: number, fmt: string): string {
     const nextS = toks.slice(i + 1).find((x) => /^[hmsd]/i.test(x))?.toLowerCase().startsWith("s");
     if (tk.startsWith('"')) out += tk.slice(1, -1);
     else if (tk.startsWith("\\")) out += tk.slice(1);
+    else if (/^\[h+\]$/.test(l)) out += String(Math.floor(total / 3600)).padStart(tk.length - 2, "0");
+    else if (/^\[m+\]$/.test(l)) out += String(Math.floor(total / 60)).padStart(tk.length - 2, "0");
+    else if (/^\[s+\]$/.test(l)) out += String(total).padStart(tk.length - 2, "0");
     else if (l === "yyyy") out += y;
     else if (l === "yy") out += pad(y % 100);
     else if (l === "mmmm") out += MON_EN[m - 1];
@@ -590,7 +620,7 @@ function formatDate(n: number, fmt: string): string {
     else if (l === "am/pm") out += hh < 12 ? "AM" : "PM";
     else if (tk === "오전/오후") out += hh < 12 ? "오전" : "오후";
     else out += tk;
-    if (/^h/.test(l)) prevH = true;
+    if (/^\[?h/.test(l)) prevH = true;
     else if (/^[ydms]/.test(l)) prevH = false;
   });
   return out;
@@ -599,13 +629,26 @@ function formatDate(n: number, fmt: string): string {
 function formatNumber(n: number, section: string): string {
   // 따옴표 글자·역슬래시 글자는 그대로 두고 숫자 자리표시(0 # , .)만 바꾼다
   const fmt = section;
-  const pct = /%/.test(fmt.replace(/"[^"]*"/g, ""));
+  const masked = fmt.replace(/"[^"]*"|\\./g, (s) => " ".repeat(s.length));
+  const lit = (s: string) => s.replace(/"([^"]*)"/g, "$1").replace(/\\(.)/g, "$1");
+  // 지수 서식 0.00E+00
+  const sci = masked.match(/([0#]+)(?:\.([0#]*))?E([+-])(0+)/i);
+  if (sci) {
+    const dec = (sci[2] ?? "").length;
+    let [mant, exp] = Math.abs(n).toExponential(dec).split("e");
+    const e = Number(exp);
+    exp = (e < 0 ? "-" : sci[3] === "+" ? "+" : "") + String(Math.abs(e)).padStart(sci[4].length, "0");
+    if (n < 0) mant = "-" + mant;
+    return lit(fmt.slice(0, sci.index)) + `${mant}E${exp}` + lit(fmt.slice(sci.index! + sci[0].length));
+  }
+  const pct = /%/.test(masked);
   if (pct) n *= 100;
-  const core = fmt.replace(/"[^"]*"|\\./g, (s) => " ".repeat(s.length)).match(/[0#?][0#?,]*(\.[0#?]*)?|\.[0#?]+/);
-  if (!core) return fmt.replace(/"([^"]*)"/g, "$1").replace(/\\(.)/g, "$1");
-  // 맨 뒤 쉼표 = 천 단위 생략 (#,##0, → 천원 단위). 자리표시 정규식이 그 쉼표까지 먹으므로 떼어 센다
+  const core = masked.match(/[0#?][0#?,]*(\.[0#?]*)?|\.[0#?]+/);
+  if (!core) return lit(fmt);
+  // 숫자 자리 바로 뒤 쉼표 = 천 단위 생략 (#,##0, → 천 원 단위 / #,##0.0, → 1.2)
   const spec = core[0].replace(/,+$/, "");
-  const scale = core[0].length - spec.length;
+  const trailing = masked.slice(core.index! + core[0].length).match(/^,+/)?.[0].length ?? 0;
+  const scale = core[0].length - spec.length + trailing;
   const [ip, dp = ""] = spec.split(".");
   const decimals = dp.length;
   const minInt = (ip.match(/0/g) ?? []).length;
@@ -619,11 +662,11 @@ function formatNumber(n: number, section: string): string {
   // 소수 끝의 # 자리는 0이면 지운다
   const optional = (dp.match(/#+$/) ?? [""])[0].length;
   if (optional) ds = ds.replace(new RegExp(`0{1,${optional}}$`), "");
-  const num = (n < 0 && rounded !== 0 ? "-" : "") + is + (ds || dp.startsWith("0") ? "." + ds : decimals && !optional ? "." : "");
+  // 서식에 소수점이 있으면 소수가 다 지워져도 점은 남는다 — 엑셀 TEXT(3,"#.##") = "3."
+  const num = (n < 0 && rounded !== 0 ? "-" : "") + is + (spec.includes(".") ? "." + ds : "");
   const before = fmt.slice(0, core.index);
-  const after = fmt.slice(core.index! + spec.length + scale);
-  const lit = (s: string) => s.replace(/"([^"]*)"/g, "$1").replace(/\\(.)/g, "$1");
-  return lit(before) + num.replace(/\.$/, "") + lit(after);
+  const after = fmt.slice(core.index! + core[0].length + trailing);
+  return lit(before) + num + lit(after);
 }
 
 export function formatValue(v: Scalar, fmt: string): string | XErr {
@@ -647,16 +690,32 @@ export function formatValue(v: Scalar, fmt: string): string | XErr {
   return formatNumber(x, sec);
 }
 
-function roundHalfAway(x: number, d: number): number {
-  const s = Math.sign(x);
-  const r = Number(`${Math.round(Number(`${Math.abs(x)}e${d}`))}e${-d}`);
-  return isFinite(r) ? s * r : s * Math.round(Math.abs(x) * Math.pow(10, d)) / Math.pow(10, d);
+// 반올림 계열 — 곱셈(4561.604*10) 대신 10진 지수를 옮겨 이진 소수 오차를 피한다.
+// 엑셀처럼 유효숫자 15자리로 먼저 정리한다(0.1*3 = 0.30000000000000004 → 0.3)
+function shiftDec(x: number, k: number): number {
+  const [m, e = "0"] = String(x).split("e");
+  return Number(`${m}e${Number(e) + k}`);
 }
+function roundWith(x: number, d: number, f: (v: number) => number): number {
+  const a = Number(Math.abs(x).toPrecision(15));
+  return Math.sign(x) * shiftDec(f(shiftDec(a, d)), -d) || 0;
+}
+const roundHalfAway = (x: number, d: number) => roundWith(x, d, Math.round);
 
 // ─────────────────────────────────────────────
 // 함수
 // ─────────────────────────────────────────────
-type Ctx = { ev: (n: Node) => Val; cur: { r: number; c: number } };
+type Ctx = {
+  ev: (n: Node) => Val;
+  cur: { r: number; c: number };
+  raw: (r: number, c: number) => string; // 칸에 입력한 그대로 (D함수 수식 조건용)
+  area: (r0: number, c0: number, rows: number, cols: number) => Arr; // 시작 칸 기준 크기 맞춘 범위
+  evalRaw: (raw: string, at: { r: number; c: number }) => Scalar; // 수식 하나를 그 자리에서 계산
+};
+
+// 참조 인수의 왼쪽 위 칸 (범위 크기를 다른 범위에 맞출 때)
+const origin = (n: Node): { r: number; c: number } | null =>
+  n.t === "ref" ? { r: n.r, c: n.c } : n.t === "range" ? { r: n.r0, c: n.c0 } : null;
 type Fn = (c: Ctx, args: Node[]) => Val;
 
 const fromRef = (n: Node) => n.t === "ref" || n.t === "range";
@@ -764,6 +823,13 @@ function approxIndex(list: Scalar[], lv: Scalar, desc = false): number {
   return found;
 }
 
+// SUMIF·AVERAGEIF의 합계/평균 범위 — 엑셀은 왼쪽 위 칸만 보고 조건 범위와 같은 크기로 늘린다
+// (=SUMIF(C2:C7,"영업",B2)는 B2:B7을 더한다)
+function sizedLike(c: Ctx, n: Node, like: Arr, what: string): Scalar[] {
+  const o = origin(n);
+  return (o ? c.area(o.r, o.c, like.length, like[0].length) : rangeArg(c, n, what)).flat();
+}
+
 function dbFn(kind: "sum" | "avg" | "count" | "counta" | "max" | "min" | "get"): Fn {
   return (c, args) => {
     need(args, kind === "count" || kind === "counta" ? 2 : 3, 3);
@@ -781,12 +847,23 @@ function dbFn(kind: "sum" | "avg" | "count" | "counta" | "max" | "min" | "get"):
     }
     const cr = rangeArg(c, crNode, "조건");
     const crHead = cr[0].map((h) => String(h ?? "").trim().toLowerCase());
-    const conds = cr.slice(1).map((row) =>
-      row
-        .map((v, j) => ({ j: head.indexOf(crHead[j]), m: v === null || v === "" ? null : matcher(v, true) }))
-        .filter((x) => x.m && x.j >= 0)
+    const crAt = origin(crNode);
+    // 조건 한 칸: 머리가 데이터 열 이름이면 값 조건, 머리가 데이터에 없는데 수식이면 "수식 조건"
+    // (=C2>AVERAGE($C$2:$C$7) 처럼 첫 레코드 행을 가리키게 쓰고, 레코드마다 한 행씩 내려 계산)
+    type Cond = { j: number; m: (v: Scalar) => boolean } | { formula: string; at: { r: number; c: number } };
+    const conds: Cond[][] = cr.slice(1).map((row, ri) =>
+      row.flatMap((v, j): Cond[] => {
+        const field = head.indexOf(crHead[j]);
+        const raw = crAt ? c.raw(crAt.r + 1 + ri, crAt.c + j) : "";
+        if (field < 0 && raw.startsWith("=") && raw.length > 1)
+          return [{ formula: raw, at: { r: crAt!.r + 1 + ri, c: crAt!.c + j } }];
+        if (field < 0 || v === null || v === "") return [];
+        return [{ j: field, m: matcher(v, true) }];
+      })
     );
-    const rows = db.slice(1).filter((r) => conds.length === 0 || conds.some((cs) => cs.every((x) => x.m!(r[x.j]))));
+    const hit = (cd: Cond, r: Scalar[], i: number) =>
+      "formula" in cd ? toBool(c.evalRaw(shiftFormula(cd.formula, i, 0), cd.at)) === true : cd.m(r[cd.j]);
+    const rows = db.slice(1).filter((r, i) => conds.length === 0 || conds.some((cs) => cs.every((cd) => hit(cd, r, i))));
     const vals = col >= 0 ? rows.map((r) => r[col]) : rows.map((r) => r.find((v) => typeof v === "number") ?? null);
     const nums = vals.filter((v): v is number => typeof v === "number");
     switch (kind) {
@@ -834,20 +911,15 @@ export const FUNCS: Record<string, Fn> = {
   MOD: numFn((n, d) => (d === 0 ? new XErr("#DIV/0!") : n - d * Math.floor(n / d)), 2),
   QUOTIENT: numFn((n, d) => (d === 0 ? new XErr("#DIV/0!") : Math.trunc(n / d)), 2),
   ROUND: numFn((x, d) => roundHalfAway(x, Math.trunc(d)), 2),
-  ROUNDUP: numFn((x, d) => {
-    const k = Math.trunc(d);
-    return Math.sign(x) * Number(`${Math.ceil(Number(`${Math.abs(x)}e${k}`) - 1e-9)}e${-k}`);
-  }, 2),
-  ROUNDDOWN: numFn((x, d) => {
-    const k = Math.trunc(d);
-    return Math.sign(x) * Number(`${Math.floor(Number(`${Math.abs(x)}e${k}`) + 1e-9)}e${-k}`);
-  }, 2),
+  ROUNDUP: numFn((x, d) => roundWith(x, Math.trunc(d), Math.ceil), 2),
+  ROUNDDOWN: numFn((x, d) => roundWith(x, Math.trunc(d), Math.floor), 2),
   TRUNC: (c, a) => {
     need(a, 1, 2);
     return FUNCS.ROUNDDOWN(c, [a[0], a[1] ?? { t: "num", v: 0 }]);
   },
-  CEILING: numFn((x, s) => (s === 0 ? 0 : Math.ceil(x / s - 1e-12) * s), 2),
-  FLOOR: numFn((x, s) => (s === 0 ? new XErr("#DIV/0!") : Math.floor(x / s + 1e-12) * s), 2),
+  // 양수를 음수 배수로 올리거나 내리면 엑셀은 #NUM!
+  CEILING: numFn((x, s) => (s === 0 ? 0 : x > 0 && s < 0 ? new XErr("#NUM!") : Math.ceil(Number((x / s).toPrecision(15))) * s), 2),
+  FLOOR: numFn((x, s) => (s === 0 ? new XErr("#DIV/0!") : x > 0 && s < 0 ? new XErr("#NUM!") : Math.floor(Number((x / s).toPrecision(15))) * s), 2),
   EVEN: numFn((x) => Math.sign(x) * Math.ceil(Math.abs(x) / 2) * 2, 1),
   ODD: numFn((x) => {
     const v = Math.ceil(Math.abs(x));
@@ -888,8 +960,9 @@ export const FUNCS: Record<string, Fn> = {
   },
   SUMIF: (c, a) => {
     need(a, 2, 3);
-    const area = rangeArg(c, a[0]).flat();
-    const sum = a[2] ? rangeArg(c, a[2], "합계 범위").flat() : area;
+    const crit = rangeArg(c, a[0]);
+    const area = crit.flat();
+    const sum = a[2] ? sizedLike(c, a[2], crit, "합계 범위") : area;
     const m = matcher(first(c.ev(a[1])));
     let s = 0;
     area.forEach((v, i) => {
@@ -917,8 +990,9 @@ export const FUNCS: Record<string, Fn> = {
   },
   AVERAGEIF: (c, a) => {
     need(a, 2, 3);
-    const area = rangeArg(c, a[0]).flat();
-    const avg = a[2] ? rangeArg(c, a[2], "평균 범위").flat() : area;
+    const crit = rangeArg(c, a[0]);
+    const area = crit.flat();
+    const avg = a[2] ? sizedLike(c, a[2], crit, "평균 범위") : area;
     const m = matcher(first(c.ev(a[1])));
     const ns = area.map((v, i) => (m(v) ? avg[i] : null)).filter((v): v is number => typeof v === "number");
     return ns.length ? ns.reduce((s, x) => s + x, 0) / ns.length : new XErr("#DIV/0!", "조건에 맞는 숫자가 없어요.");
@@ -1075,6 +1149,13 @@ export const FUNCS: Record<string, Fn> = {
     const v = first(c.ev(a[0]));
     return isErr(v) && v.code === "#N/A";
   },
+  NA: () => new XErr("#N/A"),
+  "ERROR.TYPE": (c, a) => {
+    need(a, 1);
+    const v = first(c.ev(a[0]));
+    const order: ErrCode[] = ["#NULL!" as ErrCode, "#DIV/0!", "#VALUE!", "#REF!", "#NAME?", "#NUM!", "#N/A"];
+    return isErr(v) && order.includes(v.code) ? order.indexOf(v.code) + 1 : new XErr("#N/A");
+  },
   ISNUMBER: scalarFn((x) => typeof x === "number", 1),
   ISTEXT: scalarFn((x) => typeof x === "string", 1),
   ISLOGICAL: scalarFn((x) => typeof x === "boolean", 1),
@@ -1206,7 +1287,9 @@ export const FUNCS: Record<string, Fn> = {
     if (type === 1) return wd + 1;
     if (type === 2) return ((wd + 6) % 7) + 1;
     if (type === 3) return (wd + 6) % 7;
-    return new XErr("#NUM!", "WEEKDAY 유형은 1·2·3 중 하나예요.");
+    // 11~17: 월(11)·화(12)…일(17)을 1로 세는 유형 (엑셀 2010~)
+    if (type >= 11 && type <= 17) return ((wd - ((type - 10) % 7) + 7) % 7) + 1;
+    return new XErr("#NUM!", "WEEKDAY 유형은 1·2·3 또는 11~17이에요.");
   },
   DAYS: numFn((e, s) => Math.floor(e) - Math.floor(s), 2),
   EDATE: numFn((s, m) => {
@@ -1406,17 +1489,40 @@ export type Cells = Record<string, string>; // "A1" → 입력한 그대로
 export class Sheet {
   private cache = new Map<string, Scalar>();
   private visiting = new Set<string>();
+  // 순환 참조에 걸린 칸 — 엑셀처럼 0으로 두고 경고만 한다
+  private readonly circular = new Set<string>();
   constructor(private readonly cells: Cells) {}
 
   raw(r: number, c: number): string {
     return this.cells[addr(r, c)] ?? "";
   }
 
+  isCircular(r: number, c: number): boolean {
+    this.value(r, c);
+    return this.circular.has(addr(r, c));
+  }
+
+  // 수식 하나를 칸에 넣지 않고 그 자리에서 계산 (D함수 수식 조건)
+  evalRaw(raw: string, at: { r: number; c: number }): Scalar {
+    const ast = astOf(raw);
+    if (ast instanceof FormulaError) return new XErr("#NAME?", ast.message);
+    try {
+      return first(this.ev(ast, at));
+    } catch (e) {
+      return e instanceof XErr ? e : new XErr("#VALUE!");
+    }
+  }
+
   value(r: number, c: number): Scalar {
     const key = addr(r, c);
     const hit = this.cache.get(key);
     if (hit !== undefined) return hit;
-    if (this.visiting.has(key)) return new XErr("#CIRC!", "순환 참조 — 수식이 돌고 돌아 자기 자신을 참조해요.");
+    if (this.visiting.has(key)) {
+      // 고리에 든 칸 전부(처음 다시 만난 칸부터 지금까지) 순환으로 표시
+      let on = false;
+      for (const k of this.visiting) if ((on ||= k === key)) this.circular.add(k);
+      return 0;
+    }
     const raw = this.cells[key] ?? "";
     let v: Scalar;
     if (!raw.startsWith("=") || raw.length === 1) v = parseLiteral(raw).v;
@@ -1433,6 +1539,7 @@ export class Sheet {
         } finally {
           this.visiting.delete(key);
         }
+        if (this.circular.has(key)) v = 0;
       }
     }
     this.cache.set(key, v);
@@ -1452,7 +1559,12 @@ export class Sheet {
       case "arr":
         return n.rows.length === 1 && n.rows[0].length === 1 ? n.rows[0][0] : n.rows;
       case "name":
-        return new XErr("#NAME?", `'${n.v}'는 함수도 셀 주소도 아니에요. 글자라면 큰따옴표로 감싸 주세요 ("${n.v}").`);
+        return new XErr(
+          "#NAME?",
+          /[가-힣]/.test(n.v)
+            ? `'${n.v}'는 이름 정의로 붙인 이름이에요 — 연습장은 이름 정의를 지원하지 않으니 셀 주소(예: A1:A5)로 바꿔 넣어 보세요. 글자라면 큰따옴표로 감싸요.`
+            : `'${n.v}'는 함수도 셀 주소도 아니에요. 글자라면 큰따옴표로 감싸 주세요 ("${n.v}").`
+        );
       case "ref":
         return this.value(n.r, n.c);
       case "range": {
@@ -1512,6 +1624,14 @@ export class Sheet {
             }
           },
           cur,
+          raw: (r, c) => this.raw(r, c),
+          area: (r0, c0, rows, cols) =>
+            Array.from({ length: rows }, (_, i) =>
+              Array.from({ length: cols }, (_, j) =>
+                r0 + i < MAX_ROW && c0 + j < MAX_COL ? this.value(r0 + i, c0 + j) : null
+              )
+            ),
+          evalRaw: (raw, at) => this.evalRaw(raw, at),
         };
         return f(ctx, n.args);
       }
@@ -1544,7 +1664,9 @@ export class Sheet {
       const a = this.hint(n.a, depth + 1);
       const b = this.hint(n.b, depth + 1);
       if (n.op === "-" && a === "date" && b === "date") return null; // 날짜 - 날짜 = 일수
-      return a === "date" || a === "time" ? a : n.op === "+" && (b === "date" || b === "time") ? b : null;
+      if (a === "date" || a === "time") return a;
+      if (n.op === "+" && (b === "date" || b === "time")) return b;
+      return a === "comma" || b === "comma" ? "comma" : null; // 1,000 + 2,000 → 3,000
     }
     if (n.t === "pct") return null;
     return null;
@@ -1552,6 +1674,7 @@ export class Sheet {
 
   display(r: number, c: number): { text: string; align: "left" | "right" | "center"; error?: string } {
     const v = this.value(r, c);
+    if (this.circular.has(addr(r, c))) return { text: "0", align: "right", error: ERR_HELP["#CIRC!"] };
     if (v === null) return { text: "", align: "left" };
     if (isErr(v)) return { text: v.code, align: "center", error: v.msg ?? ERR_HELP[v.code] };
     if (typeof v === "boolean") return { text: v ? "TRUE" : "FALSE", align: "center" };
@@ -1561,6 +1684,7 @@ export class Sheet {
     if (f === "datetime") return { text: formatDate(v, "yyyy-mm-dd hh:mm"), align: "right" };
     if (f === "time") return { text: formatDate(v, "h:mm"), align: "right" };
     if (f === "percent") return { text: `${general(Number((v * 100).toPrecision(12)))}%`, align: "right" };
+    if (f === "comma") return { text: withCommas(general(v)), align: "right" };
     return { text: general(v), align: "right" };
   }
 }
@@ -1696,33 +1820,50 @@ export function shiftFormula(raw: string, dr: number, dc: number): string {
     .map((part, i) =>
       i % 2
         ? part
-        : part.replace(REF_IN_TEXT, (m, ac: string, col: string, ar: string, row: string) => {
-            const c = ac ? colIndex(col) : colIndex(col) + dc;
-            const r = ar ? Number(row) - 1 : Number(row) - 1 + dr;
-            if (c < 0 || r < 0 || c >= MAX_COL || r >= MAX_ROW) return "#REF!";
-            return `${ac}${colName(c)}${ar}${r + 1}`;
-          })
+        : part
+            .replace(REF_IN_TEXT, (m, ac: string, col: string, ar: string, row: string) => {
+              const c = ac ? colIndex(col) : colIndex(col) + dc;
+              const r = ar ? Number(row) - 1 : Number(row) - 1 + dr;
+              if (c < 0 || r < 0 || c >= MAX_COL || r >= MAX_ROW) return "#REF!";
+              return `${ac}${colName(c)}${ar}${r + 1}`;
+            })
+            // 열 전체 참조 A:A — 열만 옮긴다
+            .replace(COL_RANGE_IN_TEXT, (m, a1: string, c1: string, a2: string, c2: string) => {
+              const x = a1 ? colIndex(c1) : colIndex(c1) + dc;
+              const y = a2 ? colIndex(c2) : colIndex(c2) + dc;
+              if (x < 0 || y < 0 || x >= MAX_COL || y >= MAX_COL) return "#REF!";
+              return `${a1}${colName(x)}:${a2}${colName(y)}`;
+            })
     )
     .join("");
 }
+const COL_RANGE_IN_TEXT = /(?<![A-Za-z0-9_.$])(\$?)([A-Za-z]{1,3}):(\$?)([A-Za-z]{1,3})(?![A-Za-z0-9_(])/g;
 
 // F4 — 커서가 있는 참조를 A1 → $A$1 → A$1 → $A1 → A1 로 돌린다
+// 범위(E2:E6)면 양 끝을 함께 돌린다 — 끝 주소만 바꾸면 =RANK.EQ(E2,E2:$E$6)이 되어 채우면 순위가 틀어진다
+const REF_OR_RANGE = /(?<![A-Za-z0-9_.$])\$?[A-Za-z]{1,3}\$?\d+(?::\$?[A-Za-z]{1,3}\$?\d+)?(?![A-Za-z0-9_(])/g;
 export function cycleRef(text: string, caret: number): { text: string; caret: number } | null {
-  let hit: { start: number; end: number; s: string } | null = null;
+  // 커서가 문자열("A1") 안이면 주소가 아니라 글자다
   let inStr = false;
-  for (let i = 0; i < text.length; i++) if (text[i] === '"') inStr = !inStr;
+  for (let i = 0; i < caret && i < text.length; i++) if (text[i] === '"') inStr = !inStr;
   if (inStr) return null;
-  for (const m of text.matchAll(REF_IN_TEXT)) {
-    const start = m.index ?? 0;
-    const end = start + m[0].length;
-    if (caret >= start && caret <= end) hit = { start, end, s: m[0] };
-  }
+  let hit: { start: number; end: number; s: string } | null = null;
+  text.split(STR_SPLIT).reduce((pos, part, i) => {
+    if (i % 2 === 0)
+      for (const m of part.matchAll(REF_OR_RANGE)) {
+        const start = pos + (m.index ?? 0);
+        const end = start + m[0].length;
+        if (caret >= start && caret <= end) hit = { start, end, s: m[0] };
+      }
+    return pos + part.length;
+  }, 0);
   if (!hit) return null;
-  const m = hit.s.match(/^(\$?)([A-Za-z]{1,3})(\$?)(\d+)$/)!;
-  const state = (m[1] ? 2 : 0) + (m[3] ? 1 : 0); // 0: A1, 3: $A$1, 1: A$1, 2: $A1
+  const h = hit as { start: number; end: number; s: string };
+  const ends = h.s.split(":").map((x) => x.match(/^(\$?)([A-Za-z]{1,3})(\$?)(\d+)$/)!);
+  const state = (ends[0][1] ? 2 : 0) + (ends[0][3] ? 1 : 0); // 0: A1, 3: $A$1, 1: A$1, 2: $A1
   const next = { 0: 3, 3: 1, 1: 2, 2: 0 }[state as 0 | 1 | 2 | 3];
-  const s = `${next & 2 ? "$" : ""}${m[2].toUpperCase()}${next & 1 ? "$" : ""}${m[4]}`;
-  return { text: text.slice(0, hit.start) + s + text.slice(hit.end), caret: hit.start + s.length };
+  const s = ends.map((m) => `${next & 2 ? "$" : ""}${m[2].toUpperCase()}${next & 1 ? "$" : ""}${m[4]}`).join(":");
+  return { text: text.slice(0, h.start) + s + text.slice(h.end), caret: h.start + s.length };
 }
 
 // 엑셀 기본 제공 사용자 지정 목록 — 채우기 핸들로 끌면 다음 항목이 나온다
@@ -1737,6 +1878,9 @@ const LISTS: string[][] = [
   ["자", "축", "인", "묘", "진", "사", "오", "미", "신", "유", "술", "해"],
   ["甲", "乙", "丙", "丁", "戊", "己", "庚", "辛", "壬", "癸"],
   ["子", "丑", "寅", "卯", "辰", "巳", "午", "未", "申", "酉", "戌", "亥"],
+  // 한국어판 목록 — 12월 다음은 13월이 아니라 1월
+  ["1월", "2월", "3월", "4월", "5월", "6월", "7월", "8월", "9월", "10월", "11월", "12월"],
+  ["1사분기", "2사분기", "3사분기", "4사분기"],
 ];
 const listOf = (s: string) => LISTS.find((l) => l.some((x) => x.toLowerCase() === s.toLowerCase()));
 const posIn = (l: string[], s: string) => l.findIndex((x) => x.toLowerCase() === s.toLowerCase());
@@ -1749,17 +1893,27 @@ const posIn = (l: string[], s: string) => l.findIndex((x) => x.toLowerCase() ===
 //  - 사용자 지정 목록(월·화… / 갑·을… / 자·축…): 다음 항목
 //  - 수식: 원본 위치에서 떨어진 만큼 상대 참조 이동
 //  - 그 밖의 글자·논리값: 복사
+//  - 위·왼쪽으로 끌면(dir 음수) 거꾸로 — src도 끄는 방향 순서(끝 칸이 채울 자리 바로 옆)로 받는다
 export function fillSeries(src: string[], count: number, dir: { dr: number; dc: number }, inc = false): string[] {
   const n = src.length;
   const out: string[] = [];
+  const sign = dir.dr < 0 || dir.dc < 0 ? -1 : 1;
   const lits = src.map((s) => parseLiteral(s));
   const allNum = src.every((s, i) => !s.startsWith("=") && typeof lits[i].v === "number");
-  if (allNum && (n >= 2 || inc || lits[0].f === "date" || lits[0].f === "time")) {
+  const f0 = lits[0].f;
+  // 채운 값은 원본 서식 그대로 — 날짜는 날짜, 10%는 30%, 1,000은 3,000. 숫자는 15자리 그대로(10자리로 자르지 않는다)
+  const asInput = (v: number) =>
+    f0 === "date" ? formatDate(v, "yyyy-mm-dd")
+    : f0 === "time" ? formatDate(v, "h:mm")
+    : f0 === "percent" ? `${textOf(v * 100)}%`
+    : f0 === "comma" ? withCommas(textOf(v))
+    : textOf(v);
+  if (allNum && (n >= 2 || inc || f0 === "date" || f0 === "time")) {
     const ys = lits.map((l) => l.v as number);
     let slope: number;
     let icpt: number;
     if (n === 1) {
-      slope = lits[0].f === "time" ? 1 / 24 : 1;
+      slope = (f0 === "time" ? 1 / 24 : 1) * sign;
       icpt = ys[0];
     } else {
       const mx = (n - 1) / 2;
@@ -1773,17 +1927,14 @@ export function fillSeries(src: string[], count: number, dir: { dr: number; dc: 
       slope = sxy / sxx;
       icpt = my - slope * mx;
     }
-    for (let j = 0; j < count; j++) {
-      const v = Number((icpt + slope * (n + j)).toPrecision(15));
-      out.push(lits[0].f === "date" ? formatDate(v, "yyyy-mm-dd") : lits[0].f === "time" ? formatDate(v, "h:mm") : general(v));
-    }
+    for (let j = 0; j < count; j++) out.push(asInput(Number((icpt + slope * (n + j)).toPrecision(15))));
     return out;
   }
   // 같은 목록 안의 항목들 — 목록 순서대로 이어 간다
   const list = src.every((s) => !s.startsWith("=")) ? listOf(src[0]) : undefined;
   if (list && src.every((s) => posIn(list, s) >= 0)) {
     const ps = src.map((s) => posIn(list, s));
-    const step = n >= 2 ? ps[n - 1] - ps[n - 2] || 1 : 1;
+    const step = n >= 2 ? ps[n - 1] - ps[n - 2] || sign : sign;
     for (let j = 1; j <= count; j++) out.push(list[(((ps[n - 1] + step * j) % list.length) + list.length) % list.length]);
     return out;
   }
@@ -1792,7 +1943,7 @@ export function fillSeries(src: string[], count: number, dir: { dr: number; dc: 
   const parts = src.map((s, i) => (s.startsWith("=") || typeof lits[i].v === "number" ? null : s.match(/^(.*?)(\d+)(\D*)$/)));
   if (parts.every((p) => p) && parts.every((p) => p![1] === parts[0]![1] && p![3] === parts[0]![3])) {
     const nums = parts.map((p) => Number(p![2]));
-    const step = n >= 2 ? nums[n - 1] - nums[n - 2] : 1;
+    const step = n >= 2 ? nums[n - 1] - nums[n - 2] : sign;
     const width = parts[0]![2].length;
     for (let j = 1; j <= count; j++) {
       const v = nums[n - 1] + step * j;
@@ -1806,10 +1957,10 @@ export function fillSeries(src: string[], count: number, dir: { dr: number; dc: 
     const lap = Math.floor(j / n) + 1;
     const s = src[k];
     if (s.startsWith("=")) out.push(shiftFormula(s, dir.dr * n * lap, dir.dc * n * lap));
-    else if (parts[k]) out.push(`${parts[k]![1]}${Number(parts[k]![2]) + lap}${parts[k]![3]}`);
+    else if (parts[k]) out.push(`${parts[k]![1]}${Math.abs(Number(parts[k]![2]) + lap * sign)}${parts[k]![3]}`);
     else if (listOf(s)) {
       const l = listOf(s)!;
-      out.push(l[(posIn(l, s) + lap) % l.length]);
+      out.push(l[(((posIn(l, s) + lap * sign) % l.length) + l.length) % l.length]);
     } else out.push(s);
   }
   return out;

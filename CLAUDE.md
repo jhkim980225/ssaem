@@ -108,6 +108,8 @@ npx tsx scripts/import-law.ts            # 현행 법령 적재 (기본: 소득�
 - `bank_questions`는 전역 공용(학원 경계 없음). 과목: 전산회계1·2급 · 전산세무1·2급 · **컴활2급**(필기 800문항).
   적재 규칙·함정은 `docs/문제은행-적재-규칙.md` — 컴활은 글 속 그림 토큰 `[[그림]]URL#폭x높이`가 있어
   지문·보기를 그릴 땐 반드시 `BankQuestion`의 `Hi`/`ChoiceView`/`StemView`를 거칠 것(원문 출력 금지)
+- 문제검색(`/api/bank/search`)은 생성 열 `search_text`(지문+보기, 그림 토큰 제외)를 ilike — 지문만 보면
+  보기에만 함수가 나오는 컴활 문항을 못 찾는다
 - 컴활 2과목(`area = "스프레드시트 일반"`) 문항엔 `ExcelTry`(엑셀 연습장)가 붙는다. 수식 엔진은
   `src/lib/sheet.ts`(외부 라이브러리 없음 — HyperFormula는 GPL, fast-formula-parser는 D함수가 없다).
   함수를 고치면 `scripts/test-sheet.ts`로 확인
