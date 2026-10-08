@@ -1,11 +1,19 @@
 // 문제은행 적재. 소스 파이프라인 산출물(questions.json)을 bank_questions로 upsert.
 // 실행: npx tsx scripts/import-bank.ts
 //   BANK_SRC=<경로> 로 소스 json 경로 지정 (기본: C:\dev\acct_quiz\pipeline\out\questions.json)
+//   컴활2급: BANK_SRC=C:\dev\acct_quiz\pipeline\out\comhwal2\questions.json
 // 선행: migrations/20260813000000_question_bank.sql 를 Supabase SQL Editor에서 실행해 둘 것.
 // 재실행 안전 — stem 충돌 시 upsert.
+//
+// 그림 첨부 (컴활 파이프라인) — 소스 행이 로컬 그림 경로를 들고 올 수 있다:
+//   images: ["cu2-2020-1/q01.png"]                        본문 아래 그림
+//   stem·choices 속 "[[그림]]cu2-2020-1/q34.png#47x25"     글 속 그림 (#폭x높이 pt — 화면 크기용)
+// 경로는 BANK_IMG_DIR(기본: 소스 json 옆 images/) 기준 상대경로이고 그대로 Storage 키가 된다(ASCII).
+// 올린 뒤 공개 URL로 바꿔 넣는다. 이미 http… 인 값은 건드리지 않는다.
 import { createClient } from "@supabase/supabase-js";
 import { config } from "dotenv";
 import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 
 config({ path: ".env.local" });
 
@@ -18,7 +26,16 @@ if (!url || !key) {
 const db = createClient(url, key, { auth: { persistSession: false } });
 
 const SRC = process.env.BANK_SRC || "C:\\dev\\acct_quiz\\pipeline\\out\\questions.json";
+const IMG_DIR = process.env.BANK_IMG_DIR || join(dirname(SRC), "images");
+const BUCKET = "bank-images";
 const BATCH = 500;
+
+// 회차당 이론 문항 수 (적재 후 완전성 검증). 전산회계·세무는 15, 컴활 필기는 40
+const THEORY_PER_ROUND: Record<string, number> = { 컴활2급: 40 };
+const perRound = (subject: string) => THEORY_PER_ROUND[subject] ?? 15;
+
+// 글 속 그림 토큰 — 화면(BankQuestion의 Hi)이 같은 꼴을 읽는다
+const IMG_TOKEN_RE = /\[\[그림\]\](\S+?\.(?:png|jpe?g|gif|webp))(#\d+x\d+)?/g;
 
 type Row = {
   subject: string;
@@ -32,7 +49,34 @@ type Row = {
   explanation?: string | null;
   source?: string | null;
   seq?: number | null;   // 시험지 문항번호 — 회차 CBT 출제 순서
+  part?: string | null;  // 영역 안 세부 파트 (컴활: 유형과 같은 값)
+  images?: string[] | null; // 로컬 그림 경로 → 적재 시 URL로 바뀐다
 };
+
+// 로컬 그림을 Storage에 올리고 경로 → 공개 URL 표를 돌려준다
+async function uploadImages(paths: string[]): Promise<Map<string, string>> {
+  const urls = new Map<string, string>();
+  const { data: bucket } = await db.storage.getBucket(BUCKET);
+  if (!bucket) {
+    const { error } = await db.storage.createBucket(BUCKET, { public: true });
+    if (error) throw new Error(`버킷 생성 실패: ${error.message}`);
+  }
+  let done = 0;
+  const queue = [...paths];
+  const worker = async () => {
+    for (let p = queue.shift(); p; p = queue.shift()) {
+      const { error } = await db.storage
+        .from(BUCKET)
+        .upload(p, readFileSync(join(IMG_DIR, p)), { contentType: "image/png", upsert: true });
+      if (error) throw new Error(`그림 업로드 실패 ${p}: ${error.message}`);
+      urls.set(p, db.storage.from(BUCKET).getPublicUrl(p).data.publicUrl);
+      process.stdout.write(`\r  그림 업로드 ${++done}/${paths.length}`);
+    }
+  };
+  await Promise.all(Array.from({ length: 6 }, worker));
+  console.log("");
+  return urls;
+}
 
 function valid(r: Row): boolean {
   if (!r.subject || !r.category || !r.stem?.trim()) return false;
@@ -55,6 +99,12 @@ async function main() {
     process.exit(1);
   }
   console.log(`소스 ${raw.length}건`);
+
+  // part·images는 **소스에 그 키가 있을 때만** 싣는다. 회계 산출물엔 없는 키인데, 싣는 순간
+  // 배치 전체가 그 컬럼을 덮어써서 따로 백필한 소득세 파트·증빙 그림(import-bank-images)이 지워진다.
+  // 반대로 실을 땐 모든 행에 싣는다 — 배치 안에서 키가 빠진 행은 PostgREST가 NULL로 채운다.
+  const hasPart = raw.some((r) => r && "part" in r);
+  const hasImages = raw.some((r) => r && "images" in r);
 
   // (source, stem) 중복 제거 — 기출은 같은 문제가 여러 회차에 재출제되므로
   // stem 단독으로 걸면 재출제 문제가 첫 회차에만 남아 회차 CBT가 빈다.
@@ -87,9 +137,34 @@ async function main() {
       explanation: r.explanation ?? null,
       source: r.source ?? null,
       seq: r.seq ?? null,
+      ...(hasPart ? { part: r.part ?? null } : {}),
+      ...(hasImages ? { images: r.images ?? null } : {}),
     });
   }
   console.log(`중복 ${dup} · 부적합 ${invalid} 제외 → 적재 대상 ${rows.length}건`);
+
+  // 그림 — 로컬 경로를 모아 올리고 URL로 바꿔 끼운다
+  {
+    const isLocal = (p: string) => !/^https?:/.test(p);
+    const local = new Set<string>();
+    for (const r of rows) {
+      for (const p of r.images ?? []) if (isLocal(p)) local.add(p);
+      for (const t of [r.stem, ...(r.choices ?? [])])
+        for (const m of t.matchAll(IMG_TOKEN_RE)) if (isLocal(m[1])) local.add(m[1]);
+    }
+    if (local.size) {
+      const urls = await uploadImages([...local]);
+      const swap = (t: string) =>
+        t.replace(IMG_TOKEN_RE, (all, p: string, size?: string) =>
+          urls.has(p) ? `[[그림]]${urls.get(p)}${size ?? ""}` : all
+        );
+      for (const r of rows) {
+        if (r.images) r.images = r.images.map((p) => urls.get(p) ?? p);
+        r.stem = swap(r.stem);
+        if (r.choices) r.choices = r.choices.map(swap);
+      }
+    }
+  }
 
   for (let i = 0; i < rows.length; i += BATCH) {
     const chunk = rows.slice(i, i + BATCH);
@@ -150,17 +225,17 @@ async function main() {
   console.log(`✅ bank_questions 총 ${total}건`);
   console.log(`   카테고리: ${JSON.stringify(cat)}`);
 
-  // 회차 완전성 검증 — 전산회계·세무 이론은 회차당 15문항이 정상 (docs/문제은행-적재-규칙.md)
+  // 회차 완전성 검증 — 전산회계·세무 이론은 회차당 15문항, 컴활 필기는 40문항이 정상 (docs/문제은행-적재-규칙.md)
   const { data: bySrc } = await db.from("bank_source_counts").select("subject, source, count");
-  const short = ((bySrc ?? []) as { source: string; count: number }[])
-    .filter((r) => r.count < 15)
+  const short = ((bySrc ?? []) as { subject: string; source: string; count: number }[])
+    .filter((r) => r.count < perRound(r.subject))
     .sort((a, b) => a.count - b.count);
   if (short.length) {
-    console.warn(`⚠️  이론 15문항 미만 회차 ${short.length}개 — 소스 파이프라인(acct_quiz) 유실 의심:`);
+    console.warn(`⚠️  이론 문항이 모자란 회차 ${short.length}개 — 소스 파이프라인(acct_quiz) 유실 의심:`);
     for (const s of short.slice(0, 10)) console.warn(`   ${s.source}: ${s.count}문항`);
     if (short.length > 10) console.warn(`   … 외 ${short.length - 10}개`);
   } else {
-    console.log("   회차별 이론 15문항 검증 통과");
+    console.log("   회차별 이론 문항 수 검증 통과");
   }
 }
 

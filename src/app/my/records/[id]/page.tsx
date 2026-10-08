@@ -3,7 +3,8 @@ import { use, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useGate } from "@/components/RoleGuard";
 import BackButton from "@/components/BackButton";
-import { StemView, ExplanationView, ChoiceView } from "@/components/BankQuestion";
+import { StemView, ExplanationView, ChoiceView, Hi } from "@/components/BankQuestion";
+import { ExcelTry } from "@/components/ExcelPad";
 import JournalEntry from "@/components/JournalEntry";
 
 type Item = {
@@ -11,6 +12,7 @@ type Item = {
   subject: string;
   category: string;
   typeTag: string;
+  area?: string;
   stem: string;
   choices: string[] | null;
   answerIdx: number | null;
@@ -165,7 +167,7 @@ export default function RecordDetailPage({ params }: { params: Promise<{ id: str
                               </span>
                               <span className="chip !py-0.5 !px-2 !text-[11px]">{n.typeTag}</span>
                             </div>
-                            <p className="text-[14px] font-medium line-clamp-2 break-keep">{n.stem.split("\n")[0]}</p>
+                            <p className="text-[14px] font-medium line-clamp-2 break-keep"><Hi text={n.stem.split("\n")[0]} /></p>
                           </div>
                           <span className="text-sub text-[13px] shrink-0">{isOpen ? "접기" : "보기"}</span>
                         </button>
@@ -215,6 +217,7 @@ export default function RecordDetailPage({ params }: { params: Promise<{ id: str
                                 </div>
                               )
                             )}
+                            <ExcelTry area={n.area} stem={n.stem} choices={n.choices} />
                             {n.explanation && (
                               <div className="rounded-[14px] border border-line p-4">
                                 <p className="text-[12px] font-bold text-sub mb-1.5">해설</p>

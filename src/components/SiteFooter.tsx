@@ -72,6 +72,7 @@ export default function SiteFooter() {
                 {item("/bank", "기출문제")}
                 {item("/bank/browse", "문제검색(이론)")}
                 {item("/bank/browse?kind=practice", "문제검색(실무)")}
+                {item("/bank/excel", "엑셀 연습장")}
                 {item("/install", "앱 설치")}
               </ul>
             </div>

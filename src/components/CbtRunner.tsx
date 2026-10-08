@@ -1,6 +1,7 @@
 "use client";
 import { useMemo, useState } from "react";
 import { StemView, ExplanationView, ChoiceView } from "@/components/BankQuestion";
+import { ExcelTry } from "@/components/ExcelPad";
 
 // 기출 CBT 모드 — 실제 시험처럼 푼다.
 //  · 푸는 동안: 한 문제씩 한 줄로. 이전/다음으로 오가고 **마지막 문항에서 '다음'이
@@ -86,6 +87,9 @@ function QuestionCard({
           );
         })}
       </div>
+
+      {/* 컴활 2과목 — 엑셀 연습장 (다른 영역이면 안 그린다) */}
+      <ExcelTry area={item.area} stem={item.stem} choices={item.choices} />
 
       {/* 채점 후 해설 */}
       {g && (

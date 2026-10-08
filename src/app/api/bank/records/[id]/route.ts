@@ -45,7 +45,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
 
   const { data: qs } = await db
     .from("bank_questions")
-    .select("id, subject, category, type_tag, stem, choices, answer_idx, answer_text, explanation, images")
+    .select("id, subject, category, type_tag, area, stem, choices, answer_idx, answer_text, explanation, images")
     .in(
       "id",
       attempts.map((a) => a.question_id)
@@ -61,6 +61,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
         subject: q.subject,
         category: q.category,
         typeTag: q.type_tag,
+        area: q.area,
         stem: q.stem,
         choices: q.choices,
         answerIdx: q.answer_idx,

@@ -6,6 +6,7 @@ import JournalEntry from "@/components/JournalEntry";
 import CbtRunner, { type CbtQuestion } from "@/components/CbtRunner";
 import { StemView, ExplanationView, ChoiceView } from "@/components/BankQuestion";
 import BankStats, { type BankStatsData } from "@/components/BankStats";
+import { ExcelTry } from "@/components/ExcelPad";
 
 // answerIdx·explanation은 공부 모드에서만 함께 온다
 type Theory = { id: string; type: "theory"; stem: string; choices: string[]; area: string; typeTag: string; images?: string[] | null; answerIdx?: number; explanation?: string | null };
@@ -24,9 +25,20 @@ type TreeRow = { subject: string; area: string; category: string; type_tag: stri
 type SourceRow = { subject: string; source: string; count: number };
 
 // 한 세션에 풀 문항 수 — 빠른 선택
-const COUNTS = [5, 10, 15, 20, 30] as const;
-// 회차 문자열에서 숫자만 뽑아 정렬용으로 (예: "전산회계1급 125회" → 125)
-const roundNo = (s: string) => Number((s.match(/(\d+)\s*회/) ?? [])[1] ?? 0);
+const COUNTS = [5, 10, 15, 20, 30, 40] as const; // 40 = 컴활 필기 한 회분
+// 회차 정렬·표기. 회계는 통산 회차("전산회계1급 125회"), 컴활은 해마다 1회부터("컴활2급 2020년 2회")라
+// 숫자 하나만 뽑으면 연도가 사라져 "2회"가 여덟 개 생긴다 — 연도가 있으면 연도까지 본다
+const YEAR_ROUND = /(\d{4})년\s*(\d+)회/;
+const roundKey = (s: string) => {
+  const y = s.match(YEAR_ROUND);
+  return y ? Number(y[1]) * 10 + Number(y[2]) : Number((s.match(/(\d+)\s*회/) ?? [])[1] ?? 0);
+};
+const roundLabel = (s: string) => {
+  const y = s.match(YEAR_ROUND);
+  if (y) return `${y[1]}년 ${y[2]}회`;
+  const n = (s.match(/(\d+)\s*회/) ?? [])[1];
+  return n ? `${n}회` : s;
+};
 
 // 유형 표시 순서 — 급수마다 있는 유형이 다르므로(세무: 매입매출전표 있음) 목록은 트리에서 동적으로 뽑는다
 const CATEGORY_ORDER = ["이론", "일반전표", "매입매출전표", "결산"];
@@ -327,7 +339,7 @@ export default function BankPage() {
       <div className="rise flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
         <div className="flex flex-col gap-1">
           <h1 className="text-[24px] lg:text-[28px] font-extrabold">기출문제</h1>
-          <p className="text-sub text-[14px]">전산회계·세무 기출 {tree ? countFor({}).toLocaleString() : "…"}문항</p>
+          <p className="text-sub text-[14px]">전산회계·세무·컴활 기출 {tree ? countFor({}).toLocaleString() : "…"}문항</p>
         </div>
         <div className="flex flex-wrap gap-1.5 sm:shrink-0">
           <Link href="/bank/browse" className="chip !text-[13px]">
@@ -341,6 +353,9 @@ export default function BankPage() {
           </Link>
           <Link href="/bank/notes" className="chip !text-[13px]">
             기출 오답
+          </Link>
+          <Link href="/bank/excel" className="chip !text-[13px]">
+            엑셀 연습장
           </Link>
         </div>
       </div>
@@ -419,10 +434,10 @@ export default function BankPage() {
                       <option value="">랜덤 출제 (전체 회차)</option>
                       {sources
                         .filter((x) => !subject || x.subject === subject)
-                        .sort((a, b) => roundNo(b.source) - roundNo(a.source))
+                        .sort((a, b) => roundKey(b.source) - roundKey(a.source))
                         .map((x) => (
                           <option key={x.source} value={x.source}>
-                            {roundNo(x.source) ? `${roundNo(x.source)}회` : x.source} ({x.count}문항)
+                            {roundLabel(x.source)} ({x.count}문항)
                           </option>
                         ))}
                     </select>
@@ -498,7 +513,7 @@ export default function BankPage() {
                     ? "과목을 골라 주세요"
                     : cbt
                       ? source
-                        ? `${roundNo(source) || ""}회 시험 시작`
+                        ? `${roundLabel(source)} 시험 시작`
                         : `${count}문항 시험 시작`
                       : study
                         ? "공부 시작"
@@ -625,6 +640,7 @@ export default function BankPage() {
                 ))}
               </div>
             )}
+            <ExcelTry area={q.area} stem={q.stem} choices={q.type === "theory" ? q.choices : null} />
           </div>
           {/* 해설 — PC에선 스크롤해도 따라오게 sticky (헤더 60px + 여백) */}
           <div className="card p-5 lg:p-6 flex flex-col gap-3 self-start min-w-0 lg:sticky lg:top-[76px]">
@@ -632,7 +648,7 @@ export default function BankPage() {
               <>
                 <p className="text-[15px] font-bold text-blue">정답 {(q.answerIdx ?? 0) + 1}번</p>
                 <p className="text-[19px] lg:text-[20px] font-extrabold leading-snug break-keep">
-                  {q.choices[q.answerIdx ?? 0]}
+                  <ChoiceView text={q.choices[q.answerIdx ?? 0]} />
                 </p>
                 {q.explanation ? (
                   <>
@@ -723,6 +739,9 @@ export default function BankPage() {
               )}
             </div>
           )}
+
+          {/* 컴활 2과목 — 엑셀 연습장 */}
+          <ExcelTry area={q.area} stem={q.stem} choices={q.type === "theory" ? q.choices : null} />
 
           {/* 실무 자가채점 */}
           {q.type === "practice" && (

@@ -113,8 +113,41 @@ function TableBlock({ data, highlight, grid }: { data: string; highlight?: strin
   );
 }
 
-// 검색어 강조 — 문제검색에서 지문 속 키워드를 빨간색으로 표시
+// 글 속 그림 — 컴활 기출은 아이콘("경고( 🛈 )")·수식 결과("→ [그림]")·보기 그림이 글 중간에 박혀 있다.
+// 파이프라인이 그 자리에 "[[그림]]<URL>#<폭>x<높이>"(PDF pt)를 남긴다 (scripts/import-bank.ts와 같은 꼴).
+const IMG_TOKEN_RE = /\[\[그림\]\](\S+?\.(?:png|jpe?g|gif|webp))(?:#(\d+)x(\d+))?/g;
+
+function InlineImg({ src, w, h }: { src: string; w?: number; h?: number }) {
+  // pt → px. 글줄 높이의 아이콘은 글자에 맞게, 표·차트 조각은 그 안의 글씨가 읽히게 조금 더 크게
+  const scale = h && h <= 30 ? 1.2 : 1.6;
+  return (
+    // eslint-disable-next-line @next/next/no-img-element -- Supabase Storage 외부 URL, 크기는 토큰이 준다
+    <img
+      src={src}
+      alt="그림 자료"
+      loading="lazy"
+      className="inline-block align-middle max-w-full rounded-[4px] mx-0.5"
+      style={{ width: w ? Math.round(w * scale) : undefined, background: "#fff" }}
+    />
+  );
+}
+
+// 검색어 강조 — 문제검색에서 지문 속 키워드를 빨간색으로 표시. 글 속 그림 토큰도 여기서 그린다
+// (지문·보기·표 칸이 전부 Hi를 거치므로 한 곳에서 처리하면 화면 어디서든 토큰이 노출되지 않는다)
 export function Hi({ text, kw }: { text: string; kw?: string }) {
+  if (!text.includes("[[그림]]")) return <HiText text={text} kw={kw} />;
+  const out: React.ReactNode[] = [];
+  let last = 0;
+  for (const m of text.matchAll(IMG_TOKEN_RE)) {
+    out.push(<HiText key={`t${last}`} text={text.slice(last, m.index)} kw={kw} />);
+    out.push(<InlineImg key={`i${m.index}`} src={m[1]} w={m[2] ? Number(m[2]) : undefined} h={m[3] ? Number(m[3]) : undefined} />);
+    last = (m.index ?? 0) + m[0].length;
+  }
+  out.push(<HiText key={`t${last}`} text={text.slice(last)} kw={kw} />);
+  return <>{out}</>;
+}
+
+function HiText({ text, kw }: { text: string; kw?: string }) {
   if (!kw || !text.includes(kw)) return <>{text}</>;
   const parts = text.split(kw);
   return (

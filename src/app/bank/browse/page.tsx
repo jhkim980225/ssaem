@@ -6,6 +6,7 @@ import { useGate } from "@/components/RoleGuard";
 import BackButton from "@/components/BackButton";
 import JournalEntry from "@/components/JournalEntry";
 import { StemView, ExplanationView, Hi } from "@/components/BankQuestion";
+import { ExcelTry } from "@/components/ExcelPad";
 
 type Q = {
   id: string;
@@ -22,20 +23,27 @@ type Q = {
   images?: string[] | null;
 };
 type TreeRow = { subject: string; area: string; category: string; count: number };
-// 영역 안의 세부 파트 — 지금은 소득세만 나뉘어 있다(근로소득·사업소득·소득공제·세액공제 …)
+// 영역 안의 세부 파트 — 소득세(근로소득·사업소득·소득공제 …)와 컴활 두 과목(Windows·네트워크 / 수식·함수·차트 …)이 나뉘어 있다
 type PartRow = { subject: string; area: string; category: string; part: string; count: number };
 
 const PER = 10; // 페이지당 문제 수
 
 // 이론 영역 뱃지 — [DB area 값, 화면 이름]. 뱃지는 트리 집계(문항 수)로 켜지고 꺼진다
-// — 법인세는 전산세무1급에만 있어 다른 급수에서는 비활성으로 보인다.
-const AREAS: [string, string][] = [
+// — 법인세는 전산세무1급에만 있어 다른 회계 급수에서는 비활성으로 보인다.
+const ACCT_AREAS: [string, string][] = [
   ["재무회계", "재무"],
   ["원가회계", "원가"],
   ["부가가치세", "부가가치세"],
   ["소득세", "소득세"],
   ["법인세", "법인세"],
 ];
+// 컴활 필기 과목. 회계 급수를 고르면 아예 숨긴다 — 같은 시험군 안의 빈 영역(법인세)은 "이 급수엔 없다"는
+// 정보지만, 회계 급수에 컴활 과목이 꺼진 채 늘어서 있는 건 소음이다 (반대도 마찬가지)
+const CU_AREAS: [string, string][] = [
+  ["컴퓨터 일반", "컴퓨터 일반"],
+  ["스프레드시트 일반", "스프레드시트"],
+];
+const AREAS = [...ACCT_AREAS, ...CU_AREAS];
 const areaLabel = (a: string) => AREAS.find(([v]) => v === a)?.[1] ?? a;
 
 // 실무 유형 뱃지 — DB category 값 그대로. 매입매출전표는 전산세무 급수만 있다(회계 급수는 일반전표·결산 2분류)
@@ -113,6 +121,13 @@ function BrowseInner() {
       .filter((t) => t.category === "이론" && t.area === a && (!subj || t.subject === subj))
       .reduce((sum, t) => sum + t.count, 0);
   }
+
+  // 영역 뱃지 목록 — 급수를 고르면 그 급수의 시험군(회계/컴활) 영역만. "전체 급수"면 전부
+  const areaBadges = useMemo(() => {
+    if (!subject) return AREAS;
+    const isCu = (tree ?? []).some((t) => t.subject === subject && CU_AREAS.some(([a]) => a === t.area));
+    return isCu ? CU_AREAS : ACCT_AREAS;
+  }, [tree, subject]);
 
   // 고른 급수·영역에 있는 파트 목록 (문항 수 많은 순)
   const partList = useMemo(() => {
@@ -308,7 +323,7 @@ function BrowseInner() {
                 <button onClick={() => pickArea("")} className={`chip !text-[13px] ${area === "" ? "chip-on" : ""}`}>
                   전체 영역
                 </button>
-                {AREAS.map(([a, label]) => {
+                {areaBadges.map(([a, label]) => {
                   const n = areaCount(subject, a);
                   return (
                     <button
@@ -323,7 +338,7 @@ function BrowseInner() {
                 })}
               </div>
             )}
-            {/* 파트 뱃지 — 영역을 고르면 그 안의 세부 묶음이 나온다(지금은 소득세만 나뉘어 있다) */}
+            {/* 파트 뱃지 — 영역을 고르면 그 안의 세부 묶음이 나온다(소득세·컴활 과목) */}
             {kind === "theory" && partList.length > 0 && (
               <div className="flex gap-1.5 flex-wrap items-center">
                 <span className="text-[12px] text-sub font-bold pr-0.5">{areaLabel(area)} 파트</span>
@@ -365,7 +380,7 @@ function BrowseInner() {
             <div className="flex gap-2">
               <input
                 className="field flex-1"
-                placeholder='키워드 (예: "재무", "감가상각")'
+                placeholder='키워드 (예: "감가상각", "VLOOKUP")'
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
                 onKeyDown={(e) => {
@@ -438,6 +453,7 @@ function BrowseInner() {
                       ))}
                     </div>
                   )}
+                  <ExcelTry area={n.area} stem={n.stem} choices={n.choices} />
                   {!show ? (
                     <button
                       onClick={() => setAnswered((prev) => new Set(prev).add(n.id))}

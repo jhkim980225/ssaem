@@ -200,7 +200,7 @@ export async function GET(req: Request) {
 
   const { data: qs } = await db
     .from("bank_questions")
-    .select("id, subject, category, type_tag, stem, choices, answer_idx, answer_text, explanation, images")
+    .select("id, subject, category, type_tag, area, stem, choices, answer_idx, answer_text, explanation, images")
     .in(
       "id",
       wrong.map((w) => w.question_id)
@@ -216,6 +216,7 @@ export async function GET(req: Request) {
         subject: q.subject,
         category: q.category,
         typeTag: q.type_tag,
+        area: q.area,
         stem: q.stem,
         choices: q.choices,
         answerIdx: q.answer_idx,

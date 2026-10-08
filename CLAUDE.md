@@ -23,6 +23,7 @@ npm run lint       # eslint
 npx tsx scripts/test-chunk.ts           # 문서 청킹 검증
 npx tsx scripts/verify-instructors.ts   # 강사 자료/검색/프롬프트
 npx tsx scripts/verify-law.ts           # 공용 법령 참고자료 (적재·조문검색·프롬프트) — 키 필요
+npx tsx scripts/test-sheet.ts           # 엑셀 연습장 수식 엔진 + 컴활 기출 수식 보기 교차 검증
 
 # E2E (서버 실행 중이어야 함). 인증·역할가드·질문답변·퀴즈·PWA 전 구간
 npx tsx scripts/e2e.ts
@@ -34,6 +35,7 @@ E2E_BASE=https://<도메인> npx tsx scripts/e2e.ts   # 배포본 검사
 # 시드 (Supabase 셋업 후)
 npx tsx scripts/seed.ts                 # 강사 10명 생성. 로그인 <id>@a.test / 123456
 npx tsx scripts/import-bank.ts           # 문제은행 적재 (마이그레이션 선행). BANK_SRC로 소스 json 지정
+                                         # 컴활2급: BANK_SRC=…/acct_quiz/pipeline/out/comhwal2/questions.json (그림도 함께 올린다)
 npx tsx scripts/import-law.ts            # 현행 법령 적재 (기본: 소득세법 + 시행령). 재실행 시 이어서
 ```
 
@@ -100,6 +102,15 @@ npx tsx scripts/import-law.ts            # 현행 법령 적재 (기본: 소득�
 - 핵심: `documents`(원본 보존) / `chunks`(청크+embedding) 분리 — 재청킹 시 원본에서 다시 생성. `profiles`는 `auth.users` id 그대로 사용, role로 강사/학생 구분.
 - 대화: `conversations` → `messages` → `message_citations`(근거 청크 추적)
 - 스키마 변경은 Supabase SQL editor에서 수동 실행 (마이그레이션 도구 없음)
+
+### 문제은행 · 엑셀 연습장
+
+- `bank_questions`는 전역 공용(학원 경계 없음). 과목: 전산회계1·2급 · 전산세무1·2급 · **컴활2급**(필기 800문항).
+  적재 규칙·함정은 `docs/문제은행-적재-규칙.md` — 컴활은 글 속 그림 토큰 `[[그림]]URL#폭x높이`가 있어
+  지문·보기를 그릴 땐 반드시 `BankQuestion`의 `Hi`/`ChoiceView`/`StemView`를 거칠 것(원문 출력 금지)
+- 컴활 2과목(`area = "스프레드시트 일반"`) 문항엔 `ExcelTry`(엑셀 연습장)가 붙는다. 수식 엔진은
+  `src/lib/sheet.ts`(외부 라이브러리 없음 — HyperFormula는 GPL, fast-formula-parser는 D함수가 없다).
+  함수를 고치면 `scripts/test-sheet.ts`로 확인
 
 ### 문서 등록 플로우
 
