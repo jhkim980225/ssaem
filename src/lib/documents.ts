@@ -73,7 +73,7 @@ export async function saveDocument(opts: {
   if (derr) throw derr;
 
   // 임베딩/청크 저장이 실패하면 방금 만든 문서 행을 되돌린다 —
-  // 안 그러면 청크 0개 유령 문서가 남아 무료 플랜 자료 한도만 갉아먹는다.
+  // 안 그러면 검색에 안 걸리는 청크 0개 유령 문서가 목록에 남는다.
   let rows: { document_id: string; teacher_id: string; ord: number; content: string; embedding: number[] | null }[];
   try {
     const pieces = chunkText(opts.rawText);

@@ -5,13 +5,12 @@ import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
 import { toEmail, isValidId } from "@/lib/account";
 import { avatarEmoji } from "@/lib/avatar";
-import { SHOW_PRICING } from "@/lib/flags";
 import { useGate } from "@/components/RoleGuard";
 import InviteBox from "@/components/InviteBox";
 
 type AdminData = {
   admin: { name: string };
-  academy: { name: string; slug: string; plan?: string };
+  academy: { name: string; slug: string };
   period: { days: number; options: number[] };
   stats: {
     teachers: number;
@@ -36,11 +35,6 @@ type AdminData = {
   }[];
   students: { id: string; name: string; questions: number; lastAt: string | null }[];
   lowRated: { question: string; answer: string; teacher: string; created_at: string }[];
-  usage: {
-    plan: "free" | "pro";
-    documents: { used: number; limit: number | null };
-    questionsToday: { used: number; limit: number | null };
-  };
   invite: { url: string; qrSvg: string };
 };
 
@@ -240,13 +234,6 @@ function Dashboard({ session }: { session: Session }) {
           <p className="text-sub text-[13px]">학원장 대시보드</p>
           <h1 className="text-[24px] lg:text-[28px] font-extrabold flex items-center gap-2">
             {data.academy.name}
-            {data.academy.plan === "pro" ? (
-              <span className="chip chip-on !cursor-default !px-2.5 !py-0.5 !text-[11px]">Pro</span>
-            ) : SHOW_PRICING ? (
-              <a href="/pricing" className="chip !px-2.5 !py-0.5 !text-[11px]">무료 · Pro 보기</a>
-            ) : (
-              <span className="chip !cursor-default !px-2.5 !py-0.5 !text-[11px]">무료</span>
-            )}
           </h1>
           <p className="text-sub text-[13px]">
             학생 초대 URL: /a/{data.academy.slug} · {data.admin.name} 원장
@@ -294,7 +281,7 @@ function Dashboard({ session }: { session: Session }) {
           ))}
         </div>
 
-        {/* 누적 환산 — /pricing이 조교 인건비와 비교하는 논리를 화면에서 잇는다 */}
+        {/* 누적 환산 — 강사 응대 시간을 얼마나 덜었는지 숫자로 */}
         <div className="mt-3 rounded-[14px] px-4 py-3.5" style={{ background: "var(--blue-weak)" }}>
           <p className="text-[14px] font-bold text-blue">
             지금까지 답변 {data.cumulative.answers.toLocaleString()}건 · 조교 약 {data.cumulative.hoursSaved}시간 분량
@@ -303,37 +290,6 @@ function Dashboard({ session }: { session: Session }) {
             답변 1건을 조교 응대 {data.cumulative.minutesPerAnswer}분으로 환산한 값이에요.
           </p>
         </div>
-
-        {/* 오늘 사용량 — 무료 한도에 닿으면 학생 질문이 막히므로 미리 보여준다 */}
-        {data.usage && (
-          <div className="mt-2 flex items-center justify-between gap-3 rounded-[14px] border border-line px-4 py-3" style={{ background: "var(--fill-2)" }}>
-            <div className="min-w-0">
-              <p className="text-[13px] font-bold">
-                오늘 질문 {data.usage.questionsToday.used}
-                {data.usage.questionsToday.limit !== null && `/${data.usage.questionsToday.limit}`}건
-              </p>
-              <p className="text-sub text-[11px] mt-0.5">
-                {data.usage.questionsToday.limit === null
-                  ? "Pro · 질문 한도 없음"
-                  : "무료 플랜 · 한도를 다 쓰면 다음 날까지 질문이 막혀요"}
-              </p>
-            </div>
-            {data.usage.questionsToday.limit !== null && (
-              <div className="w-28 h-2 rounded-full shrink-0" style={{ background: "var(--fill)" }}>
-                <div
-                  className="h-2 rounded-full"
-                  style={{
-                    width: `${Math.min(100, (data.usage.questionsToday.used / data.usage.questionsToday.limit) * 100)}%`,
-                    background:
-                      data.usage.questionsToday.used >= data.usage.questionsToday.limit
-                        ? "var(--red)"
-                        : "var(--blue)",
-                  }}
-                />
-              </div>
-            )}
-          </div>
-        )}
       </section>
 
       {/* 일별 질문 추이 */}

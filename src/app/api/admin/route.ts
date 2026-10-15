@@ -3,10 +3,8 @@ import QRCode from "qrcode";
 import { serviceClient } from "@/lib/supabase";
 import { requireRole } from "@/lib/auth";
 import { createInviteCode } from "@/lib/invite";
-import { usageFor } from "@/lib/plan";
 
-// 답변 1건이 아꼈다고 보는 조교 시간(분). /pricing이 조교 인건비와 비교하는 논리를
-// 화면에서 이어받기 위한 환산 기준 — 근거를 화면에도 같이 표시한다.
+// 답변 1건이 아꼈다고 보는 조교 시간(분). 근거를 화면에도 같이 표시한다.
 const MINUTES_PER_ANSWER = 3;
 const PERIODS = [7, 30, 90] as const;
 
@@ -23,7 +21,7 @@ export async function GET(req: Request) {
   const db = serviceClient();
   const { data: me } = await db
     .from("profiles")
-    .select("academy_id, name, academies(name, slug, plan)")
+    .select("academy_id, name, academies(name, slug)")
     .eq("id", uid)
     .maybeSingle();
   if (!me?.academy_id) return NextResponse.json({ error: "학원 정보가 없어요" }, { status: 404 });
@@ -61,7 +59,7 @@ export async function GET(req: Request) {
   if (!teacherIds.length) {
     return NextResponse.json({
       admin: { name: me.name },
-      academy: { name: academy?.name ?? "", slug: academy?.slug ?? "", plan: academy?.plan ?? "free" },
+      academy: { name: academy?.name ?? "", slug: academy?.slug ?? "" },
       period: { days, options: PERIODS },
       stats: { teachers: 0, students: studentRows.length, activeStudents: 0, questions: 0, up: 0, down: 0 },
       work: { newDocuments: 0, newQuestions: 0 },
@@ -70,7 +68,6 @@ export async function GET(req: Request) {
       teachers: [],
       students: studentRows.map((s) => ({ ...s, questions: 0, lastAt: null })),
       lowRated: [],
-      usage: await usageFor(db, { academyId: me.academy_id }),
       invite: await inviteFor(uid, req),
     });
   }
@@ -205,7 +202,7 @@ export async function GET(req: Request) {
 
   return NextResponse.json({
     admin: { name: me.name },
-    academy: { name: academy?.name ?? "", slug: academy?.slug ?? "", plan: academy?.plan ?? "free" },
+    academy: { name: academy?.name ?? "", slug: academy?.slug ?? "" },
     period: { days, options: PERIODS },
     stats: { teachers: teachers.length, students: students.length, activeStudents, questions, up, down },
     // 이번 기간에 "우리가 한 일" — 재계약 논리. 질문 수는 학생이 만든 값이라 우리 기여를 증명 못 한다.
@@ -219,8 +216,6 @@ export async function GET(req: Request) {
     teachers,
     students,
     lowRated,
-    // 무료 한도를 얼마나 썼는지 — 한도에 닿으면 학생 질문이 막히므로 원장이 미리 알아야 한다
-    usage: await usageFor(db, { academyId: me.academy_id }),
     invite: await inviteFor(uid, req),
   });
 }

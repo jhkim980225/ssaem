@@ -232,15 +232,6 @@ async function main() {
 
       // 과제 제출 (v0.45.0): 수업(달력) 자료에 학생 제출 → 강사 현황 → 재제출 갱신
       {
-        // 테스트 강사는 무료 한도 초과 상태 — 수업 달력 섹션과 같은 패턴으로 잠시 pro
-        const { data: hwProf } = await db.from("profiles").select("academy_id").eq("id", tUid).maybeSingle();
-        const hwAcad = hwProf?.academy_id ?? null;
-        let hwPrevPlan: string | null = null;
-        if (hwAcad) {
-          const { data: a } = await db.from("academies").select("plan").eq("id", hwAcad).maybeSingle();
-          hwPrevPlan = a?.plan ?? "free";
-          await db.from("academies").update({ plan: "pro" }).eq("id", hwAcad);
-        }
         const today = new Date(Date.now() + 9 * 3_600_000).toISOString().slice(0, 10);
         const up = await json("/api/documents", {
           method: "POST",
@@ -285,7 +276,6 @@ async function main() {
           // 정리 — 과제 문서 삭제 (submissions는 cascade)
           await status(`/api/documents?id=${hwDocId}`, { method: "DELETE", headers: bearer(teacherTok) });
         }
-        if (hwAcad && hwPrevPlan) await db.from("academies").update({ plan: hwPrevPlan }).eq("id", hwAcad);
       }
 
       // 자료 게시판 (v0.46.0): 강사 게시(파일 포함) → 학생 열람·서명 URL → ROOM 필터 → 삭제
@@ -337,17 +327,7 @@ async function main() {
   }
 
   section("수업 달력 — lesson_date 저장·조회");
-  // 테스트 강사는 무료 한도(10건)를 이미 넘겨서 등록이 403 — 잠시 pro로 올렸다가 끝나면 원복
   const tUid = JSON.parse(Buffer.from(teacherTok.split(".")[1], "base64").toString()).sub as string;
-  const { data: tProf } = await db.from("profiles").select("academy_id").eq("id", tUid).maybeSingle();
-  const acadId = tProf?.academy_id ?? null;
-  let prevPlan: string | null = null;
-  if (acadId) {
-    const { data: a } = await db.from("academies").select("plan").eq("id", acadId).maybeSingle();
-    prevPlan = a?.plan ?? "free";
-    await db.from("academies").update({ plan: "pro" }).eq("id", acadId);
-  }
-  try {
   const ld = await json("/api/documents", {
     method: "POST",
     headers: jsonHdr,
@@ -412,9 +392,6 @@ async function main() {
       "달력 자료 삭제 200",
       (await status(`/api/documents?id=${ld.body.documentId}`, { method: "DELETE", headers: bearer(teacherTok) })) === 200
     );
-  }
-  } finally {
-    if (acadId) await db.from("academies").update({ plan: prevPlan }).eq("id", acadId);
   }
 
   // ── 3. 학생 공용 엔드포인트 (전부 로그인 필수)
@@ -493,7 +470,6 @@ async function main() {
     "/my/history",
     "/install",
     "/reset",
-    "/pricing",
     "/legal/terms",
     "/legal/privacy",
     "/teacher",
@@ -1523,28 +1499,6 @@ async function main() {
 
     await db.from("course_reviews").delete().eq("teacher_id", t0.id).ilike("comment", "%[E2E]%");
   }
-
-  // ── 8. 요금제 문의
-  section("요금제 문의");
-  const hasInq = await tableExists("plan_inquiries", "contact");
-  if (!hasInq) skip("도입 문의 접수", "plan_inquiries 테이블 없음");
-  else {
-    const r = await json("/api/inquiry", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: "[E2E]", contact: "e2e@test" }),
-    });
-    ok("문의 접수 200", r.status === 200);
-    await db.from("plan_inquiries").delete().eq("name", "[E2E]");
-  }
-  ok(
-    "문의 필수값 검증",
-    (await status("/api/inquiry", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: "" }),
-    })) === 400
-  );
 
   // ── 8.9 에러 내성 하네스 — 오입력·깨진 요청에 500이 아니라 4xx로 응답해야 한다.
   // 새 API를 만들면 여기에 오입력 케이스를 추가할 것 (500 = 방어 누락 신호).

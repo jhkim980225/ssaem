@@ -6,7 +6,6 @@ import { buildTutorSystem } from "@/lib/prompt";
 import { requireUser } from "@/lib/auth";
 import { sameAcademy } from "@/lib/tenant";
 import { rateLimit } from "@/lib/ratelimit";
-import { askLimitError } from "@/lib/plan";
 
 const HISTORY_LIMIT = 10; // 직전 메시지 N개만 맥락으로 (토큰 방어)
 const MAX_QUESTION = 2000; // 임베딩·LLM 토큰 폭탄 방어
@@ -49,10 +48,6 @@ export async function POST(req: Request) {
   // 강사 본인 자가 테스트(uid===teacherId)는 통과한다.
   if (!(await sameAcademy(db, studentId, teacherId)))
     return NextResponse.json({ error: "teacher not found" }, { status: 404 });
-
-  // 무료 플랜 일일 한도 (학원 단위) — LLM 비용 방어 + 업그레이드 트리거
-  const limitMsg = await askLimitError(db, teacherId);
-  if (limitMsg) return NextResponse.json({ error: limitMsg }, { status: 403 });
 
   // 이어가기 대화 소유권 검증 — 남의 conversationId로 메시지 주입·이력 열람 차단.
   if (conversationId) {

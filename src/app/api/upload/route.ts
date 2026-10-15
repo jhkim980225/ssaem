@@ -3,8 +3,6 @@ import { extractText, getDocumentProxy } from "unpdf";
 import { requireRole } from "@/lib/auth";
 import { saveDocument, ownCourseOrNull, lessonDateOrNull } from "@/lib/documents";
 import { ocrPdf } from "@/lib/ocr";
-import { serviceClient } from "@/lib/supabase";
-import { docLimitError, planForTeacher } from "@/lib/plan";
 import { rateLimit } from "@/lib/ratelimit";
 
 export const runtime = "nodejs";
@@ -32,9 +30,6 @@ export async function POST(req: Request) {
   if (file.size > 15 * 1024 * 1024)
     return NextResponse.json({ error: "PDF는 15MB 이하만 지원해요" }, { status: 413 });
 
-  const limitMsg = await docLimitError(serviceClient(), uid);
-  if (limitMsg) return NextResponse.json({ error: limitMsg }, { status: 403 });
-
   const buf = new Uint8Array(await file.arrayBuffer());
   // MIME은 브라우저 자기신고 — 매직 바이트(%PDF)로 실제 PDF인지 확인
   if (!(buf[0] === 0x25 && buf[1] === 0x50 && buf[2] === 0x44 && buf[3] === 0x46))
@@ -43,14 +38,8 @@ export async function POST(req: Request) {
   const { text } = await extractText(pdf, { mergePages: true });
   let content = (Array.isArray(text) ? text.join("\n") : text).trim();
 
-  // 스캔 PDF: 텍스트 레이어 없음 → LLM 비전 OCR 폴백 (Pro 전용 — 비전 API 비용)
+  // 스캔 PDF: 텍스트 레이어 없음 → LLM 비전 OCR 폴백
   if (!content) {
-    const { plan } = await planForTeacher(serviceClient(), uid);
-    if (plan !== "pro")
-      return NextResponse.json(
-        { error: "스캔 PDF는 아직 지원하지 않아요. 텍스트가 들어 있는 PDF로 올려 주세요." },
-        { status: 403 }
-      );
     // OCR은 15MB를 통째로 비전 모델에 밀어넣는다 — 업로드 한도보다 더 좁게 잡는다
     if (!rateLimit(`ocr:${uid}`, 10, 3_600_000))
       return NextResponse.json(

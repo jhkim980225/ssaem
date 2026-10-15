@@ -65,7 +65,6 @@ const M = (a: typeof ALLOW | typeof DENY, s: typeof ALLOW | typeof DENY, t: type
 function buildCases(teacherId: string): Case[] {
   return [
     // 공개
-    { path: "/api/inquiry", method: "POST", body: {}, expect: M(ALLOW, ALLOW, ALLOW, ALLOW) },
     { path: "/api/join?code=x", expect: M(ALLOW, ALLOW, ALLOW, ALLOW) },
     { path: "/api/join-teacher?code=x", expect: M(ALLOW, ALLOW, ALLOW, ALLOW) },
 
@@ -91,7 +90,6 @@ function buildCases(teacherId: string): Case[] {
     { path: "/api/feedback", method: "POST", body: {}, expect: M(DENY, ALLOW, ALLOW, ALLOW) },
     { path: "/api/profile", expect: M(DENY, ALLOW, ALLOW, ALLOW) },
     { path: "/api/conversations", expect: M(DENY, ALLOW, ALLOW, ALLOW) },
-    { path: "/api/usage", expect: M(DENY, ALLOW, ALLOW, ALLOW) },
     // 문제은행 — 전역 공용, 로그인 전원 (학원 경계 없음)
     { path: "/api/bank", expect: M(DENY, ALLOW, ALLOW, ALLOW) },
     { path: "/api/bank/attempt", expect: M(DENY, ALLOW, ALLOW, ALLOW) },
@@ -182,7 +180,7 @@ async function main() {
 
   section("페이지 라우트 (전 역할 200 — 가드는 클라이언트)");
   for (const p of [
-    "/", "/login", "/reset", "/install", "/pricing", "/legal/terms", "/legal/privacy",
+    "/", "/login", "/reset", "/install", "/legal/terms", "/legal/privacy",
     "/ask", "/quiz", "/quiz/notes", "/my", "/my/history", "/my/records", "/bank", "/bank/notes", "/bank/excel", "/dev",
     "/teacher", "/teacher/insights", "/teacher/history", "/teacher/students", "/admin",
   ]) {

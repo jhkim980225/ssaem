@@ -1,6 +1,5 @@
 "use client";
 import Link from "next/link";
-import { SHOW_PRICING } from "@/lib/flags";
 import { useAuth } from "@/lib/auth-store";
 import { version } from "../../package.json";
 
@@ -52,7 +51,6 @@ export default function SiteFooter() {
                 <p className="text-[12px] font-bold text-sub mb-3">학원</p>
                 <ul className="flex flex-col gap-2 text-[13px]">
                   {item("/admin", "학원장")}
-                  {SHOW_PRICING && item("/pricing", "요금제")}
                 </ul>
               </div>
             )}
