@@ -54,23 +54,25 @@ export default function HistoryPage() {
 
   if (gate) return gate;
 
+  const shown = convs?.filter((c) => !onlyFlagged || c.needs_review) ?? [];
+
   return (
-    <main className="flex-1 w-full max-w-lg lg:max-w-5xl mx-auto px-5 py-8 flex flex-col gap-4">
-      <div className="rise">
-        <Link href="/teacher" className="text-sub text-[13px]">
+    <main className="flex-1 w-full max-w-lg lg:max-w-[1000px] mx-auto px-4 sm:px-5 lg:px-8 py-6 lg:py-8 flex flex-col gap-4">
+      <div className="rise flex flex-col gap-1">
+        <Link href="/teacher" className="text-sub text-[14px] font-semibold lg:hidden">
           ← 대시보드
         </Link>
         <h1 className="text-[24px] lg:text-[28px] font-bold">학생 질문 이력</h1>
-        <p className="text-sub text-[14px]">학생들이 내 튜터에게 물어본 내용이에요.</p>
+        <p className="text-sub text-[14px] lg:text-[15px]">학생들이 내 튜터에게 물어본 내용이에요.</p>
       </div>
 
       {/* 미해결 큐 — 👎 받은 대화만 모아 강사가 보완 (AI 한계를 강사 개입으로) */}
       {(convs?.some((c) => c.needs_review) ?? false) && (
-        <div className="rise d1 flex gap-1.5">
-          <button onClick={() => setOnlyFlagged(false)} className={`chip !text-[13px] ${!onlyFlagged ? "chip-on" : ""}`}>
+        <div className="rise d1 flex gap-2">
+          <button onClick={() => setOnlyFlagged(false)} className={`chip ${!onlyFlagged ? "chip-on font-bold" : ""}`}>
             전체
           </button>
-          <button onClick={() => setOnlyFlagged(true)} className={`chip !text-[13px] ${onlyFlagged ? "chip-on" : ""}`}>
+          <button onClick={() => setOnlyFlagged(true)} className={`chip ${onlyFlagged ? "chip-on font-bold" : ""}`}>
             확인 필요 {convs?.filter((c) => c.needs_review).length}
           </button>
         </div>
@@ -90,24 +92,29 @@ export default function HistoryPage() {
         </div>
       )}
 
-      <div className="flex flex-col gap-2">
-        {convs?.filter((c) => !onlyFlagged || c.needs_review).map((c, i) => (
-          <div key={c.id} className={`rise d${Math.min(i + 1, 6)} card overflow-hidden`}>
-            <button onClick={() => toggle(c.id)} className="w-full text-left p-4 lg:p-5 cursor-pointer">
-              <div className="flex items-center justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="font-bold text-[15px] truncate">
-                    {c.needs_review && (
-                      <span className="mr-1.5 text-[11px] font-bold px-1.5 py-0.5 rounded-md align-middle" style={{ color: "var(--red)", background: "var(--red-weak)" }}>
-                        확인 필요
-                      </span>
-                    )}
-                    {c.title || "제목 없음"}
-                  </p>
-                  <p className="text-sub text-[12px] truncate mt-0.5">{c.student_name ?? "비로그인 학생"}</p>
-                </div>
-                <span className="text-sub text-[12px] shrink-0">
-                  메시지 {c.messages} ·{" "}
+      {shown.length > 0 && (
+      <section className="rise d2 card overflow-hidden py-1">
+        {shown.map((c, i) => (
+          <div key={c.id} className={i > 0 ? "border-t border-line" : ""}>
+            <button
+              onClick={() => toggle(c.id)}
+              aria-expanded={openId === c.id}
+              className="w-full text-left px-5 py-4 lg:px-6 lg:py-5 cursor-pointer transition-colors hover:bg-[var(--fill-2)]"
+            >
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                {c.needs_review && (
+                  <span
+                    className="inline-flex items-center h-6 px-2 rounded-[8px] text-[12px] font-bold shrink-0"
+                    style={{ color: "var(--red)", background: "var(--red-weak)" }}
+                  >
+                    확인 필요
+                  </span>
+                )}
+                <p className="flex-1 basis-[180px] min-w-0 font-bold text-[15px] lg:text-[16px] truncate">
+                  {c.title || "제목 없음"}
+                </p>
+                <span className="text-sub text-[13px] shrink-0">
+                  {c.student_name ?? "비로그인 학생"} · 메시지 {c.messages} ·{" "}
                   {new Date(c.created_at).toLocaleString("ko-KR", {
                     month: "numeric",
                     day: "numeric",
@@ -118,40 +125,46 @@ export default function HistoryPage() {
               </div>
             </button>
             {openId === c.id && (
-              <div className="px-4 lg:px-5 pb-4 flex flex-col gap-2 border-t border-line pt-3">
-                {!msgs[c.id] && !msgErr[c.id] && <div className="skel h-10" />}
-                {msgErr[c.id] && (
-                  <p className="text-[13px] font-bold" style={{ color: "var(--red)" }}>
-                    {msgErr[c.id]}
-                  </p>
-                )}
-                {msgs[c.id]?.map((m) =>
-                  m.role === "user" ? (
-                    /* PC에서 폭을 넓힌 뒤로 말풍선이 한 줄 60자를 넘어 눈이 못 따라간다 — 읽기 폭 상한 */
-                    <div key={m.id} className="self-end max-w-[85%] lg:max-w-[620px] px-4 py-2.5 text-[14px] leading-relaxed whitespace-pre-wrap bg-blue text-white rounded-[12px] rounded-br-[5px]">
-                      {m.content}
-                    </div>
-                  ) : (
-                    <div key={m.id} className="self-start max-w-[92%] lg:max-w-[680px] flex flex-col gap-1">
-                      <div
-                        className="md min-w-0 px-4 py-2.5 text-[14px] leading-relaxed whitespace-pre-wrap rounded-[12px] rounded-bl-[5px] border border-line"
-                        style={{ background: "var(--fill-2)" }}
-                      >
-                        {renderMd(m.content)}
+              <div className="px-5 lg:px-6 pb-5">
+                <div className="rounded-[12px] p-3 lg:p-4 flex flex-col gap-2.5" style={{ background: "var(--fill-2)" }}>
+                  {!msgs[c.id] && !msgErr[c.id] && <div className="skel h-10" />}
+                  {msgErr[c.id] && (
+                    <p className="text-[13px] font-bold" style={{ color: "var(--red)" }}>
+                      {msgErr[c.id]}
+                    </p>
+                  )}
+                  {msgs[c.id]?.map((m) =>
+                    m.role === "user" ? (
+                      /* PC에서 폭을 넓힌 뒤로 말풍선이 한 줄 60자를 넘어 눈이 못 따라간다 — 읽기 폭 상한 */
+                      <div key={m.id} className="self-end max-w-[85%] lg:max-w-[620px] px-3.5 py-2.5 text-[14px] leading-relaxed whitespace-pre-wrap bg-blue text-white rounded-[12px] rounded-br-[4px]">
+                        {m.content}
                       </div>
-                      {m.rating !== null && (
-                        <span className="text-sub text-[12px] pl-1">
-                          학생 평가: {m.rating >= 4 ? "도움됨" : "도움 안 됨"}
-                        </span>
-                      )}
-                    </div>
-                  )
-                )}
+                    ) : (
+                      <div key={m.id} className="self-start max-w-[92%] lg:max-w-[680px] flex flex-col gap-1">
+                        <div
+                          className="md min-w-0 px-3.5 py-2.5 text-[14px] leading-relaxed whitespace-pre-wrap rounded-[12px] rounded-tl-[4px] border border-line"
+                          style={{ background: "var(--surface)" }}
+                        >
+                          {renderMd(m.content)}
+                        </div>
+                        {m.rating !== null && (
+                          <span
+                            className={`text-[13px] pl-1 ${m.rating >= 4 ? "text-sub" : "font-semibold"}`}
+                            style={m.rating >= 4 ? undefined : { color: "var(--red)" }}
+                          >
+                            학생 평가: {m.rating >= 4 ? "도움됨" : "도움 안 됨"}
+                          </span>
+                        )}
+                      </div>
+                    )
+                  )}
+                </div>
               </div>
             )}
           </div>
         ))}
-      </div>
+      </section>
+      )}
     </main>
   );
 }

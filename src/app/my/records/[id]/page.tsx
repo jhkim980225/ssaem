@@ -59,27 +59,27 @@ export default function RecordDetailPage({ params }: { params: Promise<{ id: str
   const title = s ? (s.subject === "오답노트" ? "오답노트 다시 풀기" : s.source ?? `${s.subject} 랜덤`) : "";
 
   return (
-    <main className="flex-1 w-full max-w-2xl lg:max-w-5xl mx-auto px-5 py-8 flex flex-col gap-4">
-      <div className="rise flex items-start justify-between gap-3">
-        <div className="flex flex-col gap-1 min-w-0">
-          <BackButton fallback="/my/records" />
-          <h1 className="text-[24px] lg:text-[28px] font-bold truncate">{title || "시험 기록"}</h1>
-          {s && (
-            <p className="text-sub text-[14px]">
-              {new Date(s.at).toLocaleString("ko-KR", {
-                year: "numeric",
-                month: "numeric",
-                day: "numeric",
-                hour: "2-digit",
-                minute: "2-digit",
-              })}
-            </p>
-          )}
-        </div>
+    <main className="flex-1 w-full max-w-2xl lg:max-w-5xl mx-auto px-4 pb-8 lg:px-5 lg:py-8 flex flex-col gap-3 lg:gap-4">
+      <header className="h-[50px] flex items-center justify-between gap-3">
+        <BackButton fallback="/my/records" />
         <Link href="/bank" className="chip shrink-0 !text-[13px]">
           기출문제
         </Link>
-      </div>
+      </header>
+      <section className="rise px-1 pb-1 min-w-0">
+        <h1 className="text-[24px] lg:text-[28px] font-bold truncate mb-1.5">{title || "시험 기록"}</h1>
+        {s && (
+          <p className="text-sub text-[15px]">
+            {new Date(s.at).toLocaleString("ko-KR", {
+              year: "numeric",
+              month: "numeric",
+              day: "numeric",
+              hour: "2-digit",
+              minute: "2-digit",
+            })}
+          </p>
+        )}
+      </section>
 
       {err && (
         <section className="rise d1 card p-5 flex flex-col gap-3 lg:max-w-2xl">
@@ -93,24 +93,8 @@ export default function RecordDetailPage({ params }: { params: Promise<{ id: str
       {!data && !err && <div className="rise d1 skel h-64 !rounded-[16px]" />}
 
       {data && s && (
-        <div className="lg:grid lg:grid-cols-[1fr_280px] lg:gap-5 lg:items-start flex flex-col gap-4">
+        <div className="lg:grid lg:grid-cols-[1fr_300px] lg:gap-5 lg:items-start flex flex-col gap-3">
           <div className="flex flex-col gap-3 min-w-0">
-            {/* 모바일 요약 — PC는 우측 레일이 대신한다 */}
-            <div className="rise d1 grid grid-cols-3 gap-2 lg:hidden">
-              {(
-                [
-                  ["점수", `${s.score}/${s.total}`],
-                  ["정답률", `${pct}%`],
-                  ["틀린 문항", `${wrong.length}개`],
-                ] as const
-              ).map(([label, v]) => (
-                <div key={label} className="card p-3 text-center">
-                  <p className="text-[18px] font-bold tabular-nums">{v}</p>
-                  <p className="text-[11px] text-sub mt-0.5">{label}</p>
-                </div>
-              ))}
-            </div>
-
             {data.items.length === 0 ? (
               <section className="rise d1 card p-8 text-center">
                 <p className="text-[15px] font-bold mb-1">문항 기록이 남아 있지 않아요</p>
@@ -120,16 +104,26 @@ export default function RecordDetailPage({ params }: { params: Promise<{ id: str
               </section>
             ) : (
               <>
-                <div className="rise d1 flex items-center gap-2 flex-wrap">
+                {/* 틀린/전체 세그먼트 */}
+                <div
+                  role="tablist"
+                  aria-label="문항 보기"
+                  className="rise d1 grid grid-cols-2 gap-1 p-1 rounded-[10px]"
+                  style={{ background: "var(--fill)" }}
+                >
                   <button
+                    role="tab"
+                    aria-selected={onlyWrong}
                     onClick={() => setOnlyWrong(true)}
-                    className={`chip !text-[13px] ${onlyWrong ? "chip-on" : ""}`}
+                    className={`h-10 rounded-[7px] text-[15px] transition-colors ${onlyWrong ? "bg-surface font-bold text-text" : "font-semibold text-sub"}`}
                   >
                     틀린 문항 {wrong.length}개
                   </button>
                   <button
+                    role="tab"
+                    aria-selected={!onlyWrong}
                     onClick={() => setOnlyWrong(false)}
-                    className={`chip !text-[13px] ${!onlyWrong ? "chip-on" : ""}`}
+                    className={`h-10 rounded-[7px] text-[15px] transition-colors ${!onlyWrong ? "bg-surface font-bold text-text" : "font-semibold text-sub"}`}
                   >
                     전체 {data.items.length}문항
                   </button>
@@ -142,65 +136,87 @@ export default function RecordDetailPage({ params }: { params: Promise<{ id: str
                   </section>
                 )}
 
-                <div className="flex flex-col gap-2">
+                <div className="flex flex-col gap-3">
                   {shown.map((n, i) => {
                     const isOpen = open === n.id;
                     const isTheory = Array.isArray(n.choices) && n.choices.length > 0;
                     return (
-                      <div key={n.id} className="rise card overflow-hidden">
+                      <article key={n.id} className="rise card overflow-hidden">
                         <button
                           onClick={() => setOpen(isOpen ? null : n.id)}
-                          className="w-full text-left p-4 flex items-start justify-between gap-3"
+                          aria-expanded={isOpen}
+                          className="w-full text-left px-5 py-[18px] flex flex-col gap-2"
                         >
-                          <div className="min-w-0">
-                            <div className="flex gap-1.5 flex-wrap mb-1 items-center">
-                              <span className="text-sub text-[12px] font-bold tabular-nums">{i + 1}번</span>
-                              <span
-                                className="chip !py-0.5 !px-2 !text-[11px]"
-                                style={
-                                  n.correct
-                                    ? { color: "var(--blue)", background: "var(--blue-weak)" }
-                                    : { color: "var(--red)", background: "var(--red-weak)" }
-                                }
-                              >
-                                {n.correct ? "정답" : "오답"}
-                              </span>
-                              <span className="chip !py-0.5 !px-2 !text-[11px]">{n.typeTag}</span>
-                            </div>
-                            <p className="text-[14px] font-medium line-clamp-2 break-keep"><Hi text={n.stem.split("\n")[0]} /></p>
+                          <div className="flex gap-1.5 items-center min-w-0">
+                            <span className="text-[15px] font-bold tabular-nums shrink-0">{i + 1}번</span>
+                            <span
+                              className="shrink-0 h-6 px-2 rounded-[6px] text-[12px] font-bold inline-flex items-center"
+                              style={
+                                n.correct
+                                  ? { color: "var(--blue)", background: "var(--blue-weak)" }
+                                  : { color: "var(--red)", background: "var(--red-weak)" }
+                              }
+                            >
+                              {n.correct ? "정답" : "오답"}
+                            </span>
+                            <span
+                              className="min-w-0 truncate h-6 px-2 rounded-[6px] text-[12px] font-semibold leading-6 text-[var(--sub-2)]"
+                              style={{ background: "var(--fill)" }}
+                            >
+                              {n.typeTag}
+                            </span>
+                            <svg
+                              width="20"
+                              height="20"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              className={`ml-auto shrink-0 text-sub transition-transform ${isOpen ? "rotate-180" : ""}`}
+                              aria-hidden
+                            >
+                              <path d="M6 9l6 6 6-6" />
+                            </svg>
                           </div>
-                          <span className="text-sub text-[13px] shrink-0">{isOpen ? "접기" : "보기"}</span>
+                          {/* 펼치면 아래 StemView가 지문 전체를 보여준다 — 접혔을 때만 한 줄 미리보기 */}
+                          {!isOpen && (
+                            <p className="text-[15px] line-clamp-1 break-keep">
+                              <Hi text={n.stem.split("\n")[0]} />
+                            </p>
+                          )}
                         </button>
 
                         {isOpen && (
-                          <div className="px-4 lg:px-5 pb-5 flex flex-col gap-4 border-t border-line pt-4">
+                          <div className="px-5 pb-5 flex flex-col gap-3.5">
                             <StemView stem={n.stem} images={n.images} />
                             {isTheory ? (
-                              <div className="flex flex-col gap-2.5">
+                              <div className="flex flex-col gap-1.5">
                                 {n.choices!.map((c, ci) => {
                                   const isAnswer = n.answerIdx === ci;
                                   const isMine = n.chosen === ci;
                                   const style: React.CSSProperties = isAnswer
-                                    ? { borderColor: "var(--blue)", background: "var(--blue-weak)" }
+                                    ? { color: "var(--blue)", background: "var(--blue-weak)" }
                                     : isMine
-                                      ? { borderColor: "var(--red)", background: "var(--red-weak)" }
-                                      : {};
+                                      ? { color: "var(--red)", background: "var(--red-weak)" }
+                                      : { background: "var(--fill-2)" };
                                   return (
                                     <div
                                       key={ci}
                                       style={style}
-                                      className="rounded-[12px] border border-line px-4 py-3.5 min-h-[54px] text-[15px] leading-[1.65] break-keep flex items-start gap-3"
+                                      className={`rounded-[8px] px-3.5 py-3 text-[14px] leading-[1.6] break-keep flex items-start gap-2.5 ${
+                                        isAnswer || isMine ? "font-bold" : ""
+                                      }`}
                                     >
-                                      <span className="shrink-0 grid place-items-center w-5 h-5 mt-0.5 rounded-full border border-current text-[11px] font-bold">
+                                      <span className="shrink-0 grid place-items-center w-5 h-5 mt-px rounded-full border border-current text-[11px] font-bold">
                                         {ci + 1}
                                       </span>
-                                      <span className="flex-1 min-w-0"><ChoiceView text={c} /></span>
-                                      {isAnswer && <span className="text-blue text-[11px] font-bold shrink-0">정답</span>}
-                                      {isMine && !isAnswer && (
-                                        <span className="text-[11px] font-bold shrink-0" style={{ color: "var(--red)" }}>
-                                          내 답
-                                        </span>
-                                      )}
+                                      <span className="flex-1 min-w-0">
+                                        <ChoiceView text={c} />
+                                      </span>
+                                      {isAnswer && <span className="text-[12px] font-bold shrink-0">정답</span>}
+                                      {isMine && !isAnswer && <span className="text-[12px] font-bold shrink-0">내 답</span>}
                                     </div>
                                   );
                                 })}
@@ -211,7 +227,7 @@ export default function RecordDetailPage({ params }: { params: Promise<{ id: str
                               </div>
                             ) : (
                               n.answerText && (
-                                <div className="rounded-[12px] border border-line p-4" style={{ background: "var(--blue-weak)" }}>
+                                <div className="rounded-[10px] p-3.5" style={{ background: "var(--blue-weak)" }}>
                                   <p className="text-[12px] font-bold text-blue mb-1.5">정답 (분개)</p>
                                   <JournalEntry text={n.answerText} />
                                 </div>
@@ -219,48 +235,65 @@ export default function RecordDetailPage({ params }: { params: Promise<{ id: str
                             )}
                             <ExcelTry area={n.area} stem={n.stem} choices={n.choices} />
                             {n.explanation && (
-                              <div className="rounded-[12px] border border-line p-4">
-                                <p className="text-[12px] font-bold text-sub mb-1.5">해설</p>
+                              <div className="rounded-[10px] p-3.5" style={{ background: "var(--fill-2)" }}>
+                                <p className="text-[14px] font-bold mb-1">해설</p>
                                 <ExplanationView text={n.explanation} />
                               </div>
                             )}
                           </div>
                         )}
-                      </div>
+                      </article>
                     );
                   })}
                 </div>
               </>
             )}
+
+            {/* 모바일은 목록 맨 아래 큰 버튼 — PC는 우측 요약 카드 안에 있다 */}
+            <Link
+              href="/bank/notes"
+              className="btn btn-primary h-[50px] text-[17px] flex items-center justify-center lg:hidden"
+            >
+              오답노트 보기
+            </Link>
           </div>
 
-          <aside className="rise d2 card p-5 hidden lg:flex flex-col gap-3">
-            <h3 className="font-bold text-[15px]">채점 결과</h3>
-            <div className="text-center py-2">
-              <p className="text-[32px] font-bold tabular-nums leading-none">
-                {s.score}
-                <span className="text-[16px] text-sub"> / {s.total}</span>
-              </p>
+          {/* 점수 요약 — 모바일은 맨 위, PC는 우측 레일 */}
+          <aside className="rise d1 card px-5 py-6 flex flex-col gap-4 text-center order-first lg:order-none lg:sticky lg:top-[76px]">
+            <div>
+              <p className="text-sub text-[14px] truncate">{s.subject}</p>
               <p
-                className="text-[14px] font-bold tabular-nums mt-1"
+                className="text-[40px] font-bold tabular-nums leading-tight mt-2"
                 style={{ color: pct >= 60 ? "var(--blue)" : "var(--red)" }}
               >
-                {pct}%
+                {pct}점
+              </p>
+              <p className="text-[15px] text-[var(--sub-2)]">
+                {s.total}문항 중 {s.score}문항 맞혔어요
               </p>
             </div>
-            <dl className="flex flex-col gap-2 text-[14px]">
-              <div className="flex justify-between gap-2">
-                <dt className="text-sub">과목</dt>
-                <dd className="font-bold text-right min-w-0 truncate">{s.subject}</dd>
-              </div>
-              <div className="flex justify-between gap-2">
-                <dt className="text-sub">틀린 문항</dt>
-                <dd className="font-bold text-right" style={{ color: wrong.length ? "var(--red)" : undefined }}>
-                  {wrong.length}개
-                </dd>
-              </div>
-            </dl>
-            <Link href="/bank/notes" className="btn btn-gray w-full py-2.5 text-[13px] text-center">
+            <div className="grid grid-cols-3 gap-2">
+              {(
+                [
+                  ["점수", `${s.score} / ${s.total}`],
+                  ["정답률", `${pct}%`],
+                  ["틀린 문항", `${wrong.length}`],
+                ] as const
+              ).map(([label, v]) => {
+                const red = label === "틀린 문항" && wrong.length > 0;
+                return (
+                  <div
+                    key={label}
+                    className="rounded-[10px] px-1 py-3"
+                    style={red ? { background: "var(--red-weak)", color: "var(--red)" } : { background: "var(--fill-2)" }}
+                  >
+                    <p className={`text-[12px] ${red ? "" : "text-sub"}`}>{label}</p>
+                    <p className="text-[17px] font-bold tabular-nums mt-1">{v}</p>
+                  </div>
+                );
+              })}
+            </div>
+            <Link href="/bank/notes" className="btn btn-gray w-full py-2.5 text-[13px] text-center hidden lg:block">
               오답노트 보기
             </Link>
           </aside>

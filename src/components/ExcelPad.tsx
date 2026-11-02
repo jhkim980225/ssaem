@@ -548,11 +548,11 @@ export default function ExcelPad({
       )}
 
       {/* 이름 상자 + 수식 입력줄 */}
-      <div className="flex items-stretch rounded-[10px] border border-line overflow-hidden" style={{ background: "var(--surface)" }}>
-        <span className="shrink-0 w-[68px] grid place-items-center text-[12px] font-bold tabular-nums border-r border-line" style={{ background: "var(--fill-2)" }}>
+      <div className="flex items-center gap-2">
+        <span className="shrink-0 w-[72px] h-10 rounded-[8px] border border-line grid place-items-center text-[14px] font-bold tabular-nums" style={{ background: "var(--fill-2)" }}>
           {rectName(sel)}
         </span>
-        <span className="shrink-0 px-2 grid place-items-center text-[12px] italic text-sub border-r border-line">fx</span>
+        <span className="shrink-0 text-[14px] italic font-bold text-sub">fx</span>
         <input
           ref={barInput}
           value={shown}
@@ -577,7 +577,7 @@ export default function ExcelPad({
           autoCorrect="off"
           aria-label="수식 입력줄"
           placeholder="값이나 =수식 입력"
-          className="flex-1 min-w-0 px-2.5 py-2 text-[14px] outline-none bg-transparent font-mono"
+          className="flex-1 min-w-0 h-10 px-3.5 rounded-[8px] border border-line text-[14px] outline-none bg-[var(--surface)] font-mono focus:border-[var(--blue)]"
         />
       </div>
 
@@ -769,8 +769,8 @@ export default function ExcelPad({
       </div>
 
       {/* 상태 표시줄 + 도구 */}
-      <div className="flex flex-wrap items-center justify-between gap-2 text-[12px] text-sub">
-        <span className="tabular-nums flex gap-3" data-status>
+      <div className="flex flex-wrap items-center justify-between gap-2.5 text-[13px] text-sub">
+        <span className="tabular-nums flex gap-3 order-last" data-status>
           {stats ? (
             <>
               {stats.avg !== null && <span>평균: {fmtNum(stats.avg)}</span>}
@@ -781,15 +781,15 @@ export default function ExcelPad({
             "칸을 끌어 범위를 고르면 평균·개수·합계가 보여요"
           )}
         </span>
-        <span className="flex gap-1.5">
-          <button type="button" onClick={undo} className="chip !text-[12px] !py-1" title="Ctrl+Z">
+        <span className="flex flex-wrap gap-1.5">
+          <button type="button" onClick={undo} className="btn btn-gray h-9 px-3 !rounded-[8px] text-[13px] !font-semibold" title="Ctrl+Z">
             되돌리기
           </button>
-          <button type="button" onClick={copySel} className="chip !text-[12px] !py-1">
+          <button type="button" onClick={copySel} className="btn btn-gray h-9 px-3 !rounded-[8px] text-[13px] !font-semibold">
             복사
           </button>
           {clip && (
-            <button type="button" onClick={() => pasteText(clip.tsv)} className="chip !text-[12px] !py-1">
+            <button type="button" onClick={() => pasteText(clip.tsv)} className="btn btn-gray h-9 px-3 !rounded-[8px] text-[13px] !font-semibold">
               붙여넣기
             </button>
           )}
@@ -800,7 +800,7 @@ export default function ExcelPad({
               change({});
               cancel();
             }}
-            className="chip !text-[12px] !py-1"
+            className="btn btn-gray h-9 px-3 !rounded-[8px] text-[13px] !font-semibold"
           >
             모두 지우기
           </button>

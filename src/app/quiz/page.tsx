@@ -146,73 +146,67 @@ function QuizInner() {
   // 화면 폭: PC에선 컨트롤 좌레일 + 문제 우측 2단(5xl). 공부 모드는 문제·해설이 또 2단이라 더 넓게 (bank과 동일 패턴)
   const width = study && qs?.length ? "max-w-[1240px]" : "max-w-2xl lg:max-w-5xl";
 
+  // 진행 바 — 시험·공부 모드 공통으로 문제 카드 맨 위에 붙는다
+  const progress = qs && qs.length > 0 && (
+    <div className="mb-5">
+      <div className="flex items-center justify-between text-[14px] mb-2.5">
+        <span className="font-bold text-blue tabular-nums">
+          {idx + 1} / {qs.length}문제
+        </span>
+        {!study && (
+          <span className="text-sub tabular-nums">
+            맞은 개수 {score.right} / {score.done}
+          </span>
+        )}
+      </div>
+      <div className="h-1.5 rounded-full overflow-hidden" style={{ background: "var(--fill)" }}>
+        <div
+          className="h-full rounded-full bg-blue transition-[width] duration-300"
+          style={{ width: `${Math.min(((idx + 1) / qs.length) * 100, 100)}%` }}
+        />
+      </div>
+    </div>
+  );
+
+  const rate = score.done ? Math.round((score.right / score.done) * 100) : 0;
+  const scroller = "flex gap-1.5 overflow-x-auto [scrollbar-width:none] -mx-4 px-4 sm:-mx-5 sm:px-5 lg:mx-0 lg:px-0 lg:flex-wrap lg:overflow-visible";
+
   return (
-    <main className={`flex-1 w-full ${width} mx-auto px-5 py-8 flex flex-col gap-4`}>
-      <div className="rise flex items-start justify-between gap-3">
-        <div className="flex flex-col gap-1">
-          <h1 className="text-[24px] lg:text-[28px] font-bold">
-            {mode === "wrong" ? "오답 다시 풀기" : "문제 풀기"}
-          </h1>
-          <p className="text-sub text-[14px]">
-            {mode === "wrong"
-              ? `${wrongAll ? "모든 선생님의 오답을 한 번에 모았어요. " : "틀렸던 문제만 모았어요. "}맞히면 극복한 오답으로 기록돼요.`
-              : "선생님이 올린 자료로 만든 문제예요."}
-          </p>
+    <main className={`flex-1 w-full ${width} mx-auto px-4 sm:px-5 pt-3 pb-8 lg:py-8 flex flex-col gap-3 lg:gap-4`}>
+      <div className="rise flex flex-col gap-1">
+        <div className="flex items-center justify-between gap-3 min-h-12">
+          <h1 className="text-[22px] lg:text-[28px] font-bold">{mode === "wrong" ? "오답 다시 풀기" : "문제풀이"}</h1>
+          <Link href="/quiz/notes" className="chip shrink-0 h-9 !py-0 flex items-center !font-bold text-text">
+            오답노트
+          </Link>
         </div>
-        <Link href="/quiz/notes" className="chip shrink-0 !text-[13px]">
-          오답노트
-        </Link>
+        {mode === "wrong" && (
+          <p className="text-sub text-[14px]">
+            {wrongAll ? "모든 선생님의 오답을 한 번에 모았어요. " : "틀렸던 문제만 모았어요. "}맞히면 극복한 오답으로 기록돼요.
+          </p>
+        )}
       </div>
 
       {/* PC에선 좌(컨트롤 레일 sticky) / 우(문제) 2단 — 모바일 기둥 방지 */}
-      <div className="flex flex-col gap-4 lg:grid lg:grid-cols-[300px_minmax(0,1fr)] lg:gap-6 lg:items-start">
-      <div className="flex flex-col gap-4 lg:sticky lg:top-[76px]">
+      <div className="flex flex-col gap-3 lg:grid lg:grid-cols-[300px_minmax(0,1fr)] lg:gap-6 lg:items-start">
+      <div className="flex flex-col gap-3 lg:sticky lg:top-[76px]">
       {/* 연습문제 / 평가 탭 — 전체 오답 모드는 연습문제 오답만 다루므로 숨긴다 */}
       {!wrongAll && (
-      <div className="rise d1 flex flex-wrap gap-1.5">
-        <button
-          onClick={() => setTab("practice")}
-          className={`chip !text-[13px] ${tab === "practice" ? "chip-on" : ""}`}
-        >
-          연습문제
-        </button>
-        <button
-          onClick={() => setTab("exam")}
-          className={`chip !text-[13px] ${tab === "exam" ? "chip-on" : ""}`}
-        >
-          평가
-        </button>
-        <span className="self-center text-[12px] text-sub ml-1">
-          {tab === "exam" ? "선생님이 올린 시험 · 1회만 응시" : "자료로 만든 연습문제"}
-        </span>
-      </div>
+        <Segment
+          label="문제 종류"
+          value={tab}
+          onChange={setTab}
+          items={[
+            ["practice", "연습문제"],
+            ["exam", "평가"],
+          ]}
+        />
       )}
 
-      {/* 시험/공부 모드 토글 (연습문제 전용) */}
-      {tab === "practice" && (
-      <div className="rise d1 flex flex-wrap gap-1.5">
-        <button
-          onClick={() => setStudy(false)}
-          className={`chip !text-[13px] ${!study ? "chip-on" : ""}`}
-        >
-          시험 모드
-        </button>
-        <button
-          onClick={() => setStudy(true)}
-          className={`chip !text-[13px] ${study ? "chip-on" : ""}`}
-        >
-          공부 모드
-        </button>
-        <span className="self-center text-[12px] text-sub ml-1">
-          {study ? "정답·풀이를 옆에 두고 익혀요" : "풀고 바로 채점해요"}
-        </span>
-      </div>
-      )}
-
-      {/* 선생님·강좌 선택 — 전체 오답 모드에선 선생님 구분 없이 풀므로 숨긴다 */}
+      {/* 선생님·강좌 선택 — 폰은 가로 스크롤 칩 줄, PC는 레일 카드. 전체 오답 모드에선 숨긴다 */}
       {!wrongAll && (
-      <div className="rise d1 card p-4 flex flex-col gap-3">
-        <div className="flex gap-1.5 overflow-x-auto lg:flex-wrap lg:overflow-visible">
+      <div className="rise d1 flex flex-col gap-2 lg-card lg:p-4">
+        <div className={scroller}>
           {teachers?.map((t) => (
             <button
               key={t.id}
@@ -220,17 +214,17 @@ function QuizInner() {
                 setTeacherId(t.id);
                 setCourseId("");
               }}
-              className={`chip shrink-0 !text-[13px] ${teacherId === t.id ? "chip-on" : ""}`}
+              className={`chip shrink-0 h-9 !py-0 flex items-center whitespace-nowrap ${teacherId === t.id ? "chip-on !font-bold" : ""}`}
             >
               {t.name}
             </button>
           ))}
         </div>
         {courses.length > 0 && (
-          <div className="flex gap-1.5 overflow-x-auto lg:flex-wrap lg:overflow-visible">
+          <div className={scroller}>
             <button
               onClick={() => setCourseId("")}
-              className={`chip shrink-0 !py-1 !px-2.5 !text-[12px] ${courseId === "" ? "chip-on" : ""}`}
+              className={`chip shrink-0 h-8 !py-0 !px-3 !text-[13px] flex items-center whitespace-nowrap ${courseId === "" ? "chip-on" : ""}`}
             >
               전체
             </button>
@@ -238,7 +232,7 @@ function QuizInner() {
               <button
                 key={c.id}
                 onClick={() => setCourseId(c.id)}
-                className={`chip shrink-0 !py-1 !px-2.5 !text-[12px] ${courseId === c.id ? "chip-on" : ""}`}
+                className={`chip shrink-0 h-8 !py-0 !px-3 !text-[13px] flex items-center whitespace-nowrap ${courseId === c.id ? "chip-on" : ""}`}
               >
                 {c.title}
               </button>
@@ -247,9 +241,26 @@ function QuizInner() {
         )}
       </div>
       )}
+
+      {/* 시험/공부 모드 토글 (연습문제 전용) */}
+      {tab === "practice" && (
+        <Segment
+          label="풀이 모드"
+          value={study ? "study" : "exam"}
+          onChange={(v) => setStudy(v === "study")}
+          items={[
+            ["exam", "시험 모드 · 풀고 채점"],
+            ["study", "공부 모드 · 답 보며"],
+          ]}
+        />
+      )}
+
+      {tab === "exam" && (
+        <p className="px-1 text-[14px] text-sub">선생님이 올린 시험이에요 · 1회만 응시할 수 있어요</p>
+      )}
       </div>
 
-      <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-3 lg:gap-4">
       {tab === "exam" && teacherId && (
         <AssessmentRunner token={session?.access_token} teacherId={teacherId} />
       )}
@@ -262,14 +273,14 @@ function QuizInner() {
         </p>
       )}
 
-      {qs === null && <div className="skel h-52 !rounded-[16px]" />}
+      {qs === null && <div className="skel h-72 !rounded-[16px]" />}
 
       {/* 비로그인 오답모드 — 서버가 빈 목록 + needLogin을 주므로 안내로 받는다 */}
       {needLogin && (
         <div className="rise d2 card p-10 text-center">
-          <p className="text-[15px] font-bold mb-1">로그인하면 오답노트를 쓸 수 있어요</p>
-          <p className="text-sub text-[13px] mb-5">틀린 문제가 계정에 저장돼서 다시 풀 수 있어요.</p>
-          <Link href="/login?role=student" className="btn btn-primary py-3 px-6 inline-block">
+          <p className="text-[16px] font-bold mb-1">로그인하면 오답노트를 쓸 수 있어요</p>
+          <p className="text-sub text-[14px] mb-5">틀린 문제가 계정에 저장돼서 다시 풀 수 있어요.</p>
+          <Link href="/login?role=student" className="btn btn-primary h-12 px-6 inline-flex items-center">
             학생 로그인
           </Link>
         </div>
@@ -277,10 +288,10 @@ function QuizInner() {
 
       {qs?.length === 0 && !err && !needLogin && (
         <div className="rise d2 card p-10 text-center">
-          <p className="text-[15px] font-bold mb-1">
+          <p className="text-[16px] font-bold mb-1">
             {mode === "wrong" ? "틀린 문제가 없어요" : "아직 만들어진 문제가 없어요"}
           </p>
-          <p className="text-sub text-[13px]">
+          <p className="text-sub text-[14px]">
             {mode === "wrong"
               ? "문제를 풀다 틀리면 여기에 모여요."
               : "선생님이 자료로 문제를 만들면 여기에 나와요."}
@@ -288,56 +299,38 @@ function QuizInner() {
         </div>
       )}
 
-      {/* 진행 상황 */}
-      {qs && qs.length > 0 && !finished && (
-        <div className="rise d2 flex items-center justify-between text-[13px] text-sub">
-          <span>
-            {idx + 1} / {qs.length}문제
-          </span>
-          {!study && (
-            <span className="tabular-nums">
-              맞은 개수 {score.right} / {score.done}
-            </span>
-          )}
-        </div>
-      )}
-
       {/* 공부 모드 — 문제 옆에 정답·풀이 (데스크톱 2단, 모바일 세로) */}
       {study && q && (
-        <div key={q.id} className="animate-pop grid gap-4 lg:grid-cols-[minmax(0,1.55fr)_minmax(340px,0.85fr)]">
-          <div className="card p-5 lg:p-6 flex flex-col gap-4">
-            <p className="text-[16px] font-bold leading-relaxed">{q.question}</p>
+        <div key={q.id} className="animate-pop grid gap-3 lg:gap-4 lg:grid-cols-[minmax(0,1.55fr)_minmax(340px,0.85fr)]">
+          <div className="card p-5 lg:p-6 flex flex-col">
+            {progress}
+            <p className="text-[17px] font-bold leading-relaxed mb-4 break-keep">{q.question}</p>
             <div className="flex flex-col gap-2">
               {q.choices.map((c, i) => {
                 const isAnswer = q.answer === i;
                 return (
-                  <div
-                    key={i}
-                    className="flex items-start gap-3 rounded-[12px] border border-line p-3.5"
-                    style={isAnswer ? { borderColor: "var(--blue)", background: "var(--blue-weak)" } : {}}
-                  >
-                    <span className="shrink-0 grid place-items-center w-6 h-6 rounded-full border border-line text-[12px] font-bold">
-                      {i + 1}
-                    </span>
-                    <span className="text-[14px] leading-relaxed">{c}</span>
+                  <div key={i} className={CHOICE} style={isAnswer ? RIGHT : NEUTRAL}>
+                    <ChoiceBody n={i + 1} text={c} mark={isAnswer ? "right" : null} />
                   </div>
                 );
               })}
             </div>
           </div>
-          <div className="card p-5 lg:p-6 flex flex-col gap-3 self-start lg:sticky lg:top-[76px]">
-            <p className="text-[13px] font-bold text-blue">정답 {(q.answer ?? 0) + 1}번</p>
-            <p className="text-[14px] leading-relaxed" style={{ color: "var(--sub-2)" }}>
-              {q.explanation || "이 문제는 해설이 없어요."}
-            </p>
-            <div className="flex gap-2 mt-1">
-              <button onClick={() => studyGo(-1)} disabled={idx === 0} className="btn btn-gray flex-1 py-3 disabled:opacity-50">
+          <div className="flex flex-col gap-3 self-start w-full lg:sticky lg:top-[76px]">
+            <div className="card p-5 lg:p-6">
+              <p className="text-[15px] font-bold text-blue mb-2">정답 {(q.answer ?? 0) + 1}번</p>
+              <p className="text-[15px] leading-relaxed break-keep" style={{ color: "var(--text-2)" }}>
+                {q.explanation || "이 문제는 해설이 없어요."}
+              </p>
+            </div>
+            <div className="grid grid-cols-[1fr_2fr] gap-2">
+              <button onClick={() => studyGo(-1)} disabled={idx === 0} className="btn btn-gray h-[50px] text-[17px]">
                 이전
               </button>
               <button
                 onClick={() => studyGo(1)}
                 disabled={idx >= qs!.length - 1}
-                className="btn btn-primary flex-1 py-3 disabled:opacity-50"
+                className="btn btn-primary h-[50px] text-[17px]"
               >
                 다음
               </button>
@@ -348,83 +341,105 @@ function QuizInner() {
 
       {/* 시험 모드 — 문제 */}
       {!study && q && !finished && (
-        <div key={q.id} className="animate-pop card p-5 lg:p-6 flex flex-col gap-4">
-          <p className="text-[16px] font-bold leading-relaxed">{q.question}</p>
+        <>
+        <div key={q.id} className="animate-pop card p-5 lg:p-6 flex flex-col">
+          {progress}
+          <p className="text-[17px] font-bold leading-relaxed mb-4 break-keep">{q.question}</p>
 
           <div className="flex flex-col gap-2">
             {q.choices.map((c, i) => {
               const isPicked = picked === i;
               const isAnswer = graded?.answer === i;
-              // 채점 전엔 선택만 표시, 채점 후엔 정답(파랑)·내 오답(빨강)을 함께 보여준다
-              const style: React.CSSProperties = graded
-                ? isAnswer
-                  ? { borderColor: "var(--blue)", background: "var(--blue-weak)" }
-                  : isPicked
-                    ? { borderColor: "var(--red)", background: "var(--red-weak)" }
-                    : {}
-                : isPicked
-                  ? { borderColor: "var(--blue)" }
-                  : {};
+              // 채점 전엔 선택만 표시, 채점 후엔 정답·내 오답을 함께 보여준다
+              const mark = graded ? (isAnswer ? "right" : isPicked ? "wrong" : null) : null;
+              const style = mark === "right" ? RIGHT : mark === "wrong" ? WRONG : isPicked ? PICKED : NEUTRAL;
               return (
                 <button
                   key={i}
                   onClick={() => submit(i)}
                   disabled={Boolean(graded) || busy}
-                  className="flex items-start gap-3 rounded-[12px] border border-line p-3.5 text-left transition-colors disabled:cursor-default hover:border-[var(--border-strong)]"
+                  className={`${CHOICE} disabled:cursor-default enabled:hover:brightness-[0.97]`}
                   style={style}
                 >
-                  <span className="shrink-0 grid place-items-center w-6 h-6 rounded-full border border-line text-[12px] font-bold">
-                    {i + 1}
-                  </span>
-                  <span className="text-[14px] leading-relaxed">{c}</span>
+                  <ChoiceBody n={i + 1} text={c} mark={mark} />
                 </button>
               );
             })}
           </div>
 
           {graded && (
-            <div className="animate-pop flex flex-col gap-2 pt-1">
-              <p className="text-[15px] font-bold" style={{ color: graded.correct ? "var(--blue)" : "var(--red)" }}>
+            <div
+              className="animate-pop mt-4 rounded-[12px] p-4 flex flex-col gap-1.5"
+              style={{ background: graded.correct ? "var(--blue-weak)" : "var(--red-weak)" }}
+            >
+              <p className="text-[16px] font-bold" style={{ color: graded.correct ? "var(--blue)" : "var(--red)" }}>
                 {graded.correct ? "정답이에요" : "틀렸어요"}
               </p>
               {graded.explanation && (
-                <p className="text-[14px] leading-relaxed rounded-[12px] p-3.5" style={{ background: "var(--fill-2)", color: "var(--sub-2)" }}>
+                <p className="text-[14px] leading-relaxed break-keep" style={{ color: "var(--text-2)" }}>
                   {graded.explanation}
                 </p>
               )}
-              {!session && (
-                <p className="text-[12px] text-sub">
-                  로그인하면 틀린 문제가 오답노트에 저장돼요.{" "}
-                  <Link href="/login?role=student" className="text-blue font-bold">
-                    로그인하기
-                  </Link>
-                </p>
-              )}
-              <button onClick={next} className="btn btn-primary py-3.5 mt-1">
-                {idx + 1 === qs!.length ? "결과 보기" : "다음 문제"}
-              </button>
             </div>
           )}
+          {graded && !session && (
+            <p className="text-[13px] text-sub mt-3">
+              로그인하면 틀린 문제가 오답노트에 저장돼요.{" "}
+              <Link href="/login?role=student" className="text-blue font-bold">
+                로그인하기
+              </Link>
+            </p>
+          )}
         </div>
+        {graded && (
+          <button onClick={next} className="animate-pop btn btn-primary w-full h-[50px] text-[17px]">
+            {idx + 1 === qs!.length ? "결과 보기" : "다음 문제"}
+          </button>
+        )}
+        </>
       )}
 
-      {/* 결과 */}
+      {/* 결과 — 원형 정답률 */}
       {finished && (
-        <div className="animate-pop card p-8 text-center flex flex-col gap-3">
-          <p className="text-[15px] text-sub">오늘 푼 결과</p>
-          <p className="text-[34px] font-bold tabular-nums">
-            {score.right} <span className="text-[20px] text-sub">/ {score.done}</span>
-          </p>
+        <div className="animate-pop card px-6 py-8 lg:p-10 flex flex-col items-center text-center">
+          <div
+            role="img"
+            aria-label={`정답률 ${rate}%`}
+            className="w-[168px] h-[168px] rounded-full grid place-items-center"
+            style={{ background: `conic-gradient(var(--blue) 0 ${rate}%, var(--blue-weak) ${rate}% 100%)` }}
+          >
+            <div className="w-[136px] h-[136px] rounded-full bg-surface flex flex-col items-center justify-center">
+              <span className="text-[38px] font-bold tabular-nums tracking-tight leading-tight">
+                {score.right}
+                <span className="text-[22px] text-sub"> / {score.done}</span>
+              </span>
+              <span className="text-[13px] text-sub">정답률 {rate}%</span>
+            </div>
+          </div>
+          <p className="mt-7 mb-1.5 text-[14px] font-bold text-blue">오늘 푼 결과</p>
+          <h2 className="text-[22px] lg:text-[24px] font-bold mb-2">
+            {rate === 100
+              ? "모두 맞혔어요!"
+              : rate >= 80
+                ? "잘했어요! 거의 다 맞혔어요"
+                : rate >= 50
+                  ? "좋아요, 조금만 더 해봐요"
+                  : "오답노트로 다시 익혀봐요"}
+          </h2>
           {score.done > score.right && (
-            <p className="text-[14px] text-sub">틀린 {score.done - score.right}문제는 오답노트에 담겼어요.</p>
+            <p className="text-[15px] text-sub leading-relaxed">
+              틀린 {score.done - score.right}문제는 오답노트에 담겼어요.
+              <br />
+              다시 맞히면 극복한 오답으로 내려가요.
+            </p>
           )}
-          <div className="flex flex-col sm:flex-row gap-2 mt-2">
-            <button onClick={load} className="btn btn-gray flex-1 py-3.5">
-              다시 풀기
-            </button>
-            <Link href="/quiz/notes" className="btn btn-primary flex-1 py-3.5 text-center">
+          <div className="grid grid-cols-2 gap-2 w-full mt-6">
+            <Link href="/quiz/notes" className="btn btn-ghost h-[50px] text-[16px] flex items-center justify-center">
               오답노트 보기
             </Link>
+            <button onClick={load} className="btn btn-primary h-[50px] text-[16px]">
+              다시 풀기
+            </button>
           </div>
         </div>
       )}
@@ -433,5 +448,69 @@ function QuizInner() {
       </div>
       </div>
     </main>
+  );
+}
+
+// 2칸 세그먼트 (연습문제/평가, 시험/공부 모드) — 회색 트랙 + 흰 선택칸
+function Segment<T extends string>({
+  label,
+  value,
+  items,
+  onChange,
+}: {
+  label: string;
+  value: T;
+  items: [T, string][];
+  onChange: (v: T) => void;
+}) {
+  return (
+    <div role="tablist" aria-label={label} className="rise d1 grid grid-cols-2 gap-1 p-1 rounded-[10px]" style={{ background: "var(--fill)" }}>
+      {items.map(([v, text]) => (
+        <button
+          key={v}
+          role="tab"
+          aria-selected={value === v}
+          onClick={() => onChange(v)}
+          className={`h-10 rounded-[8px] px-2 text-[14px] truncate transition-colors ${
+            value === v ? "bg-surface font-bold text-text shadow-[var(--shadow-card)]" : "font-semibold text-[var(--sub-2)]"
+          }`}
+        >
+          {text}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+// 보기 — 큰 터치 영역의 둥근 사각. 정답(초록)·내 오답(빨강)은 배경+안쪽 테두리로 구분
+const CHOICE = "w-full min-h-[52px] rounded-[12px] px-4 py-3 flex items-center gap-3 text-left text-[15px] leading-relaxed transition-[filter,box-shadow]";
+const NEUTRAL: React.CSSProperties = { background: "var(--fill-2)", boxShadow: "inset 0 0 0 1px var(--border)" };
+const PICKED: React.CSSProperties = { background: "var(--fill-2)", boxShadow: "inset 0 0 0 1px var(--blue)" };
+const RIGHT: React.CSSProperties = {
+  background: "var(--green-weak)",
+  boxShadow: "inset 0 0 0 1px var(--green)",
+  color: "var(--green)",
+  fontWeight: 700,
+};
+const WRONG: React.CSSProperties = {
+  background: "var(--red-weak)",
+  boxShadow: "inset 0 0 0 1px var(--red)",
+  color: "var(--red)",
+  fontWeight: 700,
+};
+
+function ChoiceBody({ n, text, mark }: { n: number; text: string; mark: "right" | "wrong" | null }) {
+  return (
+    <>
+      <b className="shrink-0 w-4 text-center" style={mark ? undefined : { color: "var(--sub)" }}>
+        {n}
+      </b>
+      <span className="flex-1 min-w-0 break-keep">{text}</span>
+      {mark && (
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" className="shrink-0" aria-hidden>
+          <path d={mark === "right" ? "M5 12.5l4.5 4.5L19 7.5" : "M6 6l12 12M18 6L6 18"} />
+        </svg>
+      )}
+    </>
   );
 }

@@ -91,17 +91,20 @@ export default function TeacherSettingsPage() {
       </p>
     );
 
+  const LABEL = "flex flex-col gap-2 text-[13px] font-semibold";
+  const H2 = "font-bold text-[17px] lg:text-[19px]";
+
   return (
-    <main className="flex-1 w-full mx-auto px-5 py-8 max-w-lg lg:max-w-2xl flex flex-col gap-4">
-      <div className="rise">
-        <Link href="/teacher" className="text-sub text-[13px]">
+    <main className="flex-1 w-full mx-auto px-4 sm:px-5 lg:px-8 py-6 lg:py-8 max-w-lg lg:max-w-[760px] flex flex-col gap-4">
+      <div className="rise flex flex-col gap-1">
+        <Link href="/teacher" className="text-sub text-[14px] font-semibold lg:hidden">
           ← 대시보드
         </Link>
         <h1 className="text-[24px] lg:text-[28px] font-bold">개인 설정</h1>
       </div>
 
-      <section className="rise d1 card p-5 lg:p-6 flex flex-col gap-3">
-        <h2 className="font-bold text-[17px]">내 프로필</h2>
+      <section className="rise d1 card p-5 lg:p-6 flex flex-col gap-3.5">
+        <h2 className={H2}>내 프로필</h2>
         {!loaded ? (
           <div className="flex flex-col gap-2">
             <div className="skel h-12 !rounded-[12px]" />
@@ -109,65 +112,91 @@ export default function TeacherSettingsPage() {
           </div>
         ) : (
           <>
-            <input className="field" placeholder="이름 (학생에게 표시)" value={name} onChange={(e) => setName(e.target.value)} />
-            <input className="field" placeholder="과목 (예: 전산회계 2급)" value={subject} onChange={(e) => setSubject(e.target.value)} />
-            <textarea
-              className="field min-h-20 resize-none"
-              placeholder="말투·설명 방식 (선택. 예: 존댓말로 차근차근, 실무 예시 위주, 암기팁 곁들이기)"
-              maxLength={500}
-              value={toneNote}
-              onChange={(e) => setToneNote(e.target.value)}
-            />
-            <label className="flex items-center gap-2 text-[14px] cursor-pointer select-none">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className={LABEL} style={{ color: "var(--sub-2)" }}>
+                이름 · 학생에게 표시
+                <input className="field" placeholder="예: 김선생" value={name} onChange={(e) => setName(e.target.value)} />
+              </label>
+              <label className={LABEL} style={{ color: "var(--sub-2)" }}>
+                과목
+                <input className="field" placeholder="예: 전산회계 2급" value={subject} onChange={(e) => setSubject(e.target.value)} />
+              </label>
+            </div>
+            <label className={LABEL} style={{ color: "var(--sub-2)" }}>
+              말투·설명 방식 (선택)
+              <textarea
+                className="field min-h-24 resize-y"
+                placeholder="예: 존댓말로 차근차근, 실무 예시 위주, 암기팁 곁들이기"
+                maxLength={500}
+                value={toneNote}
+                onChange={(e) => setToneNote(e.target.value)}
+              />
+            </label>
+            <label
+              className="flex items-center justify-between gap-4 rounded-[12px] p-4 cursor-pointer select-none"
+              style={{ background: "var(--fill-2)" }}
+            >
+              <span className="min-w-0">
+                <b className="block text-[15px]">강사 목록에 내 프로필 공개</b>
+                <span className="text-sub text-[13px]">끄면 초대받은 학생만 나를 볼 수 있어요.</span>
+              </span>
               <input
                 type="checkbox"
                 checked={isPublic}
                 onChange={(e) => setIsPublic(e.target.checked)}
-                className="w-4 h-4 accent-[var(--blue)]"
+                className="w-[22px] h-[22px] shrink-0 accent-[var(--blue)]"
               />
-              강사 목록에 내 프로필 공개
-              <span className="text-sub text-[12px]">(끄면 초대받은 학생만 나를 볼 수 있어요)</span>
             </label>
-            <button onClick={saveProfile} className="btn btn-primary py-3 self-start px-6">
-              프로필 저장
-            </button>
-            {note(msg)}
+            <div className="flex flex-wrap items-center justify-end gap-3">
+              {note(msg)}
+              <button onClick={saveProfile} className="btn btn-primary h-12 px-6">
+                프로필 저장
+              </button>
+            </div>
           </>
         )}
       </section>
 
-      <section className="rise d2 card p-5 lg:p-6 flex flex-col gap-3">
-        <h2 className="font-bold text-[17px]">비밀번호 변경</h2>
-        <input
-          className="field"
-          type="password"
-          placeholder="새 비밀번호 (8자 이상, 영문 포함)"
-          value={pw}
-          onChange={(e) => setPw(e.target.value)}
-        />
-        <input
-          className="field"
-          type="password"
-          placeholder="새 비밀번호 확인"
-          value={pw2}
-          onChange={(e) => setPw2(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && changePassword()}
-        />
-        <button onClick={changePassword} disabled={pwBusy} className="btn btn-gray py-3 self-start px-6 disabled:opacity-60">
-          {pwBusy ? "바꾸는 중…" : "비밀번호 바꾸기"}
-        </button>
-        {note(pwMsg)}
+      <section className="rise d2 card p-5 lg:p-6 flex flex-col gap-3.5">
+        <h2 className={H2}>비밀번호 변경</h2>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <label className={LABEL} style={{ color: "var(--sub-2)" }}>
+            새 비밀번호
+            <input
+              className="field"
+              type="password"
+              placeholder="8자 이상, 영문 포함"
+              value={pw}
+              onChange={(e) => setPw(e.target.value)}
+            />
+          </label>
+          <label className={LABEL} style={{ color: "var(--sub-2)" }}>
+            새 비밀번호 확인
+            <input
+              className="field"
+              type="password"
+              value={pw2}
+              onChange={(e) => setPw2(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && changePassword()}
+            />
+          </label>
+        </div>
+        <div className="flex flex-wrap items-center justify-end gap-3">
+          {note(pwMsg)}
+          <button onClick={changePassword} disabled={pwBusy} className="btn btn-ghost h-12 px-6 disabled:opacity-60">
+            {pwBusy ? "바꾸는 중…" : "비밀번호 바꾸기"}
+          </button>
+        </div>
       </section>
 
-      <section className="rise d3 card p-5 lg:p-6 flex items-center justify-between gap-3">
-        <div>
-          <h2 className="font-bold text-[17px]">로그아웃</h2>
-          <p className="text-sub text-[13px]">이 기기에서 내 계정을 로그아웃해요.</p>
-        </div>
-        <button onClick={() => supabase.auth.signOut()} className="btn btn-gray py-2.5 px-5 shrink-0">
-          로그아웃
-        </button>
-      </section>
+      {/* 이 기기에서 내 계정 로그아웃 */}
+      <button
+        onClick={() => supabase.auth.signOut()}
+        className="rise d3 btn h-12 px-5 self-start text-[15px] font-semibold hover:bg-[var(--fill)]"
+        style={{ color: "var(--sub-2)" }}
+      >
+        로그아웃
+      </button>
     </main>
   );
 }

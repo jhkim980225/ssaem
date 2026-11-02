@@ -70,7 +70,7 @@ export default function TeacherPage() {
   if (gate) return gate;
 
   return (
-    <main className="flex-1 w-full mx-auto px-5 lg:px-8 py-8 max-w-lg lg:max-w-[1300px]">
+    <main className="flex-1 w-full mx-auto px-4 sm:px-5 lg:px-8 py-6 lg:py-8 max-w-lg lg:max-w-[1300px]">
       {/* useSearchParams(강좌 ROOM 선택)를 쓰므로 Suspense 필수 */}
       <Suspense fallback={null}>
         <Dashboard session={session!} />
@@ -491,17 +491,58 @@ function Dashboard({ session }: { session: Session }) {
     }
   }
 
+  // 프로필이 없으면 자료 API가 전부 403 — 대시보드 대신 시작 안내만 보여주고 설정으로 보낸다
+  if (savedProfile === false) {
+    return (
+      <div className="rise w-full max-w-[720px] mx-auto flex flex-col gap-4 lg:pt-4">
+        <div>
+          <h1 className="text-[24px] lg:text-[30px] font-bold">환영해요, 선생님!</h1>
+          <p className="text-sub text-[15px] lg:text-[16px] mt-1">
+            세 단계만 하면 학생이 선생님 자료로 질문할 수 있어요.
+          </p>
+        </div>
+        <ol className="grid grid-cols-3 gap-2">
+          {["프로필 저장", "강좌 만들기", "학생 초대"].map((t, i) => (
+            <li
+              key={t}
+              className={`rounded-[12px] px-3 py-3 lg:px-4 lg:py-3.5 ${i === 0 ? "bg-blue text-white" : "card !rounded-[12px] text-sub"}`}
+            >
+              <b className="block text-[12px] lg:text-[13px] opacity-80">{i + 1}단계</b>
+              <span className="text-[14px] lg:text-[15px] font-bold">{t}</span>
+            </li>
+          ))}
+        </ol>
+        <section className="rise d1 card p-5 lg:p-7 flex flex-col gap-3">
+          <h2 className="font-bold text-[18px] lg:text-[20px]">먼저 프로필을 저장해 주세요</h2>
+          <p className="text-sub text-[14px] lg:text-[15px] leading-relaxed">
+            이름과 과목을 저장해야 자료 등록·학생 초대를 쓸 수 있어요. 학생 화면의 선생님 카드에 이대로 보여요.
+          </p>
+          <Link href="/teacher/settings" className="btn btn-primary py-3.5 px-7 text-center sm:self-end">
+            프로필 설정하러 가기 →
+          </Link>
+        </section>
+      </div>
+    );
+  }
+
+  const H2 = "font-bold text-[17px] lg:text-[19px]";
+  const TAG = "inline-flex items-center h-6 px-2 rounded-[8px] text-[12px] font-semibold";
+  const tagGray = { background: "var(--fill)", color: "var(--sub-2)" };
+  const tagBlue = { background: "var(--blue-weak)", color: "var(--blue)" };
+  const SMALL = "btn h-9 px-3 text-[13px] shrink-0";
+  const previewHref = `/ask?preview=1&teacher=${uid}`;
+
   return (
     <div className="flex flex-col gap-4">
       <div className="rise flex justify-between items-end gap-3 flex-wrap">
-        <div>
+        <div className="min-w-0">
           {inRoom && (
-            <Link href="/teacher" className="text-sub text-[13px]">
+            <Link href="/teacher" className="text-sub text-[14px] font-semibold">
               ← 전체 자료
             </Link>
           )}
           {roomCourse && renaming ? (
-            <div className="flex gap-2 items-center mt-1">
+            <div className="flex gap-2 items-center mt-2">
               <input
                 autoFocus
                 aria-label="강좌 이름"
@@ -522,19 +563,19 @@ function Dashboard({ session }: { session: Session }) {
               </button>
             </div>
           ) : (
-            <h1 className="text-[24px] lg:text-[28px] font-bold">
+            <h1 className={`text-[24px] lg:text-[28px] font-bold break-words ${inRoom ? "mt-1" : ""}`}>
               {room === "none" ? "공용 자료" : roomCourse ? roomCourse.title : inRoom ? "강좌" : "강사 대시보드"}
             </h1>
           )}
-          {inRoom && (
-            <p className="text-sub text-[13px] mt-0.5">
-              {room === "none"
-                ? "어느 강좌에도 속하지 않는 자료 — 모든 강좌 검색에서 함께 쓰여요."
-                : `이 강좌 ROOM의 자료만 보여요. 여기서 올리면 이 강좌에 담겨요.${
+          <p className="text-sub text-[14px] lg:text-[15px] mt-1">
+            {room === "none"
+              ? "어느 강좌에도 속하지 않는 자료 — 모든 강좌 검색에서 함께 쓰여요."
+              : inRoom
+                ? `이 강좌 ROOM의 자료만 보여요. 여기서 올리면 이 강좌에 담겨요.${
                     roomCourse ? ` · 수강생 ${roomCourse.students}명` : ""
-                  }`}
-            </p>
-          )}
+                  }`
+                : "올린 자료로 학생 질문에 답해요. 강좌를 고르면 그 반만 볼 수 있어요."}
+          </p>
         </div>
         {roomCourse && !renaming && (
           <div className="flex gap-2">
@@ -543,132 +584,160 @@ function Dashboard({ session }: { session: Session }) {
                 setRenameText(roomCourse.title);
                 setRenaming(true);
               }}
-              className="chip !text-[13px]"
+              className="chip !text-[14px] font-bold"
             >
               이름 바꾸기
             </button>
-            <button onClick={() => removeCourse(roomCourse.id)} className="chip !text-[13px]" style={{ color: "var(--red)" }}>
+            <button
+              onClick={() => removeCourse(roomCourse.id)}
+              className="btn px-3.5 text-[14px]"
+              style={{ background: "var(--red-weak)", color: "var(--red)" }}
+            >
               강좌 삭제
             </button>
           </div>
         )}
+        {!inRoom && (
+          <Link href={previewHref} className="hidden lg:inline-flex chip !text-[15px] font-bold !py-2.5 !px-[18px]">
+            학생 화면 미리보기 →
+          </Link>
+        )}
       </div>
 
-      <div className="lg:grid lg:grid-cols-[1fr_420px] lg:gap-5 lg:items-start flex flex-col gap-4">
-      <div className="flex flex-col gap-4 min-w-0">
-      {/* 프로필이 없으면 자료 API가 전부 403 — 먼저 설정으로 보낸다 */}
-      {savedProfile === false && (
-        <section className="rise d1 card p-5 lg:p-6 flex flex-col gap-3">
-          <h2 className="font-bold text-[17px]">먼저 프로필을 저장해 주세요</h2>
-          <p className="text-sub text-[14px] leading-relaxed">
-            이름과 과목을 저장해야 자료 등록·학생 초대를 쓸 수 있어요.
-          </p>
-          <Link href="/teacher/settings" className="btn btn-primary py-3 px-6 self-start">
-            프로필 설정하러 가기
-          </Link>
-        </section>
+      {/* 요약 — 이미 불러온 자료·강좌·수강평으로만 만든다 (전체 대시보드에서만) */}
+      {!inRoom && savedProfile && docs !== null && (
+        <div className="rise d1 grid grid-cols-2 lg:grid-cols-3 gap-2 lg:gap-3">
+          <div className="card !rounded-[14px] p-4 lg:px-5 lg:py-[18px]">
+            <p className="text-sub text-[13px] lg:text-[14px]">등록된 자료</p>
+            <p className="text-[24px] lg:text-[26px] font-bold tabular-nums mt-1">{docs.length}</p>
+          </div>
+          <div className="card !rounded-[14px] p-4 lg:px-5 lg:py-[18px]">
+            <p className="text-sub text-[13px] lg:text-[14px]">강좌</p>
+            <p className="text-[24px] lg:text-[26px] font-bold tabular-nums mt-1">
+              {courses.length}
+              <span className="text-sub text-[14px] lg:text-[15px] font-semibold">
+                {" "}
+                · 수강생 {courses.reduce((s, c) => s + c.students, 0)}명
+              </span>
+            </p>
+          </div>
+          <div className="card !rounded-[14px] p-4 lg:px-5 lg:py-[18px] col-span-2 lg:col-span-1">
+            <p className="text-sub text-[13px] lg:text-[14px]">수강평</p>
+            <p className="text-[24px] lg:text-[26px] font-bold tabular-nums mt-1">
+              {reviews && reviews.count > 0 ? reviews.avg?.toFixed(1) ?? "-" : "-"}
+              <span className="text-sub text-[14px] lg:text-[15px] font-semibold">
+                {" "}
+                · {reviews?.count ?? 0}건
+              </span>
+            </p>
+          </div>
+        </div>
       )}
 
-      {/* 학생 초대는 각 ROOM 안에 — 강좌가 하나도 없을 때만 여기서 기본반 초대를 보여준다
-          (안 그러면 신규 강사가 초대할 방법이 없다) */}
-      {/* docs !== null: 강좌 목록이 로드되기 전 잠깐 나타났다 사라지는 깜빡임 방지 */}
-      {!inRoom && savedProfile && invite && docs !== null && courses.length === 0 && (
-        <section className="rise d2 card p-5 lg:p-6 flex flex-col gap-3">
-          <h2 className="font-bold text-[17px]">학생 초대</h2>
-          <p className="text-sub text-[13px] -mt-1">
-            QR을 보여주거나 링크를 공유하세요. 학생이 접속하면 가입과 동시에 내 기본반에 등록돼요.
-            강좌 ROOM을 만들면 <b>ROOM별 초대 코드</b>가 각 ROOM 안에 생겨요.
-          </p>
-          <InviteBox
-            url={invite.url}
-            qrSvg={invite.qrSvg}
-            hint="학생이 회원가입 때 초대코드 칸에 넣어요"
-          />
-        </section>
-      )}
-
-      {/* ROOM 초대 — 이 코드로 가입한 학생은 이 강좌에 바로 등록된다. 학생은 여러 ROOM에 등록 가능 */}
+      {/* PC: 전체 대시보드는 본문 | 우측(테스트·초대) 2열, ROOM은 카드 그리드 2열 (두 열의 자식을 한 그리드로 흘린다) */}
+      <div
+        className={
+          inRoom
+            ? "flex flex-col gap-4 lg:grid lg:grid-cols-[repeat(2,minmax(0,1fr))] lg:items-start"
+            : "flex flex-col gap-4 lg:grid lg:grid-cols-[minmax(0,1fr)_400px] lg:gap-5 lg:items-start"
+        }
+      >
+      <div className={`flex flex-col gap-4 min-w-0 ${inRoom ? "lg:contents" : ""}`}>
+      {/* ROOM 수강생 명단 + ROOM 초대 — 이 코드로 가입한 학생은 이 강좌에 바로 등록된다. 학생은 여러 ROOM에 등록 가능 */}
       {roomCourse && savedProfile && (
         <section className="rise d1 card p-5 lg:p-6 flex flex-col gap-3">
-          <h2 className="font-bold text-[17px]">학생 초대</h2>
-          <p className="text-sub text-[13px] -mt-1">
-            이 링크·코드로 가입한 학생은 <b>{roomCourse.title}</b>에 바로 등록돼요. 다른 ROOM 코드로 또
-            등록하면 여러 ROOM에 함께 들어가요.
-          </p>
-          {roomInvite?.courseId === roomCourse.id ? (
-            <InviteBox
-              url={roomInvite.url}
-              qrSvg={roomInvite.qrSvg}
-              hint="학생이 회원가입 때 초대코드 칸에 넣어요"
-            />
-          ) : (
-            <div className="skel h-24 !rounded-[12px]" />
-          )}
-        </section>
-      )}
-
-      {/* ROOM 수강생 명단 */}
-      {roomCourse && savedProfile && (
-        <section className="rise d1 card p-5 lg:p-6 flex flex-col gap-3">
-          <h2 className="font-bold text-[17px]">
-            수강생{" "}
-            <span className="text-blue tabular-nums">
-              {members?.courseId === roomCourse.id ? members.list.length : roomCourse.students}명
-            </span>
-          </h2>
+          <div className="flex items-center justify-between gap-2">
+            <h2 className={H2}>
+              수강생{" "}
+              <span className="text-blue tabular-nums">
+                {members?.courseId === roomCourse.id ? members.list.length : roomCourse.students}명
+              </span>
+            </h2>
+            {/* 질문·접속 현황은 학생 리포트에서 */}
+            <Link href="/teacher/students" className="text-blue text-[14px] font-bold shrink-0 hover:underline">
+              학생 리포트 →
+            </Link>
+          </div>
           {members?.courseId !== roomCourse.id ? (
             <div className="skel h-10 !rounded-[10px]" />
           ) : members.list.length === 0 ? (
             <p className="text-sub text-[13px]">
-              아직 등록된 학생이 없어요. 위 초대 코드로 가입하면 여기에 나와요.
+              아직 등록된 학생이 없어요. 아래 초대 코드로 가입하면 여기에 나와요.
             </p>
           ) : (
             <div className="flex flex-wrap gap-1.5">
               {members.list.map((m) => (
-                <span key={m.id} className="chip !text-[13px] !cursor-default" title={`등록 ${new Date(m.joinedAt).toLocaleDateString("ko-KR")}`}>
+                <span
+                  key={m.id}
+                  className="inline-flex items-center h-8 px-3 rounded-[8px] text-[14px]"
+                  style={{ background: "var(--fill)" }}
+                  title={`등록 ${new Date(m.joinedAt).toLocaleDateString("ko-KR")}`}
+                >
                   {m.name}
                 </span>
               ))}
             </div>
           )}
-          <p className="text-sub text-[12px]">
-            질문·접속 현황은{" "}
-            <Link href="/teacher/students" className="text-blue font-bold hover:underline">
-              학생 리포트
-            </Link>
-            에서 볼 수 있어요.
-          </p>
+          <div className="rounded-[12px] p-4 mt-1 flex flex-col gap-3" style={{ background: "var(--fill-2)" }}>
+            <p className="text-sub text-[13px]">
+              이 링크·코드로 가입한 학생은 <b>{roomCourse.title}</b>에 바로 등록돼요. 다른 ROOM 코드로 또
+              등록하면 여러 ROOM에 함께 들어가요.
+            </p>
+            {roomInvite?.courseId === roomCourse.id ? (
+              <InviteBox
+                url={roomInvite.url}
+                qrSvg={roomInvite.qrSvg}
+                hint="학생이 회원가입 때 초대코드 칸에 넣어요"
+              />
+            ) : (
+              <div className="skel h-24 !rounded-[12px]" />
+            )}
+          </div>
         </section>
       )}
 
       {/* ROOM 과제 제출 현황 — 학생이 달력 수업 카드에서 제출한 내용 */}
       {roomCourse && savedProfile && homework?.courseId === roomCourse.id && homework.lessons.length > 0 && (
         <section className="rise d1 card p-5 lg:p-6 flex flex-col gap-3">
-          <h2 className="font-bold text-[17px]">과제 제출 현황</h2>
-          <p className="text-sub text-[13px] -mt-1">
-            학생이 수업 달력에서 제출한 과제예요. 수업(날짜 지정 자료)별로 모여요.
-          </p>
+          <div>
+            <h2 className={H2}>과제 제출 현황</h2>
+            <p className="text-sub text-[13px] mt-1">
+              학생이 수업 달력에서 제출한 과제예요. 수업(날짜 지정 자료)별로 모여요.
+            </p>
+          </div>
           <div className="flex flex-col gap-2">
             {homework.lessons.map((hl) => {
               const submittedIds = new Set(hl.submissions.map((s) => s.studentId));
               const missing = homework.roster.filter((r) => !submittedIds.has(r.id));
+              const total = homework.roster.length;
               return (
-                <details key={hl.id} className="rounded-[12px] border border-line p-3">
-                  <summary className="cursor-pointer select-none flex items-center justify-between gap-2">
-                    <span className="text-[14px] font-bold min-w-0 truncate">
-                      {hl.date.slice(5).replace("-", "/")} · {hl.title}
+                <details key={hl.id} className="rounded-[12px] px-4 py-3.5" style={{ background: "var(--fill-2)" }}>
+                  {/* 진행 막대까지 summary 안에 — 접혀 있어도 제출률이 한눈에 보이게 */}
+                  <summary className="cursor-pointer select-none flex flex-col gap-2.5">
+                    <span className="flex items-center justify-between gap-2">
+                      <span className="text-[15px] font-bold min-w-0 truncate">
+                        {hl.date.slice(5).replace("-", "/")} · {hl.title}
+                      </span>
+                      <span
+                        className="text-[14px] font-bold tabular-nums shrink-0"
+                        style={{ color: hl.submissions.length === total && total > 0 ? "var(--blue)" : "var(--sub)" }}
+                      >
+                        제출 {hl.submissions.length}/{total}
+                      </span>
                     </span>
-                    <span
-                      className="text-[12px] font-bold tabular-nums shrink-0"
-                      style={{ color: hl.submissions.length === homework.roster.length && homework.roster.length > 0 ? "var(--blue)" : "var(--sub)" }}
-                    >
-                      제출 {hl.submissions.length}/{homework.roster.length}
-                    </span>
+                    {total > 0 && (
+                      <span className="block h-2 rounded-full overflow-hidden" style={{ background: "var(--fill)" }}>
+                        <span
+                          className="block h-full rounded-full bg-blue"
+                          style={{ width: `${Math.min(100, (hl.submissions.length / total) * 100)}%` }}
+                        />
+                      </span>
+                    )}
                   </summary>
-                  <div className="mt-2.5 flex flex-col gap-2">
+                  <div className="mt-3 flex flex-col gap-2">
                     {hl.submissions.length === 0 && <p className="text-sub text-[13px]">아직 제출한 학생이 없어요.</p>}
                     {hl.submissions.map((s) => (
-                      <div key={s.studentId} className="rounded-[10px] p-3" style={{ background: "var(--fill-2)" }}>
+                      <div key={s.studentId} className="card !rounded-[10px] p-3">
                         <p className="text-[13px] font-bold">
                           {s.name}{" "}
                           <span className="text-sub font-normal text-[11px]">
@@ -679,7 +748,7 @@ function Dashboard({ session }: { session: Session }) {
                       </div>
                     ))}
                     {missing.length > 0 && (
-                      <p className="text-[12px]" style={{ color: "var(--red)" }}>
+                      <p className="text-[13px] font-semibold" style={{ color: "var(--red)" }}>
                         미제출: {missing.map((m) => m.name).join(", ")}
                       </p>
                     )}
@@ -694,47 +763,53 @@ function Dashboard({ session }: { session: Session }) {
       {/* 수업 달력 — 강좌 ROOM 전용. 날짜별로 그 날 수업 자료를 묶는다 */}
       {roomCourse && savedProfile && (
         <section className="rise d1 card p-5 lg:p-6 flex flex-col gap-3">
-          <div className="flex items-baseline justify-between gap-2">
-            <h2 className="font-bold text-[17px]">수업 달력</h2>
+          <div className="flex items-center justify-between gap-2">
+            <h2 className={H2}>수업 달력</h2>
             {lessonDate && (
-              <button onClick={() => setLessonDate(null)} className="chip !text-[12px]">
+              <button onClick={() => setLessonDate(null)} className="chip !text-[12px] !py-1.5 !px-3">
                 {fmtLesson(lessonDate)} 선택 해제 ×
               </button>
             )}
           </div>
-          <p className="text-sub text-[13px] -mt-1">
-            날짜를 고르면 그 날 수업 자료만 보이고, 새로 올리는 자료도 그 날짜 수업에 담겨요.
-          </p>
           {/* 수강생 0명 ROOM의 수업은 어느 학생에게도 안 보인다 — 조용히 묻히기 전에 알려준다 */}
           {roomCourse.students === 0 && (members?.courseId !== roomCourse.id || members.list.length === 0) && (
-            <p className="text-[13px] font-bold" style={{ color: "var(--red)" }}>
+            <p className="text-[13px] font-bold rounded-[10px] px-3.5 py-2.5" style={{ color: "var(--red)", background: "var(--red-weak)" }}>
               이 ROOM엔 수강생이 없어서 달력 수업이 학생에게 보이지 않아요. 위 초대 코드로 학생을
               먼저 등록해 주세요.
             </p>
           )}
           <LessonCalendar marked={lessonMarks} selected={lessonDate} onSelect={setLessonDate} />
+          <p className="text-sub text-[13px]">
+            {lessonDate
+              ? `${fmtLesson(lessonDate)} 선택됨 · 그 날 수업 자료만 보이고, 새로 올리는 자료도 이 날 수업으로 묶여요.`
+              : "날짜를 고르면 그 날 수업 자료만 보이고, 새로 올리는 자료도 그 날짜 수업에 담겨요."}
+          </p>
         </section>
       )}
 
-      {/* 자료 */}
+      {/* 자료 올리기 */}
       {savedProfile && (
       <section className="rise d2 card p-5 lg:p-6 flex flex-col gap-3">
-        <div className="flex items-baseline justify-between gap-2 flex-wrap">
-          <h2 className="font-bold text-[17px]">
-            학습 자료
+        <div>
+          <h2 className={H2}>
+            학습 자료 올리기
             {roomCourse && lessonDate && (
-              <span className="text-blue text-[13px] font-bold"> · {fmtLesson(lessonDate)} 수업</span>
+              <span className="text-blue"> · {fmtLesson(lessonDate)} 수업</span>
             )}
           </h2>
+          <p className="text-sub text-[14px] mt-1">
+            문제와 풀이를 붙여넣거나 PDF를 올리면 AI가 답할 때 근거로 써요.
+          </p>
         </div>
         {/* ROOM 안에선 업로드 대상이 그 강좌로 고정 — 고를 필요가 없다 */}
         {!inRoom && courses.length > 0 && (
           <select
-            className="field !py-2.5"
+            aria-label="올릴 강좌"
+            className="field !py-2.5 !text-[14px] font-semibold sm:!w-auto sm:self-start"
             value={courseSel}
             onChange={(e) => setCourseSel(e.target.value)}
           >
-            <option value="">공용 (모든 강좌에서 함께 써요)</option>
+            <option value="">공용 · 모든 강좌에서 함께 써요</option>
             {courses.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.title}
@@ -743,16 +818,14 @@ function Dashboard({ session }: { session: Session }) {
           </select>
         )}
         <textarea
-          className="field min-h-28 resize-none"
+          aria-label="자료 내용"
+          className="field min-h-28 resize-y"
           placeholder="문제와 풀이를 붙여넣으세요"
           value={content}
           onChange={(e) => setContent(e.target.value)}
         />
-        <div className="flex items-center gap-3 flex-wrap">
-          <button onClick={addDoc} className="btn btn-primary py-3 px-6">
-            텍스트 추가
-          </button>
-          <label className="btn btn-gray py-3 px-5 cursor-pointer">
+        <div className="flex items-center justify-end gap-2 flex-wrap">
+          <label className="btn btn-ghost h-12 px-5 inline-flex items-center cursor-pointer">
             PDF 업로드
             <input
               type="file"
@@ -765,25 +838,62 @@ function Dashboard({ session }: { session: Session }) {
               }}
             />
           </label>
+          <button onClick={addDoc} className="btn btn-primary h-12 px-5">
+            텍스트 추가
+          </button>
         </div>
         {msg && (
-          <p className={`text-[13px] ${msgErr ? "" : "text-blue"}`} style={msgErr ? { color: "var(--red)" } : undefined}>
+          <p className={`text-[13px] font-semibold ${msgErr ? "" : "text-blue"}`} style={msgErr ? { color: "var(--red)" } : undefined}>
             {msg}
           </p>
         )}
+      </section>
+      )}
 
-        {docsErr && <p className="text-[13px]" style={{ color: "var(--red)" }}>{docsErr}</p>}
+      {/* 등록된 자료 */}
+      {savedProfile && (
+      <section className="rise d2 card p-5 lg:p-6 flex flex-col">
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+          <div className="min-w-0">
+            <h2 className={H2}>
+              {inRoom ? "이 ROOM 자료" : "등록된 자료"}
+              {docs && (
+                <span className="text-blue tabular-nums"> {inRoom ? shownDocs.length : docs.length}</span>
+              )}
+            </h2>
+            {docs && docs.length > 0 && (
+              <p className="text-sub text-[13px] mt-0.5">
+                청크 {(inRoom ? shownDocs : docs).reduce((s, d) => s + d.chunks, 0)}개
+              </p>
+            )}
+          </div>
+          {/* 자료가 수십 건이면 전부 그리는 것만으로 화면이 수천 px가 되고, 원하는 자료를 못 찾는다 */}
+          {docs && (docQuery || shownDocs.length > 5) && (
+            <input
+              type="search"
+              aria-label="자료 검색"
+              className="field !py-2.5 !text-[14px] sm:!w-60"
+              placeholder="자료 검색 (제목·내용)"
+              value={docQuery}
+              onChange={(e) => {
+                setDocQuery(e.target.value);
+                setDocLimit(PAGE);
+              }}
+            />
+          )}
+        </div>
+
+        {docsErr && <p className="text-[13px] mb-2" style={{ color: "var(--red)" }}>{docsErr}</p>}
 
         {!docsErr && docs === null && (
-          <div className="flex flex-col gap-2 mt-1">
-            <div className="skel h-3.5 w-40" />
+          <div className="flex flex-col gap-2">
             <div className="skel h-16 !rounded-[12px]" />
             <div className="skel h-16 !rounded-[12px]" />
           </div>
         )}
 
         {docs && shownDocs.length === 0 && !docQuery && (
-          <p className="text-sub text-[13px] mt-1">
+          <p className="text-sub text-[14px] py-6 text-center border-t border-line">
             {roomCourse && lessonDate
               ? `${fmtLesson(lessonDate)} 수업 자료가 아직 없어요. 지금 올리면 이 날짜에 담겨요.`
               : inRoom
@@ -792,83 +902,71 @@ function Dashboard({ session }: { session: Session }) {
           </p>
         )}
 
-        {docs && shownDocs.length + (docQuery ? 1 : 0) > 0 && (
-          <div className="flex flex-col gap-2 mt-1">
-            <p className="text-sub text-[13px]">
-              {inRoom ? (
-                <>이 ROOM 자료 {shownDocs.length}개 · 청크 {shownDocs.reduce((s, d) => s + d.chunks, 0)}개</>
-              ) : (
-                <>등록된 자료 {docs.length}개 · 청크 {docs.reduce((s, d) => s + d.chunks, 0)}개</>
-              )}
-            </p>
+        {docs && shownDocs.length === 0 && docQuery && (
+          <p className="text-sub text-[14px] py-6 text-center border-t border-line">조건에 맞는 자료가 없어요.</p>
+        )}
 
-            {/* 자료가 수십 건이면 전부 그리는 것만으로 화면이 수천 px가 되고, 원하는 자료를 못 찾는다 */}
-            {(docQuery || shownDocs.length > 5) && (
-              <input
-                className="field !py-2.5"
-                placeholder="자료 검색 (제목·내용)"
-                value={docQuery}
-                onChange={(e) => {
-                  setDocQuery(e.target.value);
-                  setDocLimit(PAGE);
-                }}
-              />
-            )}
-
-            {shownDocs.length === 0 && (
-              <p className="text-sub text-[13px] py-3 text-center">조건에 맞는 자료가 없어요.</p>
-            )}
-
-            {shownDocs.slice(0, docLimit).map((d) =>
-              editId === d.id ? (
-                <div key={d.id} className="flex flex-col gap-2 rounded-[12px] border border-line p-3" style={{ background: "var(--fill-2)" }}>
-                  {/* 배경은 .field(--surface)에 맡긴다 — Tailwind dark:는 prefers-color-scheme,
-                      이 앱 테마는 data-theme이라 흰 배경을 강제하면 다크에서 흰 글자+흰 배경이 됨 */}
-                  <textarea
-                    className="field min-h-32 resize-none"
-                    value={editText}
-                    onChange={(e) => setEditText(e.target.value)}
-                  />
-                  <div className="flex gap-2">
-                    <button onClick={saveEdit} className="btn btn-primary py-2 px-5 text-[13px]">저장</button>
-                    <button onClick={() => setEditId(null)} className="btn btn-gray py-2 px-5 text-[13px]">취소</button>
-                  </div>
+        {docs &&
+          shownDocs.slice(0, docLimit).map((d) =>
+            editId === d.id ? (
+              <div key={d.id} className="py-4 border-t border-line flex flex-col gap-3">
+                <p className="text-[16px] font-bold min-w-0 break-words">
+                  자료 수정 <span className="text-sub text-[13px] font-normal">· {d.title || "제목 없음"}</span>
+                </p>
+                {/* 배경은 .field(--surface)에 맡긴다 — Tailwind dark:는 prefers-color-scheme,
+                    이 앱 테마는 data-theme이라 흰 배경을 강제하면 다크에서 흰 글자+흰 배경이 됨 */}
+                <textarea
+                  aria-label="자료 내용 수정"
+                  className="field min-h-36 resize-y leading-relaxed"
+                  value={editText}
+                  onChange={(e) => setEditText(e.target.value)}
+                />
+                <p className="text-[13px] rounded-[10px] px-3.5 py-2.5" style={{ background: "var(--blue-weak)", color: "var(--sub-2)" }}>
+                  저장하면 내용을 다시 나눠(재청킹) AI 답변 근거가 바로 바뀌어요.
+                </p>
+                <div className="flex gap-2 justify-end">
+                  <button onClick={() => setEditId(null)} className="btn btn-gray h-11 px-5 text-[14px]">취소</button>
+                  <button onClick={saveEdit} className="btn btn-primary h-11 px-6 text-[14px]">저장</button>
                 </div>
-              ) : (
-              <div key={d.id} className="rounded-[12px] border border-line p-3" style={{ background: "var(--fill-2)" }}>
-              <div className="flex justify-between gap-2">
-                <div className="text-[14px] min-w-0">
-                  <div className="flex items-center gap-1.5 mb-1 flex-wrap">
-                    <span className="chip !py-0.5 !px-2 !text-[11px]">
-                      {d.kind === "style" ? "말투" : "문제"}
-                    </span>
-                    {/* ROOM 안에선 어느 강좌인지 자명 — 전체 목록에서만 표시 */}
-                    {!inRoom && <span className="chip !py-0.5 !px-2 !text-[11px]">{d.course ?? "공용"}</span>}
-                    {d.lesson_date && (
-                      /* 클릭 → 수업 상세 페이지 (학생이 보는 것과 같은 화면) */
-                      <Link href={`/lesson/${d.id}`} className="chip !py-0.5 !px-2 !text-[11px]" style={{ color: "var(--blue)" }}>
-                        {fmtLesson(d.lesson_date)} 수업 →
-                      </Link>
-                    )}
-                    {d.source === "pdf" && <span className="chip !py-0.5 !px-2 !text-[11px]">PDF</span>}
-                    <span className="text-sub text-[11px]">청크 {d.chunks}개</span>
-                  </div>
-                  <p className="font-medium truncate">{d.title || "제목 없음"}</p>
+              </div>
+            ) : (
+            <article key={d.id} className="py-4 border-t border-line">
+              <div className="flex items-center gap-1.5 mb-2 flex-wrap">
+                <span className={TAG} style={d.kind === "style" ? tagGray : tagBlue}>
+                  {d.kind === "style" ? "말투" : "문제"}
+                </span>
+                {/* ROOM 안에선 어느 강좌인지 자명 — 전체 목록에서만 표시 */}
+                {!inRoom && <span className={TAG} style={tagGray}>{d.course ?? "공용"}</span>}
+                {d.lesson_date && (
+                  /* 클릭 → 수업 상세 페이지 (학생이 보는 것과 같은 화면) */
+                  <Link href={`/lesson/${d.id}`} className={`${TAG} hover:underline`} style={{ ...tagGray, color: "var(--blue)" }}>
+                    {fmtLesson(d.lesson_date)} 수업 →
+                  </Link>
+                )}
+                <span className={TAG} style={tagGray}>
+                  {d.source === "pdf" ? "PDF · " : ""}청크 {d.chunks}
+                </span>
+              </div>
+              <div className="flex flex-wrap gap-3 items-start">
+                <div className="flex-1 basis-[260px] min-w-0">
+                  <p className="text-[16px] lg:text-[17px] font-bold break-words">{d.title || "제목 없음"}</p>
                   {/* 수업 자료 AI 요약 — 학생 달력에 이대로 보인다 */}
                   {d.summary && (
-                    <p className="text-[13px] leading-relaxed break-words rounded-[10px] px-2.5 py-1.5 mt-1" style={{ background: "var(--blue-weak)", color: "var(--sub-2)" }}>
-                      <b className="text-blue text-[11px]">AI 요약</b> {d.summary}
+                    <p className="text-[13px] leading-relaxed break-words rounded-[10px] px-3 py-2 mt-1.5" style={{ background: "var(--blue-weak)", color: "var(--sub-2)" }}>
+                      <b className="text-blue text-[12px]">AI 요약</b> {d.summary}
                     </p>
                   )}
-                  <p className="text-sub text-[13px] break-words">{d.preview}</p>
+                  <p className="text-[14px] leading-relaxed break-words mt-1" style={{ color: "var(--sub-2)" }}>
+                    {d.preview}
+                  </p>
                 </div>
-                <div className="shrink-0 flex flex-col gap-2 items-end">
+                <div className="flex gap-1.5 flex-wrap">
                   {/* 말투 자료는 "AI가 어떻게 답할지" 지시문이라 출제 대상이 아니다 (서버도 400으로 막음) */}
                   {d.kind !== "style" && (
                     <button
                       onClick={() => makeQuiz(d.id)}
                       disabled={quizBusy === d.id}
-                      className="text-[13px] text-blue disabled:opacity-50"
+                      className={`${SMALL} btn-ghost`}
                     >
                       {quizBusy === d.id ? "만드는 중…" : "문제 만들기"}
                     </button>
@@ -876,12 +974,12 @@ function Dashboard({ session }: { session: Session }) {
                   {d.source === "text" && (
                     <button
                       onClick={() => { setEditId(d.id); setEditText(d.raw); }}
-                      className="text-[13px] text-blue"
+                      className={`${SMALL} btn-gray font-semibold`}
                     >
                       수정
                     </button>
                   )}
-                  <button onClick={() => removeDoc(d.id)} className="text-[13px]" style={{ color: "var(--red)" }}>
+                  <button onClick={() => removeDoc(d.id)} className={`${SMALL} btn-gray font-semibold`} style={{ color: "var(--red)" }}>
                     삭제
                   </button>
                 </div>
@@ -890,20 +988,20 @@ function Dashboard({ session }: { session: Session }) {
               {/* 출제한 문제 — 예전엔 만들고 나면 확인·삭제할 화면이 없어서
                   LLM이 이상하게 만든 문항을 걷어낼 방법이 없었다 */}
               {(quizzes[d.id]?.length ?? 0) > 0 && (
-                <details className="mt-2">
-                  <summary className="text-[13px] text-sub cursor-pointer select-none">
+                <details className="mt-3">
+                  <summary className="text-[13px] font-semibold text-sub cursor-pointer select-none">
                     출제한 문제 {quizzes[d.id].length}개
                   </summary>
-                  <ol className="mt-2 flex flex-col gap-2">
+                  <ol className="mt-2 flex flex-col rounded-[12px] px-3.5" style={{ background: "var(--fill-2)" }}>
                     {quizzes[d.id].map((q, qi) => (
-                      <li key={q.id} className="rounded-[10px] border border-line p-3" style={{ background: "var(--surface)" }}>
-                        <div className="flex justify-between gap-2">
-                          <p className="text-[13px] font-medium min-w-0">
-                            {qi + 1}. {q.question}
+                      <li key={q.id} className="py-3 border-t border-line first:border-t-0">
+                        <div className="flex justify-between items-start gap-2">
+                          <p className="text-[14px] font-medium min-w-0 break-words">
+                            <b className="text-blue">{qi + 1}</b> {q.question}
                           </p>
                           <button
                             onClick={() => removeQuiz(q.id, d.id)}
-                            className="text-[12px] shrink-0"
+                            className="btn btn-gray h-[30px] px-2.5 text-[12px] font-semibold shrink-0"
                             style={{ color: "var(--red)" }}
                           >
                             삭제
@@ -913,7 +1011,7 @@ function Dashboard({ session }: { session: Session }) {
                           {q.choices.map((c, ci) => (
                             <li
                               key={ci}
-                              className="text-[12px]"
+                              className="text-[13px]"
                               style={ci === q.answer ? { color: "var(--blue)", fontWeight: 700 } : { color: "var(--sub)" }}
                             >
                               {ci === q.answer ? "✓" : "·"} {c}
@@ -928,18 +1026,16 @@ function Dashboard({ session }: { session: Session }) {
                   </ol>
                 </details>
               )}
-              </div>
-              )
-            )}
-            {shownDocs.length > docLimit && (
-              <button
-                onClick={() => setDocLimit((n) => n + PAGE)}
-                className="btn btn-gray py-3 text-[14px] mt-1"
-              >
-                {shownDocs.length - docLimit}개 더 보기
-              </button>
-            )}
-          </div>
+            </article>
+            )
+          )}
+        {docs && shownDocs.length > docLimit && (
+          <button
+            onClick={() => setDocLimit((n) => n + PAGE)}
+            className="btn btn-gray h-12 text-[15px] mt-1"
+          >
+            {shownDocs.length - docLimit}개 더 보기
+          </button>
         )}
       </section>
       )}
@@ -949,8 +1045,8 @@ function Dashboard({ session }: { session: Session }) {
         <section className="rise d3 card p-5 lg:p-6 flex flex-col gap-3">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <h2 className="font-bold text-[17px]">수강평</h2>
-              <p className="text-sub text-[13px]">학생이 남긴 평가예요. 누가 썼는지는 보이지 않아요.</p>
+              <h2 className={H2}>수강평</h2>
+              <p className="text-sub text-[13px] mt-1">학생이 남긴 평가예요. 누가 썼는지는 보이지 않아요.</p>
             </div>
             <div className="text-right shrink-0">
               <p className="text-[22px] font-bold tabular-nums text-blue">
@@ -959,9 +1055,9 @@ function Dashboard({ session }: { session: Session }) {
               <p className="text-sub text-[12px]">{reviews.count}개</p>
             </div>
           </div>
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col">
             {reviews.reviews.map((r) => (
-              <div key={r.id} className="rounded-[12px] border border-line p-3.5">
+              <div key={r.id} className="py-3 border-t border-line">
                 <p className="text-[13px]" style={{ color: "var(--blue)" }}>
                   {"★".repeat(r.rating)}
                   <span style={{ color: "var(--border)" }}>{"★".repeat(5 - r.rating)}</span>
@@ -978,25 +1074,26 @@ function Dashboard({ session }: { session: Session }) {
       <section className="rise d3 card p-5 lg:p-6 flex flex-col gap-3">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <h2 className="font-bold text-[17px]">평가</h2>
-            <p className="text-sub text-[13px]">
+            <h2 className={H2}>평가</h2>
+            <p className="text-sub text-[13px] mt-1">
               엑셀·CSV로 시험 문항을 올리면 학생이 문제풀이 화면에서 응시해요. 1인 1회만 응시할 수 있어요.
             </p>
           </div>
-          <button onClick={downloadTemplate} className="chip shrink-0 !text-[13px]">
+          <button onClick={downloadTemplate} className={`${SMALL} btn-gray font-semibold`}>
             양식 받기
           </button>
         </div>
 
         <div className="flex flex-col sm:flex-row gap-2">
           <input
+            aria-label="평가 이름"
             className="field flex-1"
             placeholder="평가 이름 (예: 3월 모의고사)"
             value={asTitle}
             onChange={(e) => setAsTitle(e.target.value)}
             maxLength={80}
           />
-          <select className="field sm:w-44" value={asCourse} onChange={(e) => setAsCourse(e.target.value)}>
+          <select aria-label="응시 대상" className="field sm:!w-44" value={asCourse} onChange={(e) => setAsCourse(e.target.value)}>
             <option value="">전체 학생</option>
             {courses.map((c) => (
               <option key={c.id} value={c.id}>
@@ -1006,7 +1103,7 @@ function Dashboard({ session }: { session: Session }) {
           </select>
         </div>
 
-        <label className={`btn btn-primary py-3 text-center cursor-pointer ${asBusy ? "opacity-60" : ""}`}>
+        <label className={`btn btn-primary h-12 inline-flex items-center justify-center cursor-pointer ${asBusy ? "opacity-60" : ""}`}>
           {asBusy ? "읽는 중…" : "엑셀·CSV 올리기"}
           <input
             type="file"
@@ -1022,26 +1119,26 @@ function Dashboard({ session }: { session: Session }) {
         </label>
 
         {assessments.length > 0 && (
-          <div className="flex flex-col gap-2 mt-1">
+          <div className="flex flex-col mt-1">
             {assessments.map((a) => (
-              <div key={a.id} className="flex items-center gap-2 rounded-[12px] border border-line p-3">
+              <div key={a.id} className="flex items-center gap-2 py-3.5 border-t border-line">
                 <div className="flex-1 min-w-0">
-                  <p className="text-[14px] font-bold truncate">{a.title}</p>
-                  <p className="text-sub text-[12px]">
+                  <p className="text-[15px] lg:text-[16px] font-bold truncate">{a.title}</p>
+                  <p className="text-sub text-[13px] mt-0.5">
                     {a.questions}문항
                     {a.courseId ? ` · ${courses.find((c) => c.id === a.courseId)?.title ?? "반"}` : " · 전체 학생"}
                   </p>
                 </div>
                 <button
                   onClick={() => downloadResults(a.id, a.title)}
-                  className="chip !text-[12px] shrink-0"
+                  className={`${SMALL} btn-ghost`}
                   title="응시 결과를 CSV로 받아 구글시트에 붙여넣을 수 있어요"
                 >
                   결과 CSV
                 </button>
                 <button
                   onClick={() => removeAssessment(a.id)}
-                  className="chip !text-[12px] shrink-0"
+                  className={`${SMALL} btn-gray font-semibold`}
                   style={{ color: "var(--red)" }}
                 >
                   삭제
@@ -1056,7 +1153,7 @@ function Dashboard({ session }: { session: Session }) {
       {/* 자료 기록 (감사 로그) — 전체 대시보드에서만 */}
       {!inRoom && events.length > 0 && (
         <details className="rise d3 card p-5 lg:p-6">
-          <summary className="font-bold text-[17px] cursor-pointer select-none">
+          <summary className={`${H2} cursor-pointer select-none`}>
             자료 기록 <span className="text-sub text-[13px] font-normal">· {events.length}건</span>
           </summary>
           <p className="text-sub text-[13px] mt-2">등록·제거 이력. 지운 자료도 기록은 남아요.</p>
@@ -1064,11 +1161,11 @@ function Dashboard({ session }: { session: Session }) {
             {events.map((e) => (
               <div key={e.id} className="flex items-center gap-2 text-[13px]">
                 <span
-                  className="chip !py-0.5 !px-2 !text-[11px] !cursor-default"
+                  className={`${TAG} shrink-0`}
                   style={
                     e.action === "created"
-                      ? { background: "var(--blue-weak)", color: "var(--blue)", borderColor: "transparent" }
-                      : { background: "var(--red-weak)", color: "var(--red)", borderColor: "transparent" }
+                      ? tagBlue
+                      : { background: "var(--red-weak)", color: "var(--red)" }
                   }
                 >
                   {e.action === "created" ? "등록" : e.action === "updated" ? "수정" : "제거"}
@@ -1093,28 +1190,48 @@ function Dashboard({ session }: { session: Session }) {
 
       </div>
 
-      {/* 우측(PC) / 하단(모바일): 자가 테스트 — 이동 메뉴는 사이드바로 옮겼다 */}
-      <div className="flex flex-col gap-4 lg:sticky lg:top-6">
-      <section className="rise d3 card p-5 lg:p-6 flex flex-col gap-3">
-        <div className="flex items-center justify-between">
+      {/* 우측(PC) / 하단(모바일): 자가 테스트 + 학생 초대 — 이동 메뉴는 사이드바로 옮겼다 */}
+      <div className={`flex flex-col gap-4 min-w-0 ${inRoom ? "lg:contents" : "lg:sticky lg:top-[76px]"}`}>
+      <section className="rise d3 card p-5 flex flex-col gap-3">
+        <div className="flex items-center justify-between gap-2">
           <h2 className="font-bold text-[17px]">내 튜터 직접 테스트</h2>
-          <span className="chip !cursor-default">미리보기</span>
+          <span className={TAG} style={tagGray}>미리보기</span>
         </div>
         <p className="text-sub text-[13px] -mt-1">
           등록한 자료로 어떻게 답하는지 바로 확인하세요.
         </p>
         {savedProfile === null ? (
           <div className="skel h-32 !rounded-[12px]" />
-        ) : savedProfile ? (
+        ) : (
           /* token 없으면 자가 테스트가 익명 학생 질문으로 집계돼 인사이트를 오염시킴 */
           <ChatPanel teacherId={uid} teacherName={name || "나"} compact token={token} />
-        ) : (
-          <p className="text-sub text-[14px] py-6 text-center">프로필을 먼저 저장하면 테스트할 수 있어요.</p>
         )}
       </section>
 
-      {/* 학생에게 보이는 배치 그대로 — preview=1이 없으면 강사에겐 학생 전용 영역이 숨겨진다 */}
-      <Link href={`/ask?preview=1&teacher=${uid}`} className="rise d4 btn btn-ghost py-4 text-center">
+      {/* 학생 초대는 각 ROOM 안에 — 강좌가 하나도 없을 때만 여기서 기본반 초대를 보여준다
+          (안 그러면 신규 강사가 초대할 방법이 없다) */}
+      {/* docs !== null: 강좌 목록이 로드되기 전 잠깐 나타났다 사라지는 깜빡임 방지 */}
+      {!inRoom && savedProfile && invite && docs !== null && courses.length === 0 && (
+        <section className="rise d3 card p-5 flex flex-col gap-3 order-first lg:order-none">
+          <h2 className="font-bold text-[17px]">학생 초대</h2>
+          <p className="text-sub text-[13px] -mt-1">
+            QR을 보여주거나 링크를 공유하세요. 학생이 접속하면 가입과 동시에 내 기본반에 등록돼요.
+            강좌 ROOM을 만들면 <b>ROOM별 초대 코드</b>가 각 ROOM 안에 생겨요.
+          </p>
+          <InviteBox
+            url={invite.url}
+            qrSvg={invite.qrSvg}
+            hint="학생이 회원가입 때 초대코드 칸에 넣어요"
+          />
+        </section>
+      )}
+
+      {/* 학생에게 보이는 배치 그대로 — preview=1이 없으면 강사에겐 학생 전용 영역이 숨겨진다.
+          전체 대시보드 PC에선 제목 옆에 같은 링크가 있다 */}
+      <Link
+        href={previewHref}
+        className={`rise d4 card !rounded-[12px] h-[52px] flex items-center justify-center text-[15px] font-bold ${inRoom ? "lg:self-start lg:px-6" : "lg:hidden"}`}
+      >
         학생 화면 미리보기 →
       </Link>
       </div>

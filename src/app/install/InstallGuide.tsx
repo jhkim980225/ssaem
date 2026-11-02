@@ -101,59 +101,69 @@ export default function InstallGuide({ url, appUrl }: { url: string; appUrl: str
 
   const g = GUIDES[platform];
 
+  const canCopy = platform === "ios-other" || platform === "ios-safari" || platform === "android-inapp";
+
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-3 sm:gap-4">
       <InstallButton />
 
-      <section className="card p-5 lg:p-6">
-        <h2 className="text-[16px] font-bold">{g.title}</h2>
-        <ol className="mt-3 flex flex-col gap-2.5">
+      <section className="card p-6">
+        <p className="text-[13px] font-bold text-blue">지금 쓰는 기기</p>
+        <h2 className="mt-1 text-[19px] font-bold">{g.title}</h2>
+        <ol className="mt-4 flex flex-col gap-4">
           {g.steps.map((t, i) => (
-            <li key={t} className="flex gap-2.5 text-[14px] leading-relaxed" style={{ color: "var(--sub-2)" }}>
-              <span className="shrink-0 grid place-items-center w-5 h-5 rounded-full bg-blue text-white text-[11px] font-bold mt-0.5">
+            <li key={t} className="flex gap-3.5 items-start">
+              <span
+                className="shrink-0 grid place-items-center w-7 h-7 rounded-full text-[14px] font-bold text-blue"
+                style={{ background: "var(--blue-weak)" }}
+              >
                 {i + 1}
               </span>
-              {t}
+              <p className="mt-0.5 text-[15px] leading-normal">{t}</p>
             </li>
           ))}
         </ol>
-        {g.note && <p className="mt-3 text-[12px] text-sub leading-relaxed">{g.note}</p>}
+        {g.note && <p className="mt-4 text-[13px] text-sub leading-relaxed">{g.note}</p>}
 
-        {platform === "ios-safari" && (
-          <a href={appUrl} className="btn btn-primary py-3 px-5 mt-4 text-[14px] inline-block text-center">
-            앱 화면 열기
-          </a>
-        )}
-
-        {(platform === "ios-other" || platform === "ios-safari" || platform === "android-inapp") && (
-          <button
-            onClick={() => {
-              navigator.clipboard.writeText(url).then(() => {
-                setCopied(true);
-                setTimeout(() => setCopied(false), 1500);
-              });
-            }}
-            className="btn btn-gray py-3 px-5 mt-4 text-[14px]"
-          >
-            {copied ? "복사됐어요" : "주소 복사"}
-          </button>
+        {canCopy && (
+          <div className={`mt-5 grid gap-2 ${platform === "ios-safari" ? "grid-cols-2" : ""}`}>
+            <button
+              onClick={() => {
+                navigator.clipboard.writeText(url).then(() => {
+                  setCopied(true);
+                  setTimeout(() => setCopied(false), 1500);
+                });
+              }}
+              className="btn btn-ghost h-12 text-[15px]"
+            >
+              {copied ? "복사됐어요" : "주소 복사"}
+            </button>
+            {platform === "ios-safari" && (
+              <a href={appUrl} className="btn btn-primary h-12 text-[15px] grid place-items-center">
+                앱 화면 열기
+              </a>
+            )}
+          </div>
         )}
       </section>
 
       {/* 다른 기기 안내는 접어둔다 — 자기 기기 단계만 보이는 게 설치율에 유리 */}
-      <details className="card p-5">
-        <summary className="text-[14px] font-bold cursor-pointer select-none">
+      <details className="group card overflow-hidden">
+        <summary className="flex items-center justify-between gap-3 min-h-[60px] px-6 text-[16px] font-bold cursor-pointer select-none list-none [&::-webkit-details-marker]:hidden">
           다른 기기에서 설치하려면
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden className="shrink-0 text-sub transition-transform group-open:rotate-180">
+            <path d="M6 9l6 6 6-6" />
+          </svg>
         </summary>
-        <div className="mt-3 flex flex-col gap-4">
+        <div className="border-t border-line">
           {(Object.keys(GUIDES) as (keyof typeof GUIDES)[])
             .filter((k) => k !== platform)
-            .map((k) => (
-              <div key={k}>
-                <p className="text-[13px] font-bold">{GUIDES[k].title}</p>
-                <ol className="mt-1 flex flex-col gap-1">
+            .map((k, idx) => (
+              <div key={k} className={`px-6 py-4 ${idx > 0 ? "border-t border-line" : ""}`}>
+                <p className="text-[15px] font-bold">{GUIDES[k].title}</p>
+                <ol className="mt-1.5 flex flex-col gap-1">
                   {GUIDES[k].steps.map((t, i) => (
-                    <li key={t} className="text-[13px] leading-relaxed" style={{ color: "var(--sub-2)" }}>
+                    <li key={t} className="text-[14px] leading-relaxed" style={{ color: "var(--sub-2)" }}>
                       {i + 1}. {t}
                     </li>
                   ))}

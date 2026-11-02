@@ -99,14 +99,16 @@ export default function StudentsPage() {
 
   if (gate) return gate;
 
+  const LABEL = "flex flex-col gap-1.5 text-[13px] font-semibold";
+
   return (
-    <main className="flex-1 w-full max-w-lg lg:max-w-5xl mx-auto px-5 py-8 flex flex-col gap-4">
-      <div className="rise">
-        <Link href="/teacher" className="text-sub text-[13px]">
+    <main className="flex-1 w-full max-w-lg lg:max-w-[1180px] mx-auto px-4 sm:px-5 lg:px-8 py-6 lg:py-8 flex flex-col gap-4">
+      <div className="rise flex flex-col gap-1">
+        <Link href="/teacher" className="text-sub text-[14px] font-semibold lg:hidden">
           ← 대시보드
         </Link>
         <h1 className="text-[24px] lg:text-[28px] font-bold">학생별 리포트</h1>
-        <p className="text-sub text-[14px]">최근 {days}일, 학생마다 얼마나 묻고 어디서 막혔는지예요.</p>
+        <p className="text-sub text-[14px] lg:text-[15px]">최근 {days}일, 학생마다 얼마나 묻고 어디서 막혔는지예요.</p>
       </div>
 
       {pwErr && (
@@ -134,17 +136,14 @@ export default function StudentsPage() {
 
       {/* PC는 카드 2열 — 한 줄에 하나씩 흘리면 넓은 화면에서 스크롤만 길어진다.
           items-start: 한 카드에서 연락처·메모를 펼쳐도 같은 행의 다른 카드가 늘어나지 않게 */}
-      <div className="flex flex-col gap-2 lg:grid lg:grid-cols-2 lg:gap-3 lg:items-start">
+      <div className="grid gap-3 lg:grid-cols-2 lg:items-start">
         {students?.map((s, i) => (
-          <div key={s.id} className={`rise d${Math.min(i + 1, 6)} card p-4 lg:p-5`}>
-            <div className="flex items-center gap-3">
-              <span className="avatar !w-10 !h-10 !text-[16px]">{avatarEmoji(s.name)}</span>
+          <article key={s.id} className={`rise d${Math.min(i + 1, 6)} card p-5 min-w-0`}>
+            <div className="flex items-start gap-3">
+              <span className="avatar !w-11 !h-11 !text-[16px]">{avatarEmoji(s.name)}</span>
               <div className="min-w-0 flex-1">
-                <p className="text-[15px] font-bold truncate">{s.name}</p>
-                <p className="text-[13px] text-sub truncate">
-                  최근 질문: {s.lastQuestion || "—"}
-                </p>
-                <p className="text-[12px] text-sub truncate tabular-nums">
+                <p className="text-[16px] lg:text-[17px] font-bold truncate">{s.name}</p>
+                <p className="text-[13px] text-sub tabular-nums mt-0.5">
                   접속 {s.visits}회 · 출석 {s.visitDays}일
                   {s.lastVisit
                     ? ` · 마지막 ${new Date(s.lastVisit).toLocaleDateString("ko-KR", { month: "numeric", day: "numeric" })}`
@@ -154,72 +153,84 @@ export default function StudentsPage() {
               <div className="text-right shrink-0">
                 <p className="text-[15px] font-bold tabular-nums">질문 {s.questions}</p>
                 {s.down > 0 && (
-                  <p className="text-[12px] font-bold" style={{ color: "var(--red)" }}>
+                  <p className="text-[13px] font-bold mt-0.5" style={{ color: "var(--red)" }}>
                     아쉬움 {s.down}
                   </p>
                 )}
               </div>
             </div>
 
-            <div className="mt-3 flex items-center justify-end gap-1.5">
+            <p className="mt-3.5 rounded-[10px] px-3.5 py-3 text-[14px] break-words" style={{ background: "var(--fill-2)", color: "var(--text-2)" }}>
+              <span className="text-sub">최근 질문</span> · {s.lastQuestion || "—"}
+            </p>
+
+            <div className="mt-3 flex flex-wrap items-center gap-1.5">
               <button
                 onClick={() => toggleDetail(s.id)}
-                className={`chip !py-1 !px-2.5 !text-[12px] ${openId === s.id ? "chip-on" : ""}`}
+                aria-expanded={openId === s.id}
+                className={`btn h-9 px-3 text-[13px] ${openId === s.id ? "btn-primary" : "btn-gray font-semibold"}`}
               >
                 연락처·메모
               </button>
               <button
                 onClick={() => resetPw(s.id, s.name)}
                 disabled={busy === s.id}
-                className="chip !py-1 !px-2.5 !text-[12px] disabled:opacity-50"
+                className="btn btn-gray h-9 px-3 text-[13px] font-semibold disabled:opacity-50"
               >
                 {busy === s.id ? "바꾸는 중…" : "비밀번호 초기화"}
               </button>
             </div>
 
             {openId === s.id && (
-              <div className="animate-pop mt-3 rounded-[12px] border border-line p-4 flex flex-col gap-2">
+              <div className="animate-pop mt-3 rounded-[12px] border border-line p-4 flex flex-col gap-2.5">
                 <p className="text-[12px] text-sub">
                   학생 개인정보예요. 필요한 것만 적고, 학원 밖으로 공유하지 마세요.
                 </p>
-                <input
-                  className="field"
-                  placeholder="연락처 (예: 010-1234-5678)"
-                  maxLength={30}
-                  value={detail[s.id]?.phone ?? ""}
-                  onChange={(e) =>
-                    setDetail((p) => ({ ...p, [s.id]: { phone: e.target.value, note: p[s.id]?.note ?? "" } }))
-                  }
-                />
-                <textarea
-                  className="field min-h-20"
-                  placeholder="메모 (특이사항·상담 내용)"
-                  maxLength={500}
-                  value={detail[s.id]?.note ?? ""}
-                  onChange={(e) =>
-                    setDetail((p) => ({ ...p, [s.id]: { phone: p[s.id]?.phone ?? "", note: e.target.value } }))
-                  }
-                />
-                <div className="flex items-center gap-2">
+                <label className={LABEL} style={{ color: "var(--sub-2)" }}>
+                  연락처
+                  <input
+                    className="field"
+                    type="tel"
+                    placeholder="예: 010-1234-5678"
+                    maxLength={30}
+                    value={detail[s.id]?.phone ?? ""}
+                    onChange={(e) =>
+                      setDetail((p) => ({ ...p, [s.id]: { phone: e.target.value, note: p[s.id]?.note ?? "" } }))
+                    }
+                  />
+                </label>
+                <label className={LABEL} style={{ color: "var(--sub-2)" }}>
+                  메모
+                  <textarea
+                    className="field min-h-20 resize-y"
+                    placeholder="특이사항·상담 내용"
+                    maxLength={500}
+                    value={detail[s.id]?.note ?? ""}
+                    onChange={(e) =>
+                      setDetail((p) => ({ ...p, [s.id]: { phone: p[s.id]?.phone ?? "", note: e.target.value } }))
+                    }
+                  />
+                </label>
+                <div className="flex items-center justify-end gap-2">
+                  {detailMsg && <span className="text-[13px] text-sub">{detailMsg}</span>}
                   <button
                     onClick={() => saveDetail(s.id)}
                     disabled={detailBusy === s.id}
-                    className="btn btn-primary py-2.5 px-5 text-[14px] disabled:opacity-60"
+                    className="btn btn-primary h-10 px-5 text-[14px] disabled:opacity-60"
                   >
                     {detailBusy === s.id ? "저장 중…" : "저장"}
                   </button>
-                  {detailMsg && <span className="text-[13px] text-sub">{detailMsg}</span>}
                 </div>
               </div>
             )}
 
             {issued?.id === s.id && (
               <div
-                className="animate-pop mt-3 rounded-[12px] p-4 text-[13px] leading-relaxed"
+                className="animate-pop mt-3 rounded-[12px] p-4 text-[14px] leading-relaxed"
                 style={{ background: "var(--blue-weak)" }}
               >
                 <p className="font-bold text-blue mb-1.5">임시 비밀번호를 학생에게 알려주세요</p>
-                <p style={{ color: "var(--sub-2)" }}>
+                <p style={{ color: "var(--text-2)" }}>
                   아이디 <b className="tabular-nums">{issued.loginId}</b>
                   <br />
                   임시 비밀번호 <b className="tabular-nums">{issued.password}</b>
@@ -229,7 +240,7 @@ export default function StudentsPage() {
                 </p>
               </div>
             )}
-          </div>
+          </article>
         ))}
       </div>
     </main>

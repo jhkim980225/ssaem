@@ -47,25 +47,53 @@ export default function DevPage() {
 
   const maxVisits = Math.max(1, ...(m?.daily ?? []).map((d) => d.visits));
 
-  const tile = (label: string, v: number | string, sub?: string) => (
-    <div key={label} className="card p-4 text-center">
-      <p className="text-[22px] font-bold tabular-nums">{v}</p>
-      <p className="text-[12px] text-sub mt-0.5">{label}</p>
-      {sub && <p className="text-[11px] text-sub">{sub}</p>}
+  // 큰 숫자 카드 (DAU·WAU·MAU)
+  const stat = (label: string, v: number | string) => (
+    <div key={label} className="card p-4 lg:p-5">
+      <p className="text-[13px] lg:text-[14px] text-sub">{label}</p>
+      <p className="mt-1 lg:mt-1.5 text-[24px] lg:text-[30px] font-bold tabular-nums leading-tight">{v}</p>
     </div>
   );
+  // 카드 안 작은 타일 (가입자·사용량·누적). hi = 강조(블루그레이)
+  const tile = (label: string, v: number | string, hi?: boolean) => (
+    <div
+      key={label}
+      className="rounded-[12px] px-4 py-3.5"
+      style={{ background: hi ? "var(--blue-weak)" : "var(--fill-2)" }}
+    >
+      <p className="text-[13px]" style={{ color: hi ? "var(--blue)" : "var(--sub)" }}>
+        {label}
+      </p>
+      <p className="mt-1 text-[20px] lg:text-[22px] font-bold tabular-nums" style={hi ? { color: "var(--blue)" } : undefined}>
+        {typeof v === "number" ? v.toLocaleString() : v}
+      </p>
+    </div>
+  );
+  const h2 = "font-bold text-[17px] lg:text-[19px]";
+  const th = "text-left text-[13px] font-semibold text-sub px-3 py-2.5 border-b border-line whitespace-nowrap";
+  const td = "px-3 py-3 tabular-nums";
 
   return (
-    <main className="flex-1 w-full max-w-4xl mx-auto px-5 py-8 flex flex-col gap-4">
-      <div className="rise flex flex-col gap-1">
-        <h1 className="text-[24px] lg:text-[28px] font-bold">개발자 대시보드</h1>
-        <p className="text-sub text-[14px]">
-          서비스 전반 지표예요. 활성 사용자(DAU·WAU·MAU)는 학생 접속 기록(v0.40.0~) 기준이에요.
-        </p>
+    <main className="flex-1 w-full max-w-[1120px] mx-auto px-4 lg:px-6 py-5 lg:py-8 flex flex-col gap-3 lg:gap-4">
+      <div className="rise flex flex-col lg:flex-row lg:items-end lg:justify-between gap-1 lg:gap-4">
+        <div className="flex flex-col gap-1">
+          <h1 className="text-[24px] lg:text-[28px] font-bold tracking-[-0.5px]">개발자 대시보드</h1>
+          <p className="text-sub text-[14px]">
+            서비스 전반 지표예요. 활성 사용자(DAU·WAU·MAU)는 학생 접속 기록(v0.40.0~) 기준이에요.
+          </p>
+        </div>
+        {m && (
+          <p className="text-[13px] text-sub shrink-0">
+            집계 시각 {new Date(m.generatedAt).toLocaleString("ko-KR")}
+          </p>
+        )}
       </div>
 
       {err && (
-        <p className="text-[13px] font-bold" style={{ color: "var(--red)" }}>
+        <p
+          className="rounded-[12px] px-4 py-3 text-[14px] font-bold"
+          style={{ background: "var(--red-weak)", color: "var(--red)" }}
+        >
           {err}
         </p>
       )}
@@ -73,49 +101,52 @@ export default function DevPage() {
 
       {m && (
         <>
-          <section className="rise d1 flex flex-col gap-2">
-            <h2 className="text-[15px] font-bold">활성 사용자</h2>
-            <div className="grid grid-cols-3 gap-2">
-              {tile("DAU (오늘)", m.active.dau)}
-              {tile("WAU (7일)", m.active.wau)}
-              {tile("MAU (30일)", m.active.mau)}
+          <section aria-label="활성 사용자" className="rise d1 grid grid-cols-3 gap-2 lg:gap-3">
+            {stat("DAU (오늘)", m.active.dau)}
+            {stat("WAU (7일)", m.active.wau)}
+            {stat("MAU (30일)", m.active.mau)}
+          </section>
+
+          <section className="rise d2 card p-5 lg:p-6">
+            <h2 className={`${h2} mb-4 lg:mb-5`}>일별 접속 (30일)</h2>
+            <div
+              className="flex items-end gap-[2px] lg:gap-1 h-[110px] lg:h-[140px]"
+              role="img"
+              aria-label="최근 30일 일별 접속 막대 그래프"
+            >
+              {m.daily.map((d, i) => (
+                <div
+                  key={d.day}
+                  title={`${d.day} · 접속 ${d.visits}회 · 학생 ${d.students}명`}
+                  className="flex-1 rounded-t-[3px] bg-blue min-h-[2px]"
+                  style={{
+                    height: `${Math.max(2, (d.visits / maxVisits) * 100)}%`,
+                    // 마지막 날(오늘)만 진하게, 접속 0인 날은 거의 투명
+                    opacity: !d.visits ? 0.15 : i === m.daily.length - 1 ? 1 : 0.3,
+                  }}
+                />
+              ))}
+            </div>
+            <div className="flex justify-between text-[12px] text-sub mt-2">
+              <span>{m.daily[0]?.day.slice(5)}</span>
+              <span>{m.daily[m.daily.length - 1]?.day.slice(5)}</span>
             </div>
           </section>
 
-          <section className="rise d2 flex flex-col gap-2">
-            <h2 className="text-[15px] font-bold">일별 접속 (30일)</h2>
-            <div className="card p-4">
-              <div className="flex items-end gap-[2px] h-24">
-                {m.daily.map((d) => (
-                  <div
-                    key={d.day}
-                    title={`${d.day} · 접속 ${d.visits}회 · 학생 ${d.students}명`}
-                    className="flex-1 rounded-t-[3px] bg-blue min-h-[2px]"
-                    style={{ height: `${Math.max(2, (d.visits / maxVisits) * 100)}%`, opacity: d.visits ? 1 : 0.15 }}
-                  />
-                ))}
-              </div>
-              <div className="flex justify-between text-[11px] text-sub mt-1.5">
-                <span>{m.daily[0]?.day.slice(5)}</span>
-                <span>{m.daily[m.daily.length - 1]?.day.slice(5)}</span>
-              </div>
-            </div>
-          </section>
-
-          <section className="rise d3 flex flex-col gap-2">
-            <h2 className="text-[15px] font-bold">가입자</h2>
+          <section className="rise d3 card p-5 lg:p-6 flex flex-col gap-4 lg:gap-5 min-w-0">
+            <h2 className={h2}>가입자</h2>
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
               {tile("총 가입자", m.users.students + m.users.teachers + m.users.admins)}
               {tile("학생", m.users.students)}
               {tile("강사", m.users.teachers)}
               {tile("원장", m.users.admins)}
               {tile("학원", m.users.academies)}
-              {tile("신규 가입 (30일)", m.users.newUsers30)}
+              {tile("신규 가입 (30일)", m.users.newUsers30, true)}
             </div>
             {/* 일별 신규 가입 30일 */}
-            <div className="card p-4">
-              <p className="text-[12px] font-bold text-sub mb-2">일별 신규 가입 (30일)</p>
-              <div className="flex items-end gap-[2px] h-16">
+            <div>
+              <p className="text-[13px] font-bold text-sub mb-2">일별 신규 가입 (30일)</p>
+              <div className="flex items-end gap-[2px] lg:gap-1 h-16">
                 {m.signupDaily.map((d) => {
                   const maxS = Math.max(1, ...m.signupDaily.map((x) => x.count));
                   return (
@@ -128,31 +159,31 @@ export default function DevPage() {
                   );
                 })}
               </div>
-              <div className="flex justify-between text-[11px] text-sub mt-1.5">
+              <div className="flex justify-between text-[12px] text-sub mt-2">
                 <span>{m.signupDaily[0]?.day.slice(5)}</span>
                 <span>{m.signupDaily[m.signupDaily.length - 1]?.day.slice(5)}</span>
               </div>
             </div>
-            {/* 학원별 인원 분포 */}
-            <div className="card p-0 overflow-x-auto">
-              <table className="w-full text-[13px] min-w-[420px]">
+            {/* 학원별 인원 분포 — 좁은 화면에선 이 박스 안에서만 가로 스크롤 */}
+            <div className="overflow-x-auto">
+              <table className="w-full text-[14px] min-w-[420px] border-collapse">
                 <thead>
-                  <tr className="text-sub text-[12px] border-b border-line">
-                    <th className="text-left font-bold px-4 py-2.5">학원</th>
-                    <th className="text-right font-bold px-2 py-2.5">학생</th>
-                    <th className="text-right font-bold px-2 py-2.5">강사</th>
-                    <th className="text-right font-bold px-2 py-2.5">원장</th>
-                    <th className="text-right font-bold px-4 py-2.5">계</th>
+                  <tr>
+                    <th className={th}>학원</th>
+                    <th className={th}>학생</th>
+                    <th className={th}>강사</th>
+                    <th className={th}>원장</th>
+                    <th className={th}>계</th>
                   </tr>
                 </thead>
                 <tbody>
                   {m.academies.map((a, i) => (
                     <tr key={i} className="border-b border-line last:border-b-0">
-                      <td className="px-4 py-2 font-bold whitespace-nowrap">{a.name}</td>
-                      <td className="px-2 py-2 text-right tabular-nums">{a.students}</td>
-                      <td className="px-2 py-2 text-right tabular-nums">{a.teachers}</td>
-                      <td className="px-2 py-2 text-right tabular-nums">{a.admins}</td>
-                      <td className="px-4 py-2 text-right tabular-nums font-bold">{a.total}</td>
+                      <td className={`${td} font-bold whitespace-nowrap`}>{a.name}</td>
+                      <td className={td}>{a.students}</td>
+                      <td className={td}>{a.teachers}</td>
+                      <td className={td}>{a.admins}</td>
+                      <td className={`${td} font-bold`}>{a.total}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -160,8 +191,8 @@ export default function DevPage() {
             </div>
           </section>
 
-          <section className="rise d4 flex flex-col gap-2">
-            <h2 className="text-[15px] font-bold">사용량 (최근 30일)</h2>
+          <section className="rise d4 card p-5 lg:p-6 flex flex-col gap-4">
+            <h2 className={h2}>사용량 (최근 30일)</h2>
             <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
               {tile("새 대화", m.usage30.conversations)}
               {tile("질문", m.usage30.questions)}
@@ -171,26 +202,31 @@ export default function DevPage() {
             </div>
           </section>
 
-          <section className="rise d5 flex flex-col gap-2">
-            <h2 className="text-[15px] font-bold">누적</h2>
+          <section className="rise d5 card p-5 lg:p-6 flex flex-col gap-4">
+            <h2 className={h2}>누적</h2>
             <div className="grid grid-cols-2 gap-2">
               {tile("총 대화", m.totals.conversations)}
               {tile("등록 자료", m.totals.documents)}
             </div>
           </section>
 
-          <section className="rise d6 flex flex-col gap-2">
-            <h2 className="text-[15px] font-bold">사용자별 접속 (학생 전원 · 전 기간)</h2>
-            <div className="card p-0 overflow-x-auto">
-              <table className="w-full text-[13px] min-w-[560px]">
+          <section className="rise d6 card p-5 lg:p-6 flex flex-col gap-3 min-w-0">
+            <div>
+              <h2 className={h2}>사용자별 접속</h2>
+              <p className="text-[13px] text-sub mt-1">
+                학생 전원 · 전 기간. 접속은 학생 계정만 집계돼요 (v0.40.0 도입 이후).
+              </p>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-[14px] min-w-[560px] border-collapse">
                 <thead>
-                  <tr className="text-sub text-[12px] border-b border-line">
-                    <th className="text-left font-bold px-4 py-2.5">이름</th>
-                    <th className="text-left font-bold px-2 py-2.5">학원</th>
-                    <th className="text-right font-bold px-2 py-2.5">총 접속</th>
-                    <th className="text-right font-bold px-2 py-2.5">출석일</th>
-                    <th className="text-right font-bold px-2 py-2.5">연속</th>
-                    <th className="text-right font-bold px-4 py-2.5">최근 접속</th>
+                  <tr>
+                    <th className={th}>이름</th>
+                    <th className={th}>학원</th>
+                    <th className={th}>총 접속</th>
+                    <th className={th}>출석일</th>
+                    <th className={th}>연속</th>
+                    <th className={th}>최근 접속</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -198,21 +234,21 @@ export default function DevPage() {
                     const maxV = Math.max(1, m.perUser[0]?.visits ?? 1);
                     return (
                       <tr key={u.id} className="border-b border-line last:border-b-0">
-                        <td className="px-4 py-2 font-bold whitespace-nowrap">{u.name}</td>
-                        <td className="px-2 py-2 text-sub whitespace-nowrap">{u.academy ?? "—"}</td>
-                        <td className="px-2 py-2 text-right tabular-nums">
-                          <span className="inline-flex items-center gap-1.5 justify-end">
+                        <td className={`${td} font-bold whitespace-nowrap`}>{u.name}</td>
+                        <td className={`${td} text-sub whitespace-nowrap`}>{u.academy ?? "—"}</td>
+                        <td className={td}>
+                          <span className="inline-flex items-center gap-2">
                             {/* 상대 막대 — 표에서 바로 많이/적게가 보이게 */}
                             <span
-                              className="inline-block h-2 rounded-full bg-blue"
-                              style={{ width: `${Math.max(2, (u.visits / maxV) * 56)}px`, opacity: u.visits ? 1 : 0.15 }}
+                              className="inline-block h-1.5 rounded-full bg-blue"
+                              style={{ width: `${Math.max(2, (u.visits / maxV) * 80)}px`, opacity: u.visits ? 1 : 0.15 }}
                             />
                             {u.visits}
                           </span>
                         </td>
-                        <td className="px-2 py-2 text-right tabular-nums">{u.visitDays}</td>
-                        <td className="px-2 py-2 text-right tabular-nums">{u.streak > 0 ? `${u.streak}일` : "—"}</td>
-                        <td className="px-4 py-2 text-right text-sub whitespace-nowrap">
+                        <td className={td}>{u.visitDays}</td>
+                        <td className={td}>{u.streak > 0 ? `${u.streak}일` : "—"}</td>
+                        <td className={`${td} text-sub whitespace-nowrap`}>
                           {u.lastVisit
                             ? new Date(u.lastVisit).toLocaleString("ko-KR", {
                                 month: "numeric",
@@ -227,7 +263,7 @@ export default function DevPage() {
                   })}
                   {m.perUser.length === 0 && (
                     <tr>
-                      <td colSpan={6} className="px-4 py-6 text-center text-sub">
+                      <td colSpan={6} className="px-3 py-6 text-center text-sub">
                         아직 접속 기록이 없어요.
                       </td>
                     </tr>
@@ -235,12 +271,9 @@ export default function DevPage() {
                 </tbody>
               </table>
             </div>
-            <p className="text-[11px] text-sub">접속은 학생 계정만 집계돼요 (v0.40.0 도입 이후).</p>
           </section>
 
-          <p className="text-[11px] text-sub">
-            집계 시각 {new Date(m.generatedAt).toLocaleString("ko-KR")} · 새로고침하면 다시 계산돼요.
-          </p>
+          <p className="text-[12px] text-sub">새로고침하면 다시 계산돼요.</p>
         </>
       )}
     </main>
@@ -265,50 +298,73 @@ function DevLogin({ signedInWrongRole }: { signedInWrongRole: boolean }) {
     // dev가 아닌 계정이면 아래 wrongRole 안내로 떨어진다.
   }
 
+  // 딥네이비 카드 — 일반 로그인(흰 카드)과 한눈에 구분되게
+  const head = (
+    <>
+      <div className="flex items-center gap-2">
+        <span className="w-7 h-7 rounded-[9px] grid place-items-center text-[15px] font-bold bg-white/15">마</span>
+        <span className="text-[15px] font-bold">개발자</span>
+      </div>
+      <div className="mt-6 mb-1">
+        <h1 className="text-[24px] lg:text-[26px] font-bold tracking-[-0.5px]">개발자 로그인</h1>
+        <p className="mt-1.5 text-[15px] text-white/70">서비스 전체 지표는 개발자 계정만 볼 수 있어요.</p>
+      </div>
+    </>
+  );
+  const errBox = "rounded-[10px] px-4 py-3.5 text-[14px] font-semibold";
+
   if (signedInWrongRole)
     return (
-      <main className="flex-1 grid place-items-center px-5">
-        <div className="text-center">
-          <p className="text-[16px] font-bold mb-1">개발자 계정이 아니에요</p>
-          <p className="text-sub text-[14px] mb-5">지금 계정을 로그아웃하고 dev 계정으로 다시 로그인해 주세요.</p>
-          <button onClick={() => supabase.auth.signOut()} className="btn btn-primary py-3 px-6">
+      <main className="flex-1 grid place-items-center px-4 py-8">
+        <div className="animate-pop w-full max-w-sm rounded-[16px] p-6 flex flex-col gap-4 text-white bg-blue">
+          {head}
+          <div className={errBox} style={{ background: "var(--red-weak)", color: "var(--red)" }}>
+            개발자 계정이 아니에요. 지금 계정을 로그아웃하고 dev 계정으로 다시 로그인해 주세요.
+          </div>
+          <button onClick={() => supabase.auth.signOut()} className="btn h-[50px] text-[17px] bg-surface text-blue">
             로그아웃
           </button>
         </div>
       </main>
     );
 
+  const label = "flex flex-col gap-2 text-[13px] font-semibold text-white/80";
   return (
-    <main className="flex-1 grid place-items-center px-5">
-      <div className="card p-6 w-full max-w-sm flex flex-col gap-3">
-        <div>
-          <h1 className="text-[18px] font-bold">개발자 로그인</h1>
-          <p className="text-sub text-[13px] mt-0.5">서비스 지표 대시보드 — 개발자 전용이에요.</p>
-        </div>
-        <input
-          className="field"
-          placeholder="아이디"
-          value={id}
-          autoComplete="username"
-          onChange={(e) => setId(e.target.value)}
-        />
-        <input
-          className="field"
-          type="password"
-          placeholder="비밀번호"
-          value={pw}
-          autoComplete="current-password"
-          onChange={(e) => setPw(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && !e.nativeEvent.isComposing) submit();
-          }}
-        />
+    <main className="flex-1 grid place-items-center px-4 py-8">
+      <div className="animate-pop w-full max-w-sm rounded-[16px] p-6 flex flex-col gap-4 text-white bg-blue">
+        {head}
+        <label className={label}>
+          아이디
+          <input
+            className="field text-text"
+            value={id}
+            autoComplete="username"
+            onChange={(e) => setId(e.target.value)}
+          />
+        </label>
+        <label className={label}>
+          비밀번호
+          <input
+            className="field text-text"
+            type="password"
+            value={pw}
+            autoComplete="current-password"
+            onChange={(e) => setPw(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.nativeEvent.isComposing) submit();
+            }}
+          />
+        </label>
         {err && (
-          <p className="text-[13px] font-bold" style={{ color: "var(--red)" }}>
+          <p className={errBox} style={{ background: "var(--red-weak)", color: "var(--red)" }}>
             {err}
           </p>
         )}
-        <button onClick={submit} disabled={busy || !pw} className="btn btn-primary py-3 disabled:opacity-50">
+        <button
+          onClick={submit}
+          disabled={busy || !pw}
+          className="btn h-[50px] mt-2 text-[17px] bg-surface text-blue disabled:opacity-50"
+        >
           {busy ? "로그인 중…" : "로그인"}
         </button>
       </div>

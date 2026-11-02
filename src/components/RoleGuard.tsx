@@ -6,6 +6,7 @@ import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
 import { homeFor, type Role } from "@/lib/role";
 import { useAuth, clearMustChangePassword } from "@/lib/auth-store";
+import { useStudentTabs } from "@/components/StudentTabBar";
 
 const LABEL: Record<"teacher" | "admin" | "student" | "dev", string> = {
   teacher: "강사",
@@ -53,14 +54,69 @@ export function useGate(
   return { session, role, gate, allowed: gate === null };
 }
 
-// 역할 조회 중 자리. 화면 한가운데 스피너는 "빈 화면"처럼 보여서,
-// 실제 콘텐츠와 비슷한 형태의 스켈레톤으로 자리를 잡아둔다.
-export // 첫 로그인 비밀번호 변경. 학생 가입이 휴대폰 뒷자리로 시작하므로 반드시 거쳐야 한다.
-function ChangePassword({ session }: { session: Session }) {
+// 폰에선 화면 높이를 채워 주 버튼이 엄지 닿는 아래쪽에 오게 한다 (헤더 60px, 학생은 탭바 68px도 뺀다).
+function useFillScreen() {
+  return useStudentTabs()
+    ? "max-lg:min-h-[calc(100dvh-128px-env(safe-area-inset-bottom))]"
+    : "max-lg:min-h-[calc(100dvh-60px)]";
+}
+
+const TONE = {
+  blue: { background: "var(--blue-weak)", color: "var(--blue)" },
+  gray: { background: "var(--fill)", color: "var(--sub-2)" },
+  red: { background: "var(--red-weak)", color: "var(--red)" },
+} as const;
+
+// 폰 하단 꽉 찬 버튼 (주/보조)
+export const BIG_BTN = "btn btn-primary w-full h-[50px] text-[17px] grid place-items-center";
+export const BIG_BTN_GRAY = "btn btn-gray w-full h-[50px] text-[16px] grid place-items-center";
+
+// 상태 화면 공통 틀 (로그인 필요·역할 불일치·초대 링크 오류·404):
+// 가운데 아이콘·제목·설명 + 하단 버튼.
+export function StateScreen({
+  icon,
+  title,
+  children,
+  actions,
+}: {
+  icon: ReactNode;
+  title: ReactNode;
+  children?: ReactNode;
+  actions?: ReactNode;
+}) {
+  const fill = useFillScreen();
+  return (
+    <main className={`flex-1 w-full max-w-sm mx-auto px-6 pt-6 pb-8 lg:py-16 flex flex-col ${fill}`}>
+      <div className="animate-pop flex-1 flex flex-col items-center justify-center text-center gap-3.5 py-10">
+        {icon}
+        <h1 className="mt-1.5 text-[22px] font-bold">{title}</h1>
+        {children && <div className="text-[15px] leading-relaxed text-sub">{children}</div>}
+      </div>
+      {actions && <div className="flex flex-col gap-2">{actions}</div>}
+    </main>
+  );
+}
+
+// 상태 화면 가운데 아이콘 — 72px 둥근 칸 + 선 아이콘(path 목록)
+export function StateIcon({ tone = "blue", paths }: { tone?: keyof typeof TONE; paths: string[] }) {
+  return (
+    <span className="grid place-items-center w-[72px] h-[72px] rounded-[16px]" style={TONE[tone]}>
+      <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        {paths.map((d) => (
+          <path key={d} d={d} />
+        ))}
+      </svg>
+    </span>
+  );
+}
+
+// 첫 로그인 비밀번호 변경. 학생 가입이 휴대폰 뒷자리로 시작하므로 반드시 거쳐야 한다.
+export function ChangePassword({ session }: { session: Session }) {
   const [pw, setPw] = useState("");
   const [pw2, setPw2] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+  const fill = useFillScreen();
 
   async function save() {
     if (busy) return;
@@ -85,51 +141,104 @@ function ChangePassword({ session }: { session: Session }) {
     }
   }
 
+  // 입력하는 동안 보여주는 조건 표시일 뿐 — 검증은 save가 한다
+  const hints: [string, boolean][] = [
+    ["8자 이상", pw.length >= 8],
+    ["숫자만은 안 돼요", pw !== "" && !/^\d+$/.test(pw)],
+  ];
+  const mismatch = pw2 !== "" && pw !== pw2;
+
   return (
-    <main className="flex-1 w-full max-w-sm mx-auto px-5 py-14">
-      <div className="animate-pop flex flex-col gap-3">
-        <h1 className="text-[24px] font-bold">비밀번호를 바꿔 주세요</h1>
-        <p className="text-sub text-[14px] mb-2">
-          지금은 휴대폰 뒷자리를 쓰고 있어요. 다른 사람이 알 수 있으니 나만 아는 비밀번호로 바꿔야
-          시작할 수 있어요.
-        </p>
-        <input
-          className="field"
-          type="password"
-          placeholder="새 비밀번호 (8자 이상, 영문 포함)"
-          value={pw}
-          onChange={(e) => setPw(e.target.value)}
-        />
-        <input
-          className="field"
-          type="password"
-          placeholder="새 비밀번호 확인"
-          value={pw2}
-          onChange={(e) => setPw2(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && save()}
-        />
-        <button onClick={save} disabled={busy} className="btn btn-primary py-3.5 disabled:opacity-60">
-          {busy ? "바꾸는 중…" : "바꾸고 시작하기"}
-        </button>
-        {err && (
-          <p className="text-[13px] font-bold" style={{ color: "var(--red)" }}>
-            {err}
-          </p>
-        )}
-        <button onClick={() => supabase.auth.signOut()} className="text-sub text-[13px] mt-1">
-          로그아웃
-        </button>
+    <main className={`flex-1 w-full max-w-sm mx-auto px-6 pt-8 pb-8 lg:py-14 flex flex-col ${fill}`}>
+      <span className="animate-pop self-start h-7 px-2.5 rounded-[8px] grid place-items-center text-[13px] font-bold" style={TONE.blue}>
+        첫 로그인
+      </span>
+      <h1 className="animate-pop mt-3 text-[26px] leading-[1.35] font-bold tracking-[-0.5px]">
+        비밀번호를
+        <br />
+        바꿔 주세요
+      </h1>
+      <p className="mt-2 mb-6 text-[15px] leading-relaxed text-sub">
+        지금은 휴대폰 뒷자리를 쓰고 있어요. 다른 사람이 알 수 있으니 나만 아는 비밀번호로 바꿔야
+        시작할 수 있어요.
+      </p>
+      <div className="flex flex-col gap-3.5">
+        <label className="flex flex-col gap-2 text-[13px] font-semibold" style={{ color: "var(--sub-2)" }}>
+          새 비밀번호
+          <input
+            className="field text-[16px] font-normal text-text"
+            type="password"
+            placeholder="8자 이상, 영문 포함"
+            value={pw}
+            onChange={(e) => setPw(e.target.value)}
+          />
+          <span className="flex gap-3">
+            {hints.map(([t, ok]) => (
+              <span key={t} style={{ color: ok ? "var(--blue)" : "var(--sub)" }}>
+                {ok ? "✓ " : ""}
+                {t}
+              </span>
+            ))}
+          </span>
+        </label>
+        <label className="flex flex-col gap-2 text-[13px] font-semibold" style={{ color: "var(--sub-2)" }}>
+          새 비밀번호 확인
+          <input
+            className="field text-[16px] font-normal text-text"
+            type="password"
+            placeholder="한 번 더 입력"
+            value={pw2}
+            onChange={(e) => setPw2(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && save()}
+            style={mismatch ? { borderColor: "var(--red)", background: "var(--red-weak)" } : undefined}
+          />
+          {mismatch && <span style={{ color: "var(--red)" }}>비밀번호가 서로 달라요</span>}
+        </label>
       </div>
+      <div className="flex-1 min-h-8" />
+      {err && (
+        <p role="alert" className="mb-3 rounded-[12px] px-4 py-3 text-[14px] font-bold" style={TONE.red}>
+          {err}
+        </p>
+      )}
+      <button onClick={save} disabled={busy} className="btn btn-primary w-full h-[50px] text-[17px]">
+        {busy ? "바꾸는 중…" : "바꾸고 시작하기"}
+      </button>
+      <button onClick={() => supabase.auth.signOut()} className="mt-4 text-[14px] text-sub">
+        로그아웃
+      </button>
     </main>
   );
 }
 
+// 역할 조회 중 자리. 화면 한가운데 스피너는 "빈 화면"처럼 보여서,
+// 실제 콘텐츠와 비슷한 형태의 스켈레톤으로 자리를 잡아둔다.
 function RoleLoading() {
   return (
-    <main className="flex-1 w-full max-w-lg lg:max-w-3xl mx-auto px-5 py-8 flex flex-col gap-3">
-      <div className="skel h-7 w-40" />
-      <div className="skel h-24 !rounded-[16px]" />
-      <div className="skel h-40 !rounded-[16px]" />
+    <main
+      aria-busy="true"
+      aria-label="불러오는 중"
+      className="flex-1 w-full max-w-lg lg:max-w-3xl mx-auto px-4 lg:px-5 py-3 lg:py-8 flex flex-col gap-3"
+    >
+      <div className="flex items-center justify-between h-12 px-1">
+        <div className="skel h-[22px] w-[150px] !rounded-[8px]" />
+        <div className="skel w-[34px] h-[34px] !rounded-full" />
+      </div>
+      <div className="card px-5 py-6 flex flex-col gap-3">
+        <div className="skel h-3.5 w-2/5 !rounded-[8px]" />
+        <div className="skel h-6 w-[70%] !rounded-[8px]" />
+        <div className="skel h-[50px]" />
+      </div>
+      <div className="card p-5 flex gap-2.5">
+        <div className="skel flex-1 h-[120px]" />
+        <div className="skel flex-1 h-[120px]" />
+      </div>
+      <div className="card p-5 flex flex-col gap-3.5">
+        <div className="skel h-[18px] w-[45%] !rounded-[8px]" />
+        <div className="skel h-3.5 w-full !rounded-[8px]" />
+        <div className="skel h-3.5 w-[90%] !rounded-[8px]" />
+        <div className="skel h-3.5 w-4/5 !rounded-[8px]" />
+      </div>
     </main>
   );
 }
@@ -137,22 +246,22 @@ function RoleLoading() {
 // 로그인은 했지만 역할이 안 맞을 때. API도 403이라 화면은 안내만 담당.
 export function WrongRole({ need, role }: { need: "teacher" | "admin" | "student"; role: Role }) {
   return (
-    <main className="flex-1 grid place-items-center px-5">
-      <div className="card p-8 text-center max-w-sm">
-        <p className="font-bold text-[16px] mb-1">{LABEL[need]} 계정만 쓸 수 있어요</p>
-        <p className="text-sub text-[14px] mb-5">
-          지금은 {role ? LABEL[role] : "역할이 정해지지 않은"} 계정으로 로그인돼 있어요.
-        </p>
-        <div className="flex flex-col gap-2">
-          <Link href={homeFor(role)} className="btn btn-primary py-3">
+    <StateScreen
+      icon={<StateIcon tone="gray" paths={["M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18z", "M5.6 5.6l12.8 12.8"]} />}
+      title={`${LABEL[need]} 계정만 쓸 수 있어요`}
+      actions={
+        <>
+          <Link href={homeFor(role)} className={BIG_BTN}>
             내 화면으로 가기
           </Link>
-          <button className="btn btn-gray py-3" onClick={() => supabase.auth.signOut()}>
-            로그아웃
+          <button className={BIG_BTN_GRAY} onClick={() => supabase.auth.signOut()}>
+            로그아웃하고 다른 계정으로
           </button>
-        </div>
-      </div>
-    </main>
+        </>
+      }
+    >
+      지금은 <b className="text-text">{role ? LABEL[role] : "역할이 정해지지 않은"} 계정</b>으로 로그인돼 있어요.
+    </StateScreen>
   );
 }
 
@@ -162,14 +271,16 @@ export function NeedLogin({ as, message }: { as: "teacher" | "student" | "any"; 
   const nextQ = next && next !== "/" ? `next=${encodeURIComponent(next)}` : "";
   const href = as === "any" ? `/login${nextQ ? `?${nextQ}` : ""}` : `/login?role=${as}${nextQ ? `&${nextQ}` : ""}`;
   return (
-    <main className="flex-1 grid place-items-center px-5">
-      <div className="text-center">
-        <p className="text-[16px] font-bold mb-1">로그인이 필요해요</p>
-        <p className="text-sub text-[14px] mb-5">{message ?? "계정으로 로그인해 주세요."}</p>
-        <Link href={href} className="btn btn-primary py-3 px-6 inline-block">
+    <StateScreen
+      icon={<StateIcon paths={["M8 11h8a3 3 0 0 1 3 3v4a3 3 0 0 1-3 3H8a3 3 0 0 1-3-3v-4a3 3 0 0 1 3-3z", "M8 11V8a4 4 0 0 1 8 0v3"]} />}
+      title="로그인이 필요해요"
+      actions={
+        <Link href={href} className={BIG_BTN}>
           {as === "any" ? "로그인" : `${LABEL[as]} 로그인`}
         </Link>
-      </div>
-    </main>
+      }
+    >
+      {message ?? "계정으로 로그인해 주세요."}
+    </StateScreen>
   );
 }

@@ -65,76 +65,105 @@ function ResetInner() {
     else setMsg("비밀번호를 바꿨어요. 이제 새 비밀번호로 로그인할 수 있어요.");
   }
 
+  const label = "flex flex-col gap-2 text-[13px] font-semibold";
+
   return (
-    <main className="flex-1 w-full max-w-sm mx-auto px-5 py-16">
-      <h1 className="rise text-[24px] font-bold">
-        {mode === "update" ? "새 비밀번호 설정" : "비밀번호 재설정"}
+    // 폰: 화면 높이를 채우고 주 버튼을 아래쪽에 둔다 (헤더 60px 제외)
+    <main className="flex-1 w-full max-w-sm mx-auto px-6 pt-6 pb-8 lg:py-14 flex flex-col max-lg:min-h-[calc(100dvh-60px)]">
+      <Link href="/login" aria-label="로그인으로 돌아가기" className="-ml-3 w-11 h-11 grid place-items-center text-text">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+          <path d="M15 18l-6-6 6-6" />
+        </svg>
+      </Link>
+
+      <h1 className="rise mt-5 text-[26px] leading-[1.35] font-bold tracking-[-0.5px]">
+        {mode === "update" ? "새 비밀번호를" : "비밀번호를"}
+        <br />
+        {mode === "update" ? "정해 주세요" : "다시 정할게요"}
       </h1>
-      <p className="rise d1 text-sub text-[14px] mt-1.5 mb-6 leading-relaxed">
+      <p className="rise d1 mt-2 mb-7 text-[15px] text-sub leading-normal">
         {mode === "update"
           ? "쓸 비밀번호를 새로 입력해 주세요."
           : "가입한 이메일을 넣으면 재설정 링크를 보내드려요."}
       </p>
-      <p className="rise d1 text-sub text-[12px] -mt-4 mb-6 leading-relaxed">
-        {mode === "update"
-          ? ""
-          : "이메일 없이 아이디로 가입했다면 메일을 받을 수 없어요. 선생님께 비밀번호 초기화를 요청해 주세요."}
-      </p>
 
-      <div className="rise d2 flex flex-col gap-3">
+      <div className="rise d2 flex flex-col gap-4">
         {mode === "update" ? (
           <>
-            <input
-              className="field"
-              type="password"
-              placeholder="새 비밀번호 (8자 이상)"
-              value={pw}
-              onChange={(e) => setPw(e.target.value)}
-            />
-            <input
-              className="field"
-              type="password"
-              placeholder="새 비밀번호 확인"
-              value={pw2}
-              onChange={(e) => setPw2(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && updatePw()}
-            />
-            <button onClick={updatePw} disabled={busy} className="btn btn-primary py-3.5">
-              {busy ? "바꾸는 중…" : "비밀번호 바꾸기"}
-            </button>
+            <label className={label} style={{ color: "var(--sub-2)" }}>
+              새 비밀번호
+              <input
+                className="field text-[16px] font-normal text-text"
+                type="password"
+                placeholder="8자 이상"
+                value={pw}
+                onChange={(e) => setPw(e.target.value)}
+              />
+            </label>
+            <label className={label} style={{ color: "var(--sub-2)" }}>
+              새 비밀번호 확인
+              <input
+                className="field text-[16px] font-normal text-text"
+                type="password"
+                placeholder="한 번 더 입력"
+                value={pw2}
+                onChange={(e) => setPw2(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && updatePw()}
+              />
+            </label>
           </>
         ) : (
           <>
-            <input
-              className="field"
-              type="email"
-              placeholder="이메일"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && sendMail()}
-            />
-            <button onClick={sendMail} disabled={busy} className="btn btn-primary py-3.5">
-              {busy ? "보내는 중…" : "재설정 링크 받기"}
-            </button>
+            <label className={label} style={{ color: "var(--sub-2)" }}>
+              이메일
+              <input
+                className="field text-[16px] font-normal text-text"
+                type="email"
+                placeholder="name@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && sendMail()}
+              />
+            </label>
+            <div className="flex gap-3 rounded-[12px] p-4" style={{ background: "var(--fill)" }}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden className="shrink-0 mt-px text-sub">
+                <circle cx="12" cy="12" r="9" />
+                <path d="M12 8v5M12 16h.01" />
+              </svg>
+              <p className="text-[14px] leading-relaxed" style={{ color: "var(--sub-2)" }}>
+                이메일 없이 아이디로 가입했다면 메일을 받을 수 없어요. 선생님께 비밀번호 초기화를 요청해 주세요.
+              </p>
+            </div>
           </>
         )}
+      </div>
 
-        {msg && (
-          <p className="animate-pop rounded-[10px] px-4 py-3 text-[13px] font-bold text-blue" style={{ background: "var(--blue-weak)" }}>
-            {msg}
-          </p>
-        )}
-        {err && (
-          <p className="text-[13px] font-bold" style={{ color: "var(--red)" }}>
-            {err}
-          </p>
-        )}
+      <div className="flex-1 min-h-8" />
 
-        <div className="flex gap-3 justify-center pt-2 text-[13px] text-sub">
-          <Link href="/teacher">강사 로그인</Link>
-          <span>·</span>
-          <Link href="/ask">학생 질문하기</Link>
-        </div>
+      {msg && (
+        <p role="status" className="animate-pop mb-3 rounded-[12px] px-4 py-3 text-[14px] font-bold text-blue" style={{ background: "var(--blue-weak)" }}>
+          {msg}
+        </p>
+      )}
+      {err && (
+        <p role="alert" className="mb-3 rounded-[12px] px-4 py-3 text-[14px] font-bold" style={{ background: "var(--red-weak)", color: "var(--red)" }}>
+          {err}
+        </p>
+      )}
+      {mode === "update" ? (
+        <button onClick={updatePw} disabled={busy} className="btn btn-primary w-full h-[50px] text-[17px]">
+          {busy ? "바꾸는 중…" : "비밀번호 바꾸기"}
+        </button>
+      ) : (
+        <button onClick={sendMail} disabled={busy} className="btn btn-primary w-full h-[50px] text-[17px]">
+          {busy ? "보내는 중…" : "재설정 링크 받기"}
+        </button>
+      )}
+
+      <div className="mt-4 flex gap-3 justify-center text-[14px] text-sub">
+        <Link href="/teacher">강사 로그인</Link>
+        <span aria-hidden>·</span>
+        <Link href="/ask">학생 질문하기</Link>
       </div>
     </main>
   );

@@ -5,7 +5,17 @@ import { useSearchParams } from "next/navigation";
 import { useGate } from "@/components/RoleGuard";
 import BackButton from "@/components/BackButton";
 import JournalEntry from "@/components/JournalEntry";
-import { StemView, ExplanationView, ChoiceView } from "@/components/BankQuestion";
+import {
+  StemView,
+  ExplanationView,
+  ChoiceView,
+  TAG,
+  TAG_FILL,
+  TAG_ON,
+  CHOICE_BOX,
+  CHOICE_NUM,
+  choiceTone,
+} from "@/components/BankQuestion";
 import { ExcelTry } from "@/components/ExcelPad";
 
 type Q = {
@@ -257,15 +267,19 @@ function BrowseInner() {
 
   if (gate) return gate;
 
+  // 칩 줄 — 폰에선 한 줄 가로 스크롤(화면 세로를 덜 먹게), PC에선 줄바꿈
+  const chipRow = "flex gap-1.5 overflow-x-auto pb-1 lg:flex-wrap lg:overflow-visible";
+  const chipCls = (on: boolean) =>
+    `chip shrink-0 min-h-9 inline-flex items-center gap-1 !text-[14px] ${on ? "chip-on" : ""} disabled:opacity-40 disabled:cursor-not-allowed`;
+  const pageCount = result ? Math.ceil(result.questions.length / PER) : 0;
+
   return (
-    <main className="flex-1 w-full max-w-3xl lg:max-w-4xl mx-auto px-5 py-8 flex flex-col gap-4">
-      <div className="rise flex items-start justify-between gap-3">
-        <div className="flex flex-col gap-1">
+    <main className="flex-1 w-full max-w-3xl lg:max-w-4xl mx-auto px-4 lg:px-6 py-6 lg:py-8 flex flex-col gap-3">
+      <div className="rise px-1 pt-1 flex items-start justify-between gap-3">
+        <div className="flex flex-col gap-1 min-w-0">
           <BackButton fallback="/bank" />
-          <h1 className="text-[24px] lg:text-[28px] font-bold">
-            문제검색 {kind === "practice" ? "(실무)" : "(이론)"}
-          </h1>
-          <p className="text-sub text-[14px]">
+          <h1 className="text-[24px] lg:text-[28px] font-bold">문제검색</h1>
+          <p className="text-sub text-[14px] break-keep">
             {kind === "practice"
               ? "급수를 고르고 키워드를 검색하면 그 말이 들어간 실무 기출문제를 모아 보여줘요. 일반전표·매입매출전표·결산으로 나눠 볼 수도 있어요."
               : "급수·영역을 고르거나 전체로 두고 키워드를 검색하면 이론(4지선다) 기출문제를 모아 보여줘요. 문제마다 급수가 표시돼요."}
@@ -276,62 +290,93 @@ function BrowseInner() {
         </Link>
       </div>
 
-      {/* 이론/실무 탭 */}
-      <div className="rise d1 flex flex-wrap gap-1.5">
-        <button onClick={() => switchKind("theory")} className={`chip !text-[13px] ${kind === "theory" ? "chip-on" : ""}`}>
-          문제검색(이론)
-        </button>
-        <button
-          onClick={() => switchKind("practice")}
-          className={`chip !text-[13px] ${kind === "practice" ? "chip-on" : ""}`}
-        >
-          문제검색(실무)
-        </button>
-        <span className="self-center text-[12px] text-sub ml-1">
+      {/* 이론/실무 탭 — 세그먼트 */}
+      <div className="rise d1 flex flex-col gap-1.5">
+        <div role="tablist" aria-label="문제 종류" className="grid grid-cols-2 gap-1 p-1 rounded-[10px]" style={{ background: "var(--fill)" }}>
+          {(
+            [
+              ["theory", "이론"],
+              ["practice", "실무"],
+            ] as const
+          ).map(([k, label]) => (
+            <button
+              key={k}
+              role="tab"
+              aria-selected={kind === k}
+              onClick={() => switchKind(k)}
+              className="h-10 rounded-[8px] text-[15px] transition-colors"
+              style={
+                kind === k
+                  ? { background: "var(--surface)", color: "var(--text)", fontWeight: 700, boxShadow: "var(--shadow-card)" }
+                  : { color: "var(--sub-2)", fontWeight: 600 }
+              }
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        <p className="text-[12px] text-sub px-1">
           {kind === "practice" ? "일반전표·매입매출·결산 문제 — 정답이 분개 표로 나와요" : "4지선다 문제"}
-        </span>
+        </p>
       </div>
 
-      <div className="rise d1 card p-5 flex flex-col gap-3">
+      {/* 검색창 */}
+      <div className="rise d1 flex gap-2">
+        <label className="flex-1 min-w-0 h-[50px] rounded-[12px] border border-line flex items-center gap-2.5 px-4 focus-within:border-[var(--blue)]" style={{ background: "var(--surface)" }}>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="shrink-0 text-sub">
+            <circle cx="11" cy="11" r="7" />
+            <path d="M20 20l-3.5-3.5" />
+          </svg>
+          <span className="sr-only">키워드</span>
+          <input
+            className="flex-1 min-w-0 bg-transparent outline-none text-[16px] placeholder:text-[var(--sub)]"
+            placeholder='키워드 (예: "감가상각", "VLOOKUP")'
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.nativeEvent.isComposing) search();
+            }}
+          />
+        </label>
+        <button onClick={() => search()} disabled={busy} className="btn btn-primary h-[50px] px-5 shrink-0 disabled:opacity-50">
+          {busy ? "검색 중…" : "검색"}
+        </button>
+      </div>
+      {err && (
+        <p className="text-[13px] font-bold px-1" style={{ color: "var(--red)" }}>
+          {err}
+        </p>
+      )}
+
+      {/* 필터 칩 */}
+      <div className="rise d2 flex flex-col gap-2">
         {tree === null ? (
           <div className="skel h-20 !rounded-[12px]" />
         ) : (
           <>
             {/* 급수 선택 — 이론은 "전체"(전 급수 통합, 결과에 급수 태그)가 기본이고 급수로 좁힐 수 있다. 실무는 급수 필수 */}
-            <div className="flex gap-1.5 flex-wrap">
+            <div className={chipRow}>
               {kind === "theory" && (
-                <button
-                  onClick={() => pickSubject("")}
-                  className={`chip !text-[13px] ${subject === "" ? "chip-on" : ""}`}
-                >
+                <button onClick={() => pickSubject("")} className={chipCls(subject === "")}>
                   전체 급수 <b className="font-semibold" style={{ color: "var(--sub)" }}>{subjects.reduce((sum, [, n]) => sum + n, 0)}</b>
                 </button>
               )}
               {subjects.map(([s, n]) => (
-                <button
-                  key={s}
-                  onClick={() => pickSubject(s)}
-                  className={`chip !text-[13px] ${subject === s ? "chip-on" : ""}`}
-                >
+                <button key={s} onClick={() => pickSubject(s)} className={chipCls(subject === s)}>
                   {s} <b className="font-semibold" style={{ color: "var(--sub)" }}>{n}</b>
                 </button>
               ))}
             </div>
             {/* 영역 뱃지 (이론 전용) — 수는 고른 급수 기준. 그 급수에 없는 영역은 비활성 (예: 전산회계2급은 재무뿐) */}
             {kind === "theory" && (
-              <div className="flex gap-1.5 flex-wrap">
-                <button onClick={() => pickArea("")} className={`chip !text-[13px] ${area === "" ? "chip-on" : ""}`}>
+              <div className={chipRow}>
+                <button onClick={() => pickArea("")} className={chipCls(area === "")}>
                   전체 영역
                 </button>
                 {areaBadges.map(([a, label]) => {
                   const n = areaCount(subject, a);
                   return (
-                    <button
-                      key={a}
-                      onClick={() => pickArea(a)}
-                      disabled={n === 0}
-                      className={`chip !text-[13px] ${area === a ? "chip-on" : ""} disabled:opacity-40 disabled:cursor-not-allowed`}
-                    >
+                    <button key={a} onClick={() => pickArea(a)} disabled={n === 0} className={chipCls(area === a)}>
                       {label} <b className="font-semibold" style={{ color: "var(--sub)" }}>{n}</b>
                     </button>
                   );
@@ -340,17 +385,13 @@ function BrowseInner() {
             )}
             {/* 파트 뱃지 — 영역을 고르면 그 안의 세부 묶음이 나온다(소득세·컴활 과목) */}
             {kind === "theory" && partList.length > 0 && (
-              <div className="flex gap-1.5 flex-wrap items-center">
-                <span className="text-[12px] text-sub font-bold pr-0.5">{areaLabel(area)} 파트</span>
-                <button onClick={() => pickPart("")} className={`chip !text-[13px] ${part === "" ? "chip-on" : ""}`}>
+              <div className={`${chipRow} items-center`}>
+                <span className="text-[12px] text-sub font-bold pr-0.5 shrink-0">{areaLabel(area)} 파트</span>
+                <button onClick={() => pickPart("")} className={chipCls(part === "")}>
                   전체
                 </button>
                 {partList.map(([p, n]) => (
-                  <button
-                    key={p}
-                    onClick={() => pickPart(p)}
-                    className={`chip !text-[13px] ${part === p ? "chip-on" : ""}`}
-                  >
+                  <button key={p} onClick={() => pickPart(p)} className={chipCls(part === p)}>
                     {p} <b className="font-semibold" style={{ color: "var(--sub)" }}>{n}</b>
                   </button>
                 ))}
@@ -358,43 +399,19 @@ function BrowseInner() {
             )}
             {/* 유형 뱃지 (실무 전용) — 수는 고른 급수 기준. 그 급수에 없는 유형은 비활성 (매입매출전표는 전산세무 급수만) */}
             {kind === "practice" && (
-              <div className="flex gap-1.5 flex-wrap">
-                <button onClick={() => pickType("")} className={`chip !text-[13px] ${ptype === "" ? "chip-on" : ""}`}>
+              <div className={chipRow}>
+                <button onClick={() => pickType("")} className={chipCls(ptype === "")}>
                   전체 유형
                 </button>
                 {PRACTICE_TYPES.map((c) => {
                   const n = typeCount(subject, c);
                   return (
-                    <button
-                      key={c}
-                      onClick={() => pickType(c)}
-                      disabled={n === 0}
-                      className={`chip !text-[13px] ${ptype === c ? "chip-on" : ""} disabled:opacity-40 disabled:cursor-not-allowed`}
-                    >
+                    <button key={c} onClick={() => pickType(c)} disabled={n === 0} className={chipCls(ptype === c)}>
                       {c} <b className="font-semibold" style={{ color: "var(--sub)" }}>{n}</b>
                     </button>
                   );
                 })}
               </div>
-            )}
-            <div className="flex gap-2">
-              <input
-                className="field flex-1"
-                placeholder='키워드 (예: "감가상각", "VLOOKUP")'
-                value={q}
-                onChange={(e) => setQ(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && !e.nativeEvent.isComposing) search();
-                }}
-              />
-              <button onClick={() => search()} disabled={busy} className="btn btn-primary px-6 shrink-0 disabled:opacity-50">
-                {busy ? "검색 중…" : "검색"}
-              </button>
-            </div>
-            {err && (
-              <p className="text-[13px] font-bold" style={{ color: "var(--red)" }}>
-                {err}
-              </p>
             )}
           </>
         )}
@@ -402,62 +419,79 @@ function BrowseInner() {
 
       {result && (
         <>
-          <p className="rise text-sub text-[13px]">
+          <p className="rise text-sub text-[14px] px-1 mt-1">
             {[result.subject, result.area && areaLabel(result.area), result.part, result.ptype].filter(Boolean).map((s) => `${s} · `).join("")}
-            &ldquo;{result.q}&rdquo; 포함 문제 <b className="text-blue">{result.total}</b>건
+            <b style={{ color: "var(--text)" }}>&ldquo;{result.q}&rdquo;</b> 포함 문제 <b className="text-blue">{result.total}</b>건
             {result.total > result.questions.length ? ` (최근 회차부터 ${result.questions.length}건 표시)` : ""}
           </p>
           {result.questions.length === 0 && (
-            <div className="rise card p-10 text-center">
-              <p className="text-[15px] font-bold">검색 결과가 없어요</p>
-              <p className="text-sub text-[13px] mt-1">다른 키워드로 다시 찾아보세요.</p>
-            </div>
+            <section className="rise card px-6 py-10 flex flex-col items-center text-center gap-2.5">
+              <span className="w-16 h-16 rounded-[14px] grid place-items-center" style={{ background: "var(--fill)", color: "var(--sub)" }}>
+                <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <circle cx="11" cy="11" r="7" />
+                  <path d="M20 20l-3.5-3.5M8.5 11h5" />
+                </svg>
+              </span>
+              <h2 className="text-[19px] font-bold mt-1.5">검색 결과가 없어요</h2>
+              <p className="text-[15px] leading-relaxed text-sub break-keep">
+                &ldquo;{result.q}&rdquo;가 들어간 {kind === "practice" ? "실무" : "이론"} 문제가 없어요.
+                <br />
+                짧은 단어로 바꾸거나 {kind === "practice" ? "이론" : "실무"} 탭에서 찾아보세요.
+              </p>
+            </section>
           )}
           <div className="flex flex-col gap-3">
             {result.questions.slice(page * PER, page * PER + PER).map((n, pi) => {
               const isTheory = Array.isArray(n.choices) && n.choices.length > 0;
               const show = answered.has(n.id);
               return (
-                <div key={n.id} className="rise card p-4 lg:p-5 flex flex-col gap-4">
+                <article key={n.id} className="rise card p-5 flex flex-col gap-4">
                   <div className="flex gap-1.5 flex-wrap">
-                    <span className="chip !py-0.5 !px-2 !text-[11px] !cursor-default">{page * PER + pi + 1}번</span>
                     {/* 급수 태그 — 통합 검색이라 문제마다 어느 급수인지 보여준다 */}
                     {n.subject && (
-                      <span className="chip chip-on !py-0.5 !px-2 !text-[11px] !cursor-default">{n.subject}</span>
+                      <span className={TAG} style={TAG_ON}>
+                        {n.subject}
+                      </span>
                     )}
+                    <span className={TAG} style={TAG_FILL}>
+                      {page * PER + pi + 1}번
+                    </span>
                     {n.source && (
-                      <span className="chip !py-0.5 !px-2 !text-[11px] !cursor-default">
+                      <span className={TAG} style={TAG_FILL}>
                         {/* source가 "전산회계1급 125회" 꼴이라 급수 태그와 겹치는 앞부분은 떼고 회차만 */}
                         {n.subject ? n.source.replace(n.subject, "").trim() || n.source : n.source}
                       </span>
                     )}
-                    <span className="chip !py-0.5 !px-2 !text-[11px] !cursor-default">{n.typeTag}</span>
+                    <span className={TAG} style={TAG_FILL}>
+                      {n.typeTag}
+                    </span>
                     {/* 실무는 유형(일반전표·매입매출전표·결산)을 그대로 — 전체 유형으로 찾았을 때 어느 쪽인지 보이게 */}
-                    <span className="chip !py-0.5 !px-2 !text-[11px] !cursor-default">{isTheory ? "이론" : n.category || "실무"}</span>
+                    <span className={TAG} style={TAG_FILL}>
+                      {isTheory ? "이론" : n.category || "실무"}
+                    </span>
                   </div>
                   <StemView stem={n.stem} images={n.images} highlight={result.q} />
                   {isTheory && (
-                    <div className="flex flex-col gap-2.5">
-                      {n.choices!.map((c, i) => (
-                        <div
-                          key={i}
-                          style={show && n.answerIdx === i ? { borderColor: "var(--blue)", background: "var(--blue-weak)" } : {}}
-                          className="rounded-[12px] border border-line px-4 py-3.5 min-h-[54px] text-[15px] leading-[1.65] break-keep flex items-start gap-3"
-                        >
-                          <span className="shrink-0 grid place-items-center w-5 h-5 mt-0.5 rounded-full border border-current text-[11px] font-bold">
-                            {i + 1}
-                          </span>
-                          <span className="flex-1 min-w-0"><ChoiceView text={c} highlight={result.q} /></span>
-                          {show && n.answerIdx === i && <span className="text-blue text-[11px] font-bold shrink-0">정답</span>}
-                        </div>
-                      ))}
+                    <div className="flex flex-col gap-2">
+                      {n.choices!.map((c, i) => {
+                        const tone = choiceTone(show && n.answerIdx === i ? "on" : null);
+                        return (
+                          <div key={i} style={tone.box} className={CHOICE_BOX}>
+                            <span className={CHOICE_NUM} style={tone.num}>
+                              {i + 1}
+                            </span>
+                            <span className="flex-1 min-w-0"><ChoiceView text={c} highlight={result.q} /></span>
+                            {show && n.answerIdx === i && <span className="text-blue text-[12px] font-bold shrink-0 mt-0.5">정답</span>}
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
                   <ExcelTry area={n.area} stem={n.stem} choices={n.choices} />
                   {!show ? (
                     <button
                       onClick={() => setAnswered((prev) => new Set(prev).add(n.id))}
-                      className="btn btn-primary py-3 lg:self-start lg:px-8"
+                      className="btn btn-ghost h-12 text-[15px] lg:self-start lg:px-8"
                     >
                       답안 보기
                     </button>
@@ -465,50 +499,57 @@ function BrowseInner() {
                     <>
                       {!isTheory && n.answerText && (
                         <div className="rounded-[12px] border border-line p-4" style={{ background: "var(--blue-weak)" }}>
-                          <p className="text-[12px] font-bold text-blue mb-1.5">정답 (분개)</p>
+                          <p className="text-[13px] font-bold text-blue mb-1.5">정답 (분개)</p>
                           <JournalEntry text={n.answerText} />
                         </div>
                       )}
                       {n.explanation && (
-                        <div className="rounded-[12px] border border-line p-4">
-                          <p className="text-[12px] font-bold text-sub mb-1.5">해설</p>
+                        <div className="rounded-[12px] p-4" style={{ background: "var(--fill-2)" }}>
+                          <p className="text-[13px] font-bold mb-1.5">해설</p>
                           <ExplanationView text={n.explanation} />
                         </div>
                       )}
                     </>
                   )}
-                </div>
+                </article>
               );
             })}
           </div>
 
           {/* 페이징 — 10문제씩 */}
           {result.questions.length > PER && (
-            <div className="rise flex items-center justify-center gap-1.5 flex-wrap py-2">
+            <nav aria-label="페이지" className="rise flex items-center justify-center gap-1.5 flex-wrap py-2">
               <button
                 onClick={() => goPage(page - 1)}
                 disabled={page === 0}
-                className="chip !text-[13px] disabled:opacity-40 disabled:cursor-not-allowed"
+                aria-label="이전 페이지"
+                className="chip w-10 h-10 !p-0 grid place-items-center disabled:opacity-40 disabled:cursor-not-allowed"
               >
-                ← 이전
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M15 6l-6 6 6 6" />
+                </svg>
               </button>
-              {Array.from({ length: Math.ceil(result.questions.length / PER) }, (_, i) => (
+              {Array.from({ length: pageCount }, (_, i) => (
                 <button
                   key={i}
                   onClick={() => goPage(i)}
-                  className={`chip !text-[13px] tabular-nums ${i === page ? "chip-on" : ""}`}
+                  aria-current={i === page ? "page" : undefined}
+                  className={`chip w-10 h-10 !p-0 grid place-items-center !text-[15px] tabular-nums ${i === page ? "chip-on" : ""}`}
                 >
                   {i + 1}
                 </button>
               ))}
               <button
                 onClick={() => goPage(page + 1)}
-                disabled={page >= Math.ceil(result.questions.length / PER) - 1}
-                className="chip !text-[13px] disabled:opacity-40 disabled:cursor-not-allowed"
+                disabled={page >= pageCount - 1}
+                aria-label="다음 페이지"
+                className="chip w-10 h-10 !p-0 grid place-items-center disabled:opacity-40 disabled:cursor-not-allowed"
               >
-                다음 →
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M9 6l6 6-6 6" />
+                </svg>
               </button>
-            </div>
+            </nav>
           )}
         </>
       )}

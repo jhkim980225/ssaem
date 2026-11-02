@@ -4,7 +4,17 @@ import Link from "next/link";
 import { useGate } from "@/components/RoleGuard";
 import JournalEntry from "@/components/JournalEntry";
 import CbtRunner, { type CbtQuestion } from "@/components/CbtRunner";
-import { StemView, ExplanationView, ChoiceView } from "@/components/BankQuestion";
+import {
+  StemView,
+  ExplanationView,
+  ChoiceView,
+  TAG,
+  TAG_FILL,
+  TAG_ON,
+  CHOICE_BOX,
+  CHOICE_NUM,
+  choiceTone,
+} from "@/components/BankQuestion";
 import BankStats, { type BankStatsData } from "@/components/BankStats";
 import { ExcelTry } from "@/components/ExcelPad";
 
@@ -337,74 +347,103 @@ export default function BankPage() {
   // 공부 모드는 2단(문제 65:해설 35)이라 PC에서 넓게 써야 줄바꿈 지옥이 없다
   const width = cbtQs ? "max-w-[1240px]" : qs ? (study ? "max-w-[1240px]" : "max-w-3xl") : "max-w-2xl lg:max-w-4xl";
 
+  // 풀이 중(한 문제씩·공부 모드) 상단 바 제목
+  const runTitle = retryMode ? "오답 다시 풀기" : study ? `공부 모드${subject ? ` · ${subject}` : ""}` : "한 문제씩";
+
   return (
-    <main className={`flex-1 w-full ${width} mx-auto px-5 lg:px-6 py-8 flex flex-col gap-4`}>
-      {/* 모바일에선 칩 4개가 제목 폭을 먹어 세로 1자씩 깨진다 — 제목 아래로 스택 */}
-      <div className="rise flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
-        <div className="flex flex-col gap-1">
-          <h1 className="text-[24px] lg:text-[28px] font-bold">기출문제</h1>
-          <p className="text-sub text-[14px]">전산회계·세무·컴활 기출 {tree ? countFor({}).toLocaleString() : "…"}문항</p>
-        </div>
-        <div className="flex flex-wrap gap-1.5 sm:shrink-0">
-          <Link href="/bank/browse" className="chip !text-[13px]">
-            문제검색(이론)
-          </Link>
-          <Link href="/bank/browse?kind=practice" className="chip !text-[13px]">
-            문제검색(실무)
-          </Link>
-          <Link href="/my/records" className="chip !text-[13px]">
-            내 기록
-          </Link>
-          <Link href="/bank/notes" className="chip !text-[13px]">
-            기출 오답
-          </Link>
-          <Link href="/bank/excel" className="chip !text-[13px]">
-            엑셀 연습장
-          </Link>
-        </div>
-      </div>
+    <main className={`flex-1 w-full ${width} mx-auto px-4 lg:px-6 py-6 lg:py-8 flex flex-col gap-3 lg:gap-4`}>
+      {/* 필터 화면 — 제목 + 바로가기 4칸 (풀이 중엔 상단 바가 대신한다) */}
+      {!qs && !cbtQs && (
+        <>
+          <div className="rise px-1 pt-2 flex flex-col gap-1">
+            <h1 className="text-[24px] lg:text-[28px] font-bold">기출문제</h1>
+            <p className="text-sub text-[14px]">전산회계·세무·컴활 기출 {tree ? countFor({}).toLocaleString() : "…"}문항</p>
+          </div>
+          <nav aria-label="바로가기" className="rise d1 grid grid-cols-4 gap-2">
+            {SHORTCUTS.map(([href, label, tone, icon]) => (
+              <Link
+                key={href}
+                href={href}
+                className="card !rounded-[12px] pt-3.5 pb-3 px-1 flex flex-col items-center gap-2 text-[12px] font-bold text-center break-keep transition-colors hover:border-[var(--border-strong)]"
+              >
+                <span
+                  className="w-9 h-9 rounded-[8px] grid place-items-center"
+                  style={tone === "red" ? { background: "var(--red-weak)", color: "var(--red)" } : { background: "var(--blue-weak)", color: "var(--blue)" }}
+                >
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    {icon}
+                  </svg>
+                </span>
+                {label}
+              </Link>
+            ))}
+          </nav>
+        </>
+      )}
 
       {/* 필터 — PC에선 좌(필터) / 우(시험 기록 조회) 2단으로 빈 여백을 없앤다 */}
       {!qs && !cbtQs && (
-      <div className="flex flex-col gap-4 lg:grid lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
-        <div className="rise d1 card p-5 flex flex-col gap-4">
+      <div className="flex flex-col gap-3 lg:gap-4 lg:grid lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
+        <div className="flex flex-col gap-3">
           {tree === null ? (
-            <div className="skel h-40 !rounded-[12px]" />
+            <div className="rise d1 card p-5">
+              <div className="skel h-40 !rounded-[12px]" />
+            </div>
           ) : (
             <>
-              <div className="flex gap-1.5 flex-wrap">
-                <button
-                  onClick={() => setCbt(true)}
-                  className={`chip !text-[13px] ${cbt ? "chip-on" : ""}`}
-                >
-                  CBT 모의고사
-                </button>
-                <button
-                  onClick={() => {
-                    setCbt(false);
-                    setStudy(false);
-                  }}
-                  className={`chip !text-[13px] ${!cbt && !study ? "chip-on" : ""}`}
-                >
-                  한 문제씩
-                </button>
-                <button
-                  onClick={() => {
-                    setCbt(false);
-                    setStudy(true);
-                  }}
-                  className={`chip !text-[13px] ${!cbt && study ? "chip-on" : ""}`}
-                >
-                  공부 모드
-                </button>
-              </div>
-              <p className="text-[12px] text-sub -mt-2">
-                {cbt
-                  ? "실제 시험처럼 번호판으로 오가며 풀고 마지막에 한 번에 채점해요. (4지선다만)"
-                  : study
-                    ? "정답·풀이를 옆에 두고 익혀요."
-                    : "한 문제 풀 때마다 바로 채점해요."}
-              </p>
+              <section className="rise d1 card p-5">
+                <h2 className="text-[17px] font-bold mb-3">어떻게 풀까요?</h2>
+                <div role="radiogroup" aria-label="풀이 방식" className="flex flex-col gap-2">
+                  {(
+                    [
+                      ["CBT 모의고사", "실제 시험처럼 다 풀고 한 번에 채점해요 (4지선다만)", cbt, () => setCbt(true)],
+                      [
+                        "한 문제씩",
+                        "풀 때마다 바로 정답을 알려줘요",
+                        !cbt && !study,
+                        () => {
+                          setCbt(false);
+                          setStudy(false);
+                        },
+                      ],
+                      [
+                        "공부 모드",
+                        "정답·풀이를 옆에 두고 익혀요",
+                        !cbt && study,
+                        () => {
+                          setCbt(false);
+                          setStudy(true);
+                        },
+                      ],
+                    ] as const
+                  ).map(([label, desc, on, pickMode]) => (
+                    <button
+                      key={label}
+                      role="radio"
+                      aria-checked={on}
+                      onClick={pickMode}
+                      className="text-left px-4 py-3.5 rounded-[12px] border flex items-center gap-3 transition-colors"
+                      style={
+                        on
+                          ? { borderColor: "var(--blue)", background: "var(--blue-weak)" }
+                          : { borderColor: "var(--border)", background: "var(--fill-2)" }
+                      }
+                    >
+                      <span
+                        aria-hidden
+                        className="shrink-0 w-[22px] h-[22px] rounded-full"
+                        style={on ? { border: "6px solid var(--blue)" } : { border: "2px solid var(--border-strong)" }}
+                      />
+                      <span className="min-w-0">
+                        <span className="block text-[16px] font-bold">{label}</span>
+                        <span className="block text-[13px] text-sub mt-0.5 break-keep">{desc}</span>
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </section>
+
+              <section className="rise d2 card p-5 flex flex-col gap-6">
               <Filter label="과목" required>
                 {[ALL, ...subjects].map((s) => (
                   <Chip
@@ -428,10 +467,12 @@ export default function BankPage() {
                 <>
                   {/* 회차는 과목 하나 골랐을 때만 — "전체"는 과목이 섞여 회차 개념이 없다 */}
                   {subject !== ALL && (
-                  <Filter label="회차 (선택)">
+                  <Filter label="회차" hint="선택">
                     {/* 과목당 38개 회차 — 칩으로 깔면 화면이 덮여서 드롭다운 하나로 */}
                     <select
-                      className="field !py-2.5 !text-[14px] w-auto"
+                      aria-label="회차"
+                      className="field !h-[52px] !py-0 !text-[16px]"
+                      style={{ background: "var(--fill-2)" }}
                       value={source}
                       onChange={(e) => setSource(e.target.value)}
                     >
@@ -449,10 +490,10 @@ export default function BankPage() {
                   )}
                   {/* 회차를 고르면 그 회차 전체가 나가므로 문항 수 선택은 랜덤에서만 */}
                   {!source && (
-                  <Filter label="문항 수">
+                  <Filter label="문항 수" grid>
                     {COUNTS.map((n) => (
-                      <Chip key={n} on={count === n} onClick={() => setCount(n)}>
-                        {n}문항
+                      <Chip key={n} on={count === n} onClick={() => setCount(n)} className="h-11 justify-center !text-[15px]">
+                        {n}
                       </Chip>
                     ))}
                     {/* 직접 입력 — 칩에 없는 문항 수 (1~50) */}
@@ -460,9 +501,9 @@ export default function BankPage() {
                       type="number"
                       min={1}
                       max={50}
-                      placeholder="직접 입력"
+                      placeholder="직접 입력 (1~50)"
                       aria-label="문항 수 직접 입력"
-                      className="field !py-1.5 !px-3 !text-[13px] w-[92px]"
+                      className="field col-span-3 !h-11 !py-0 !px-3.5 !text-[15px]"
                       value={(COUNTS as readonly number[]).includes(count) ? "" : count}
                       onChange={(e) => {
                         const n = Math.min(Math.max(Number(e.target.value) || 0, 0), 50);
@@ -474,7 +515,7 @@ export default function BankPage() {
                 </>
               )}
               {!cbt && (
-              <Filter label="유형 (선택)">
+              <Filter label="유형" hint="선택">
                 {categories.map((c) => {
                   const n = countFor({ subject: subjFilter, category: c });
                   return (
@@ -486,7 +527,7 @@ export default function BankPage() {
               </Filter>
               )}
               {subject && areas.length > 1 && (
-                <Filter label="영역 (선택 · 여러 개 가능)">
+                <Filter label="영역" hint="선택 · 여러 개 가능">
                   {/* 다중 선택 — 아무것도 안 고르면 전체 영역 */}
                   {areas.map((a) => {
                     const n = countFor({ subject: subjFilter, category: cbt ? "이론" : category, area: a });
@@ -505,11 +546,12 @@ export default function BankPage() {
                   })}
                 </Filter>
               )}
+              </section>
               {/* 비활성일 땐 회색 버튼 — 연파랑+흰 글자는 대비가 2:1이라 안내문이 안 읽힌다 */}
               <button
                 onClick={start}
                 disabled={!subject || busy}
-                className={`btn py-3.5 ${!subject && !busy ? "btn-gray" : "btn-primary disabled:opacity-50"}`}
+                className={`btn h-[50px] text-[17px] ${!subject && !busy ? "btn-gray" : "btn-primary disabled:opacity-50"}`}
               >
                 {busy
                   ? "불러오는 중…"
@@ -528,13 +570,13 @@ export default function BankPage() {
         </div>
 
       {/* 시험 기록 조회 — 이름으로 같은 학원 사용자의 CBT 기록 검색 (학원 공용 PC 확인용) */}
-        <details className="rise d2 card p-5 lg:sticky lg:top-[76px]">
+        <details className="rise d3 card p-5 lg:sticky lg:top-[76px]">
           <summary className="font-bold text-[15px] cursor-pointer select-none">
             시험 기록 조회 <span className="text-sub text-[13px] font-normal">· 이름으로 검색</span>
           </summary>
           <div className="flex gap-2 mt-3">
             <input
-              className="field !py-2.5 flex-1"
+              className="field !py-2.5 flex-1 min-w-0"
               placeholder="이름 (예: 김학생)"
               value={recName}
               onChange={(e) => setRecName(e.target.value)}
@@ -586,24 +628,42 @@ export default function BankPage() {
         />
       )}
 
+      {/* 풀이 중 상단 바 — 나가기 · 제목 · 진행 (+ 맞은 개수) */}
+      {qs && qs.length > 0 && !finished && (
+        <div className="rise flex flex-col gap-1.5">
+          <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 min-h-[44px]">
+            <button
+              onClick={exitRun}
+              className="h-9 px-3 -ml-1 rounded-[8px] text-[15px] font-semibold"
+              style={{ color: "var(--sub-2)" }}
+            >
+              나가기
+            </button>
+            <div className="min-w-0 text-center">
+              <h2 className="text-[16px] font-bold truncate">{runTitle}</h2>
+              {!study && (
+                <p className="text-[12px] text-sub tabular-nums">
+                  맞은 개수 {score.right} / {score.done}
+                </p>
+              )}
+            </div>
+            <span className="text-[14px] font-bold text-blue tabular-nums text-right min-w-[56px]">
+              {idx + 1} / {qs.length}
+            </span>
+          </div>
+          <div className="h-1.5 rounded-full overflow-hidden" style={{ background: "var(--fill)" }}>
+            <div
+              className="h-full rounded-full transition-[width]"
+              style={{ width: `${((idx + 1) / qs.length) * 100}%`, background: "var(--blue)" }}
+            />
+          </div>
+        </div>
+      )}
+
       {err && (
         <p className="text-[13px] font-bold" style={{ color: "var(--red)" }}>
           {err}
         </p>
-      )}
-
-      {/* 진행 */}
-      {qs && qs.length > 0 && !finished && (
-        <div className="rise flex items-center justify-between text-[13px] text-sub">
-          <span>
-            {idx + 1} / {qs.length}문제
-          </span>
-          {!study && (
-            <span className="tabular-nums">
-              맞은 개수 {score.right} / {score.done}
-            </span>
-          )}
-        </div>
       )}
 
       {qs?.length === 0 && (
@@ -619,29 +679,28 @@ export default function BankPage() {
       {study && q && (
         <div
           key={q.id}
-          className="animate-pop grid gap-4 lg:gap-6 lg:items-start lg:grid-cols-[minmax(0,1.55fr)_minmax(340px,0.85fr)]"
+          className="animate-pop grid gap-3 lg:gap-6 lg:items-start lg:grid-cols-[minmax(0,1.55fr)_minmax(340px,0.85fr)]"
         >
           <div className="card p-5 lg:p-7 flex flex-col gap-4 min-w-0">
             <div className="flex gap-1.5 flex-wrap">
-              <span className="chip !py-0.5 !px-2 !text-[11px]">{q.typeTag}</span>
-              <span className="chip !py-0.5 !px-2 !text-[11px]">{q.area}</span>
-              <span className="chip !py-0.5 !px-2 !text-[11px]">{q.type === "theory" ? "이론" : "실무"}</span>
+              <span className={TAG} style={TAG_ON}>{q.type === "theory" ? "이론" : "실무"}</span>
+              <span className={TAG} style={TAG_FILL}>{q.typeTag}</span>
+              <span className={TAG} style={TAG_FILL}>{q.area}</span>
             </div>
             <StemView stem={q.stem} images={q.images} />
             {q.type === "theory" && (
-              <div className="flex flex-col gap-2.5">
-                {q.choices.map((c, i) => (
-                  <div
-                    key={i}
-                    className="text-left rounded-[12px] border border-line px-4 py-3.5 min-h-[54px] text-[15px] leading-[1.65] break-keep flex items-start gap-3"
-                    style={q.answerIdx === i ? { borderColor: "var(--blue)", background: "var(--blue-weak)" } : {}}
-                  >
-                    <span className="shrink-0 grid place-items-center w-5 h-5 mt-0.5 rounded-full border border-current text-[11px] font-bold">
-                      {i + 1}
-                    </span>
-                    <span className="min-w-0"><ChoiceView text={c} /></span>
-                  </div>
-                ))}
+              <div className="flex flex-col gap-2">
+                {q.choices.map((c, i) => {
+                  const tone = choiceTone(q.answerIdx === i ? "on" : null);
+                  return (
+                    <div key={i} className={CHOICE_BOX} style={tone.box}>
+                      <span className={CHOICE_NUM} style={tone.num}>
+                        {i + 1}
+                      </span>
+                      <span className="min-w-0"><ChoiceView text={c} /></span>
+                    </div>
+                  );
+                })}
               </div>
             )}
             <ExcelTry area={q.area} stem={q.stem} choices={q.type === "theory" ? q.choices : null} />
@@ -651,12 +710,12 @@ export default function BankPage() {
             {q.type === "theory" ? (
               <>
                 <p className="text-[15px] font-bold text-blue">정답 {(q.answerIdx ?? 0) + 1}번</p>
-                <p className="text-[19px] lg:text-[20px] font-bold leading-snug break-keep">
+                <p className="text-[18px] lg:text-[20px] font-bold leading-snug break-keep">
                   <ChoiceView text={q.choices[q.answerIdx ?? 0]} />
                 </p>
                 {q.explanation ? (
                   <>
-                    <p className="text-[12px] font-bold text-sub mt-1">해설</p>
+                    <p className="text-[13px] font-bold text-sub mt-1">해설</p>
                     <ExplanationView text={q.explanation} />
                   </>
                 ) : (
@@ -665,28 +724,34 @@ export default function BankPage() {
               </>
             ) : (
               <>
-                <p className="text-[13px] font-bold text-blue">정답 (분개)</p>
-                {q.answerText ? <JournalEntry text={q.answerText} /> : <p className="text-sub text-[13px]">정답 없음</p>}
+                <p className="text-[14px] font-bold" style={{ color: "var(--sub-2)" }}>정답 (분개)</p>
+                {q.answerText ? (
+                  <div className="rounded-[10px] p-3.5" style={{ background: "var(--fill-2)" }}>
+                    <JournalEntry text={q.answerText} />
+                  </div>
+                ) : (
+                  <p className="text-sub text-[13px]">정답 없음</p>
+                )}
                 {q.explanation && (
                   <>
-                    <p className="text-[12px] font-bold text-sub mt-1">해설</p>
+                    <p className="text-[13px] font-bold text-sub mt-1">해설</p>
                     <ExplanationView text={q.explanation} />
                   </>
                 )}
               </>
             )}
-            <div className="grid grid-cols-2 gap-2.5 mt-1">
+            <div className="grid grid-cols-[1fr_2fr] gap-2 mt-1">
               <button
                 onClick={() => studyGo(-1)}
                 disabled={idx === 0}
-                className="btn btn-gray py-3.5 min-h-[52px] disabled:opacity-50"
+                className="btn btn-gray h-[50px] text-[17px] disabled:opacity-50"
               >
                 이전
               </button>
               <button
                 onClick={() => studyGo(1)}
                 disabled={idx >= qs!.length - 1}
-                className="btn btn-primary py-3.5 min-h-[52px] disabled:opacity-50"
+                className="btn btn-primary h-[50px] text-[17px] disabled:opacity-50"
               >
                 다음
               </button>
@@ -695,123 +760,132 @@ export default function BankPage() {
         </div>
       )}
 
-      {/* 시험 모드 — 문제 */}
+      {/* 한 문제씩 — 문제 카드 / (실무) 정답·해설 카드 / 자가채점 카드 / 다음 */}
       {!study && q && !finished && (
-        <div key={q.id} className="animate-pop card p-5 lg:p-6 flex flex-col gap-4">
-          <div className="flex gap-1.5 flex-wrap">
-            <span className="chip !py-0.5 !px-2 !text-[11px]">{q.typeTag}</span>
-            <span className="chip !py-0.5 !px-2 !text-[11px]">{q.area}</span>
-            <span className="chip !py-0.5 !px-2 !text-[11px]">
-              {q.type === "theory" ? "이론" : "실무"}
-            </span>
+        <div key={q.id} className="animate-pop flex flex-col gap-3">
+          <div className="card p-5 lg:p-6 flex flex-col gap-4">
+            <div className="flex gap-1.5 flex-wrap">
+              <span className={TAG} style={TAG_ON}>
+                {q.type === "theory" ? "이론" : "실무"}
+              </span>
+              <span className={TAG} style={TAG_FILL}>{q.typeTag}</span>
+              <span className={TAG} style={TAG_FILL}>{q.area}</span>
+            </div>
+
+            <StemView stem={q.stem} images={q.images} />
+
+            {/* 이론 4지선다 */}
+            {q.type === "theory" && (
+              <div className="flex flex-col gap-2">
+                {q.choices.map((c, i) => {
+                  const isPicked = picked === i;
+                  const isAnswer = graded?.answer === i;
+                  const tone = choiceTone(
+                    graded ? (isAnswer ? "on" : isPicked ? "bad" : null) : isPicked ? "on" : null
+                  );
+                  return (
+                    <button
+                      key={i}
+                      onClick={() => pick(i)}
+                      disabled={!!graded || picked !== null}
+                      style={tone.box}
+                      className={`${CHOICE_BOX} disabled:cursor-default hover:border-[var(--blue)]`}
+                    >
+                      <span className={CHOICE_NUM} style={tone.num}>
+                        {i + 1}
+                      </span>
+                      <span className="min-w-0"><ChoiceView text={c} /></span>
+                    </button>
+                  );
+                })}
+                {!graded && (
+                  <button onClick={giveUp} className="self-center text-sub text-[13px] py-2 hover:text-blue transition-colors">
+                    몰라요, 못 풀겠어요 — 정답 보기
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* 컴활 2과목 — 엑셀 연습장 */}
+            <ExcelTry area={q.area} stem={q.stem} choices={q.type === "theory" ? q.choices : null} />
+
+            {/* 실무 — 정답 보기 전 */}
+            {q.type === "practice" && !revealed && (
+              <button onClick={() => setRevealed(true)} className="btn btn-primary h-[50px] text-[16px]">
+                정답 보기
+              </button>
+            )}
+
+            {/* 이론 채점 결과 */}
+            {graded && (
+              <div className="flex flex-col gap-2">
+                <p className="text-[15px] font-bold" style={{ color: graded.correct ? "var(--blue)" : "var(--red)" }}>
+                  {graded.correct
+                    ? "정답이에요"
+                    : picked === null
+                      ? `정답은 ${graded.answer + 1}번이에요 — 오답노트에 담아뒀어요`
+                      : `아쉬워요, 정답은 ${graded.answer + 1}번`}
+                </p>
+                {graded.explanation && (
+                  <div className="rounded-[12px] p-4" style={{ background: "var(--fill-2)" }}>
+                    <p className="text-[13px] font-bold mb-1.5">해설</p>
+                    <ExplanationView text={graded.explanation} />
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
-          <StemView stem={q.stem} images={q.images} />
-
-          {/* 이론 4지선다 */}
-          {q.type === "theory" && (
-            <div className="flex flex-col gap-2">
-              {q.choices.map((c, i) => {
-                const isPicked = picked === i;
-                const isAnswer = graded?.answer === i;
-                const style: React.CSSProperties = graded
-                  ? isAnswer
-                    ? { borderColor: "var(--blue)", background: "var(--blue-weak)" }
-                    : isPicked
-                      ? { borderColor: "var(--red)", background: "var(--red-weak)" }
-                      : {}
-                  : {};
-                return (
-                  <button
-                    key={i}
-                    onClick={() => pick(i)}
-                    disabled={!!graded || picked !== null}
-                    style={style}
-                    className="text-left rounded-[12px] border border-line px-4 py-3.5 min-h-[54px] text-[15px] leading-[1.65] break-keep transition-colors disabled:cursor-default hover:border-[var(--blue)] flex items-start gap-3"
-                  >
-                    <span className="shrink-0 grid place-items-center w-5 h-5 mt-0.5 rounded-full border border-current text-[11px] font-bold">
-                      {i + 1}
-                    </span>
-                    <span className="min-w-0"><ChoiceView text={c} /></span>
-                  </button>
-                );
-              })}
-              {!graded && (
-                <button onClick={giveUp} className="self-center text-sub text-[13px] py-1.5 hover:text-blue transition-colors">
-                  몰라요, 못 풀겠어요 — 정답 보기
-                </button>
-              )}
-            </div>
-          )}
-
-          {/* 컴활 2과목 — 엑셀 연습장 */}
-          <ExcelTry area={q.area} stem={q.stem} choices={q.type === "theory" ? q.choices : null} />
-
-          {/* 실무 자가채점 */}
-          {q.type === "practice" && (
-            <div className="flex flex-col gap-3">
-              {!revealed ? (
-                <button onClick={() => setRevealed(true)} className="btn btn-primary py-3">
-                  정답 보기
-                </button>
-              ) : (
-                <>
-                  <div className="rounded-[12px] border border-line p-4" style={{ background: "var(--blue-weak)" }}>
-                    <p className="text-[12px] font-bold text-blue mb-2">정답 (분개)</p>
-                    {q.answerText ? <JournalEntry text={q.answerText} /> : <p className="text-sub text-[13px]">정답 없음</p>}
+          {/* 실무 자가채점 — 정답·해설 카드 + "내 답과 같았나요?" 카드 */}
+          {q.type === "practice" && revealed && (
+            <>
+              <section className="card p-5">
+                <p className="text-[14px] font-bold mb-2.5" style={{ color: "var(--sub-2)" }}>정답 (분개)</p>
+                {q.answerText ? (
+                  <div className="rounded-[10px] p-3.5" style={{ background: "var(--fill-2)" }}>
+                    <JournalEntry text={q.answerText} />
                   </div>
-                  {q.explanation && (
-                    <div className="rounded-[12px] border border-line p-4">
-                      <p className="text-[12px] font-bold text-sub mb-1.5">해설</p>
-                      <ExplanationView text={q.explanation} />
-                    </div>
-                  )}
-                  {!selfDone ? (
-                    <div className="flex gap-2">
+                ) : (
+                  <p className="text-sub text-[13px]">정답 없음</p>
+                )}
+                {q.explanation && (
+                  <>
+                    <p className="text-[14px] font-bold mt-3.5 mb-1.5" style={{ color: "var(--sub-2)" }}>해설</p>
+                    <ExplanationView text={q.explanation} />
+                  </>
+                )}
+              </section>
+              <section className="card p-5">
+                {!selfDone ? (
+                  <>
+                    <p className="text-[16px] font-bold mb-3">내 답과 같았나요?</p>
+                    <div className="grid grid-cols-2 gap-2">
                       <button
                         onClick={() => selfMark(true)}
-                        className="btn flex-1 py-3"
+                        className="btn h-[52px] text-[16px] !rounded-[10px]"
                         style={{ background: "var(--blue-weak)", color: "var(--blue)" }}
                       >
                         맞혔어요
                       </button>
                       <button
                         onClick={() => selfMark(false)}
-                        className="btn flex-1 py-3"
+                        className="btn h-[52px] text-[16px] !rounded-[10px]"
                         style={{ background: "var(--red-weak)", color: "var(--red)" }}
                       >
                         틀렸어요
                       </button>
                     </div>
-                  ) : (
-                    <p className="text-sub text-[13px] text-center">기록했어요.</p>
-                  )}
-                </>
-              )}
-            </div>
-          )}
-
-          {/* 이론 채점 결과 */}
-          {graded && (
-            <div className="flex flex-col gap-2">
-              <p className="text-[14px] font-bold" style={{ color: graded.correct ? "var(--blue)" : "var(--red)" }}>
-                {graded.correct
-                  ? "정답이에요"
-                  : picked === null
-                    ? `정답은 ${graded.answer + 1}번이에요 — 오답노트에 담아뒀어요`
-                    : `아쉬워요, 정답은 ${graded.answer + 1}번`}
-              </p>
-              {graded.explanation && (
-                <div className="rounded-[12px] border border-line p-4">
-                  <p className="text-[12px] font-bold text-sub mb-1.5">해설</p>
-                  <ExplanationView text={graded.explanation} />
-                </div>
-              )}
-            </div>
+                    <p className="mt-2.5 text-center text-[13px] text-sub">고르면 기록돼요 · 틀리면 기출 오답노트로</p>
+                  </>
+                ) : (
+                  <p className="text-sub text-[14px] text-center">기록했어요.</p>
+                )}
+              </section>
+            </>
           )}
 
           {(graded || selfDone) && (
-            <button onClick={next} className="btn btn-gray py-3">
+            <button onClick={next} className="btn btn-primary h-[50px] text-[17px]">
               {idx + 1 >= (qs?.length ?? 0) ? "결과 보기" : "다음 문제"}
             </button>
           )}
@@ -820,26 +894,47 @@ export default function BankPage() {
 
       {/* 결과 */}
       {finished && (
-        <div className="rise card p-8 text-center flex flex-col gap-4">
-          <div>
-            <p className="text-[13px] text-sub">{qs!.length}문제 중</p>
-            <p className="text-[40px] font-bold tabular-nums">
-              {score.right}
-              <span className="text-[20px] text-sub"> / {score.done}</span>
-            </p>
-            <p className="text-sub text-[14px] mt-1">
-              {score.done > 0 ? `정답률 ${Math.round((score.right / score.done) * 100)}%` : ""}
-            </p>
-            {score.done > 0 && <p className="text-blue text-[13px] mt-2">내 시험 기록에 저장됐어요.</p>}
-          </div>
-          <div className="flex flex-col gap-2">
-            <button onClick={exitRun} className="btn btn-primary py-3">
-              다른 문제 풀기
+        <div className="rise flex flex-col gap-3">
+          <div className="flex items-center justify-between gap-3 min-h-[44px]">
+            <h2 className="text-[16px] font-bold truncate">{runTitle} 결과</h2>
+            <button onClick={exitRun} aria-label="닫기" className="w-11 h-11 -mr-2.5 grid place-items-center shrink-0">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+                <path d="M6 6l12 12M18 6L6 18" />
+              </svg>
             </button>
-            <Link href="/my/records" className="btn btn-gray py-3">
+          </div>
+          <section className="card p-5 lg:p-6">
+            <p className="text-[14px] text-sub">{qs!.length}문제 중</p>
+            <p className="text-[32px] font-bold tabular-nums mt-1 mb-3">
+              {score.right} <span className="text-[20px] text-sub">/ {score.done}</span>{" "}
+              {score.done > 0 && (
+                <span className="text-[18px] text-blue">정답률 {Math.round((score.right / score.done) * 100)}%</span>
+              )}
+            </p>
+            {score.done > 0 && (
+              <>
+                <div className="flex h-2.5 rounded-full overflow-hidden gap-0.5" style={{ background: "var(--fill)" }}>
+                  <div style={{ flex: score.right, background: "var(--blue)" }} />
+                  <div style={{ flex: score.done - score.right, background: "var(--red-weak)" }} />
+                </div>
+                <p className="mt-3 px-3.5 py-3 rounded-[8px] text-[14px]" style={{ background: "var(--fill-2)", color: "var(--sub-2)" }}>
+                  내 시험 기록에 저장됐어요.
+                </p>
+              </>
+            )}
+          </section>
+          <div className="grid grid-cols-2 gap-2">
+            <Link
+              href="/my/records"
+              className="btn grid place-items-center h-[50px] text-[16px] border border-line"
+              style={{ background: "var(--surface)" }}
+            >
               내 기록 보기
             </Link>
-            <Link href="/bank/notes" className="btn btn-gray py-3">
+            <button onClick={exitRun} className="btn btn-primary h-[50px] text-[16px]">
+              다른 문제 풀기
+            </button>
+            <Link href="/bank/notes" className="btn btn-gray col-span-2 grid place-items-center h-[50px] text-[16px]">
               오답노트 보기
             </Link>
           </div>
@@ -849,14 +944,51 @@ export default function BankPage() {
   );
 }
 
-function Filter({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) {
+// 바로가기 4칸 — [주소, 이름, 색, 아이콘]. 문제검색(실무)는 검색 화면의 이론/실무 탭으로 간다
+const SHORTCUTS: [string, string, "blue" | "red", React.ReactNode][] = [
+  ["/my/records", "내 기록", "blue", <path key="i" d="M4 19V9M10 19V5M16 19v-7M22 19H2" />],
+  ["/bank/notes", "기출 오답", "red", <path key="i" d="M7 7l10 10M17 7L7 17" />],
+  [
+    "/bank/browse",
+    "문제검색",
+    "blue",
+    <>
+      <circle cx="11" cy="11" r="7" />
+      <path d="M20 20l-3.5-3.5" />
+    </>,
+  ],
+  [
+    "/bank/excel",
+    "엑셀 연습장",
+    "blue",
+    <>
+      <rect x="3" y="4" width="18" height="16" rx="2" />
+      <path d="M3 10h18M9 4v16" />
+    </>,
+  ],
+];
+
+function Filter({
+  label,
+  required,
+  hint,
+  grid,
+  children,
+}: {
+  label: string;
+  required?: boolean;
+  hint?: string;
+  grid?: boolean;
+  children: React.ReactNode;
+}) {
   return (
-    <div className="flex flex-col gap-2">
-      <p className="text-[13px] font-bold text-sub">
+    <div className="flex flex-col gap-3">
+      <h2 className="text-[17px] font-bold">
         {label}
         {required && <span className="text-blue"> *</span>}
-      </p>
-      <div className="flex gap-1.5 flex-wrap">{children}</div>
+        {hint && <span className="text-sub text-[13px] font-normal"> · {hint}</span>}
+      </h2>
+      <div className={grid ? "grid grid-cols-3 gap-2" : "flex gap-2 flex-wrap"}>{children}</div>
     </div>
   );
 }
@@ -865,18 +997,20 @@ function Chip({
   on,
   disabled,
   onClick,
+  className = "",
   children,
 }: {
   on?: boolean;
   disabled?: boolean;
   onClick?: () => void;
+  className?: string;
   children: React.ReactNode;
 }) {
   return (
     <button
       onClick={onClick}
       disabled={disabled}
-      className={`chip !text-[13px] ${on ? "chip-on" : ""} disabled:opacity-40 disabled:cursor-not-allowed`}
+      className={`chip min-h-10 inline-flex items-center gap-1 ${on ? "chip-on" : ""} disabled:opacity-40 disabled:cursor-not-allowed ${className}`}
     >
       {children}
     </button>

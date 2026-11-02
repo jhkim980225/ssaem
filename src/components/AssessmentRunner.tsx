@@ -129,63 +129,58 @@ export default function AssessmentRunner({
 
   // ── 결과
   if (result) {
+    const rate = result.total > 0 ? Math.round((result.score / result.total) * 100) : 0;
     return (
-      <div className="animate-pop flex flex-col gap-4">
-        <div className="card p-8 text-center flex flex-col gap-2">
-          <p className="text-[13px] text-sub">{result.total}문제 중</p>
-          <p className="text-[40px] font-bold tabular-nums">
+      <div className="animate-pop flex flex-col gap-3">
+        <div className="card px-5 py-7 text-center flex flex-col items-center">
+          <span className={TAG} style={TAG_BLUE}>
+            제출 완료{result.signedAt ? " · 서명 완료" : ""}
+          </span>
+          <p className="mt-4 text-[44px] font-bold tabular-nums tracking-tight leading-none text-blue">
             {result.score}
-            <span className="text-[20px] text-sub"> / {result.total}</span>
+            <span className="text-[22px] text-sub"> / {result.total}</span>
           </p>
-          <p className="text-sub text-[14px]">
-            {result.total > 0 ? `정답률 ${Math.round((result.score / result.total) * 100)}%` : ""}
-            {result.signedAt ? " · 서명 완료" : ""}
+          <p className="mt-3 text-[15px]" style={{ color: "var(--sub-2)" }}>
+            {result.total}문항 중 {result.score}문항
+            {result.total > 0 ? ` · 정답률 ${rate}%` : ""}
           </p>
-          <button onClick={() => setResult(null)} className="btn btn-gray py-3 mt-2">
-            평가 목록으로
-          </button>
         </div>
-        {result.results.map((r, i) => (
-          <div key={r.questionId} className="card p-5 flex flex-col gap-3">
-            <p className="text-[15px] font-bold leading-relaxed">
-              {i + 1}. {r.question}
-            </p>
-            <div className="flex flex-col gap-2">
-              {r.choices.map((c, ci) => (
-                <div
-                  key={ci}
-                  className="flex items-start gap-2.5 rounded-[12px] border border-line px-4 py-3 text-[14px]"
-                  style={
-                    ci === r.answer
-                      ? { borderColor: "var(--blue)", background: "var(--blue-weak)" }
-                      : ci === r.chosen
-                        ? { borderColor: "var(--red)", background: "var(--red-weak)" }
-                        : {}
-                  }
-                >
-                  <span className="shrink-0 grid place-items-center w-5 h-5 mt-0.5 rounded-full border border-current text-[11px] font-bold">
-                    {ci + 1}
-                  </span>
-                  <span className="flex-1">{c}</span>
-                  {ci === r.answer && <span className="text-[11px] font-bold text-blue shrink-0">정답</span>}
-                  {ci === r.chosen && ci !== r.answer && (
-                    <span className="text-[11px] font-bold shrink-0" style={{ color: "var(--red)" }}>
-                      내 답
-                    </span>
-                  )}
-                </div>
-              ))}
+
+        <h3 className="mt-2 px-1 text-[17px] font-bold">문항별 확인</h3>
+        {/* 틀린 문항은 펼쳐서, 맞힌 문항은 한 줄로 접어 둔다 (눌러서 펼치기) */}
+        {result.results.map((r, i) =>
+          r.correct ? (
+            <details key={r.questionId} className="card group">
+              <summary className="list-none [&::-webkit-details-marker]:hidden cursor-pointer px-5 py-4 flex items-center gap-2.5">
+                <b className="shrink-0 text-[15px]">{i + 1}번</b>
+                <span className={TAG} style={TAG_BLUE}>
+                  정답
+                </span>
+                <span className="flex-1 min-w-0 truncate text-[14px]" style={{ color: "var(--sub-2)" }}>
+                  {r.question}
+                </span>
+                <Chevron />
+              </summary>
+              <div className="px-5 pb-5">
+                <ResultBody r={r} />
+              </div>
+            </details>
+          ) : (
+            <div key={r.questionId} className="card p-5">
+              <div className="flex items-center gap-2 mb-2.5">
+                <b className="text-[15px]">{i + 1}번</b>
+                <span className={TAG} style={TAG_RED}>
+                  오답
+                </span>
+              </div>
+              <ResultBody r={r} />
             </div>
-            {r.explanation && (
-              <p
-                className="text-[13px] leading-relaxed rounded-[12px] p-3.5"
-                style={{ background: "var(--fill-2)", color: "var(--sub-2)" }}
-              >
-                {r.explanation}
-              </p>
-            )}
-          </div>
-        ))}
+          )
+        )}
+
+        <button onClick={() => setResult(null)} className="btn btn-primary w-full h-[50px] text-[17px] mt-1">
+          평가 목록으로
+        </button>
       </div>
     );
   }
@@ -193,46 +188,55 @@ export default function AssessmentRunner({
   // ── 응시 중
   if (open) {
     return (
-      <div className="animate-pop flex flex-col gap-4">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <h2 className="text-[18px] font-bold">{open.title}</h2>
-            <p className="text-sub text-[13px]">{open.qs.length}문항 · 제출하면 다시 응시할 수 없어요</p>
-          </div>
-          <button onClick={() => setOpen(null)} className="chip !text-[13px] shrink-0">
+      <div className="animate-pop flex flex-col gap-3">
+        <div className="grid grid-cols-[64px_minmax(0,1fr)_64px] items-center min-h-12">
+          <button
+            onClick={() => setOpen(null)}
+            className="justify-self-start h-9 px-3 -ml-2 rounded-[8px] text-[15px] font-semibold transition-colors hover:bg-[var(--fill)]"
+            style={{ color: "var(--sub-2)" }}
+          >
             나가기
           </button>
+          <h2 className="text-[16px] lg:text-[18px] font-bold text-center truncate">{open.title}</h2>
         </div>
 
+        <p className="rounded-[12px] px-4 py-3.5 text-[14px] leading-relaxed" style={{ background: "var(--fill)", color: "var(--text-2)" }}>
+          <b>{open.qs.length}문항</b> · 제출하면 다시 응시할 수 없어요. 모든 문항이 한 페이지에 있어요.
+        </p>
+
         {open.qs.map((q, i) => (
-          <div key={q.id} className="card p-5 flex flex-col gap-3">
-            <p className="text-[15px] font-bold leading-relaxed">
-              {i + 1}. {q.question}
+          <div key={q.id} className="card p-5 flex flex-col gap-3.5">
+            <p className="text-[16px] font-bold leading-relaxed break-keep">
+              <span className="text-blue">{i + 1}.</span> {q.question}
             </p>
             <div className="flex flex-col gap-2">
-              {q.choices.map((c, ci) => (
-                <button
-                  key={ci}
-                  onClick={() => setPicked((p) => ({ ...p, [q.id]: ci }))}
-                  className="text-left rounded-[12px] border border-line px-4 py-3 text-[14px] leading-relaxed flex items-start gap-2.5 transition-colors hover:border-[var(--blue)]"
-                  style={picked[q.id] === ci ? { borderColor: "var(--blue)", background: "var(--blue-weak)" } : {}}
-                >
-                  <span className="shrink-0 grid place-items-center w-5 h-5 mt-0.5 rounded-full border border-current text-[11px] font-bold">
-                    {ci + 1}
-                  </span>
-                  <span>{c}</span>
-                </button>
-              ))}
+              {q.choices.map((c, ci) => {
+                const on = picked[q.id] === ci;
+                return (
+                  <button
+                    key={ci}
+                    onClick={() => setPicked((p) => ({ ...p, [q.id]: ci }))}
+                    aria-pressed={on}
+                    className="w-full min-h-12 rounded-[12px] px-4 py-3 flex items-center gap-3 text-left text-[15px] leading-relaxed transition-[filter,box-shadow] hover:brightness-[0.97]"
+                    style={on ? ON : OFF}
+                  >
+                    <b className="shrink-0 w-4 text-center" style={on ? undefined : { color: "var(--sub)" }}>
+                      {ci + 1}
+                    </b>
+                    <span className="flex-1 min-w-0 break-keep">{c}</span>
+                  </button>
+                );
+              })}
             </div>
           </div>
         ))}
 
         <div className="card p-5 flex flex-col gap-3">
           <div>
-            <p className="text-[15px] font-bold">본인 확인 서명</p>
-            <p className="text-sub text-[13px]">본인이 직접 응시했다는 확인이에요. 서명 없이도 제출할 수 있어요.</p>
+            <h3 className="text-[17px] font-bold mb-1">본인 확인 서명</h3>
+            <p className="text-sub text-[14px]">본인이 직접 응시했다는 확인이에요. 서명 없이도 제출할 수 있어요.</p>
           </div>
-          <SignaturePad onChange={setSig} disabled={busy} />
+          <SignaturePad onChange={setSig} disabled={busy} height={150} />
         </div>
 
         {err && (
@@ -241,7 +245,7 @@ export default function AssessmentRunner({
           </p>
         )}
 
-        <button onClick={submit} disabled={busy} className="btn btn-primary py-4 disabled:opacity-60">
+        <button onClick={submit} disabled={busy} className="btn btn-primary w-full h-[50px] text-[17px]">
           {busy ? "제출 중…" : `제출하기 (${Object.keys(picked).length}/${open.qs.length}문항)`}
         </button>
       </div>
@@ -256,35 +260,100 @@ export default function AssessmentRunner({
           {err}
         </p>
       )}
-      {list === null && <div className="skel h-32 !rounded-[16px]" />}
+      {list === null && <div className="skel h-36 !rounded-[16px]" />}
       {list?.length === 0 && !err && (
         <div className="card p-10 text-center">
-          <p className="text-[15px] font-bold mb-1">아직 등록된 평가가 없어요</p>
-          <p className="text-sub text-[13px]">선생님이 평가를 올리면 여기에 나와요.</p>
+          <p className="text-[16px] font-bold mb-1">아직 등록된 평가가 없어요</p>
+          <p className="text-sub text-[14px]">선생님이 평가를 올리면 여기에 나와요.</p>
         </div>
       )}
       {list?.map((a) => (
-        <div key={a.id} className="card p-5 flex items-center gap-3">
-          <div className="flex-1 min-w-0">
-            <p className="text-[15px] font-bold truncate">{a.title}</p>
-            <p className="text-sub text-[13px]">
-              {a.questions}문항
-              {a.done && a.total !== null ? ` · 응시 완료 ${a.score}/${a.total}` : ""}
-            </p>
+        <div key={a.id} className="card p-5">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-[17px] font-bold truncate">{a.title}</p>
+              <p className="mt-1 text-sub text-[13px]">
+                {a.questions}문항
+                {a.done && a.total !== null ? ` · 응시 완료 ${a.score}/${a.total}` : ""}
+              </p>
+            </div>
+            <span className={TAG} style={a.done ? TAG_GRAY : TAG_BLUE}>
+              {a.done ? "완료" : "응시 전"}
+            </span>
           </div>
-          {a.done ? (
-            <span className="chip !text-[12px] !cursor-default shrink-0">완료</span>
-          ) : (
+          {!a.done && (
             <button
               onClick={() => start(a)}
               disabled={a.questions === 0}
-              className="btn btn-primary py-2.5 px-5 text-[14px] shrink-0 disabled:opacity-50"
+              className="btn btn-primary w-full h-12 mt-4 text-[15px]"
             >
               응시하기
             </button>
           )}
         </div>
       ))}
+    </div>
+  );
+}
+
+const TAG = "inline-flex items-center h-6 px-2 rounded-[8px] text-[12px] font-bold shrink-0 whitespace-nowrap";
+const TAG_BLUE: React.CSSProperties = { background: "var(--blue-weak)", color: "var(--blue)" };
+const TAG_RED: React.CSSProperties = { background: "var(--red-weak)", color: "var(--red)" };
+const TAG_GRAY: React.CSSProperties = { background: "var(--fill)", color: "var(--sub-2)" };
+
+// 보기 — 응시 중 선택 표시
+const OFF: React.CSSProperties = { background: "var(--fill-2)", boxShadow: "inset 0 0 0 1px var(--border)" };
+const ON: React.CSSProperties = {
+  background: "var(--blue-weak)",
+  boxShadow: "inset 0 0 0 1px var(--blue)",
+  color: "var(--blue)",
+  fontWeight: 700,
+};
+
+function Chevron() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-sub transition-transform group-open:rotate-180" aria-hidden>
+      <path d="M6 9l6 6 6-6" />
+    </svg>
+  );
+}
+
+// 결과 한 문항 — 지문 + 보기(정답·내 답 표시) + 해설
+function ResultBody({ r }: { r: ResultRow }) {
+  return (
+    <div className="flex flex-col gap-3">
+      <p className="text-[15px] font-bold leading-relaxed break-keep">{r.question}</p>
+      <div className="flex flex-col gap-1.5">
+        {r.choices.map((c, ci) => {
+          const isAnswer = ci === r.answer;
+          const isMine = ci === r.chosen && !isAnswer;
+          return (
+            <div
+              key={ci}
+              className="flex items-start gap-2.5 rounded-[10px] px-3.5 py-3 text-[14px] leading-relaxed"
+              style={
+                isAnswer
+                  ? { ...TAG_BLUE, fontWeight: 700 }
+                  : isMine
+                    ? { ...TAG_RED, fontWeight: 700 }
+                    : { background: "var(--fill-2)" }
+              }
+            >
+              <b className="shrink-0 w-4 text-center" style={isAnswer || isMine ? undefined : { color: "var(--sub)" }}>
+                {ci + 1}
+              </b>
+              <span className="flex-1 min-w-0 break-keep">{c}</span>
+              {isAnswer && <span className="text-[12px] shrink-0">정답</span>}
+              {isMine && <span className="text-[12px] shrink-0">내 답</span>}
+            </div>
+          );
+        })}
+      </div>
+      {r.explanation && (
+        <p className="text-[14px] leading-relaxed rounded-[12px] p-3.5 break-keep" style={{ background: "var(--fill)", color: "var(--text-2)" }}>
+          {r.explanation}
+        </p>
+      )}
     </div>
   );
 }

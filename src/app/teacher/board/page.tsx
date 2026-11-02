@@ -86,57 +86,75 @@ export default function TeacherBoardPage() {
 
   if (gate) return gate;
 
+  const LABEL = "flex flex-col gap-2 text-[13px] font-semibold";
+
   return (
-    <main className="flex-1 w-full max-w-lg lg:max-w-5xl mx-auto px-5 py-8 flex flex-col gap-4">
+    <main className="flex-1 w-full max-w-lg lg:max-w-[1180px] mx-auto px-4 sm:px-5 lg:px-8 py-6 lg:py-8 flex flex-col gap-4">
       <div className="rise flex flex-col gap-1">
-        <Link href="/teacher" className="text-sub text-[13px]">
+        <Link href="/teacher" className="text-sub text-[14px] font-semibold lg:hidden">
           ← 대시보드
         </Link>
         <h1 className="text-[24px] lg:text-[28px] font-bold">자료 게시판</h1>
-        <p className="text-sub text-[14px]">
+        <p className="text-sub text-[14px] lg:text-[15px]">
           학생이 그대로 내려받는 파일·공지예요. AI 답변 근거로 쓰는 <b>학습 자료</b>와는 별개예요.
         </p>
       </div>
 
       {/* 새 게시물 */}
-      <section className="rise d1 card p-5 flex flex-col gap-3">
-        <h2 className="text-[15px] font-bold">새 게시물</h2>
-        <input
-          className="field"
-          placeholder="제목 (예: 3주차 필기노트 PDF)"
-          maxLength={200}
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-        />
-        <textarea
-          className="field"
-          rows={3}
-          placeholder="설명 (선택)"
-          maxLength={4000}
-          value={body}
-          onChange={(e) => setBody(e.target.value)}
-        />
-        <div className="flex flex-wrap items-center gap-2">
-          <select className="field !py-2.5 !text-[14px] w-auto" value={courseId} onChange={(e) => setCourseId(e.target.value)}>
-            <option value="">공용 (내 학생 전체)</option>
-            {courses.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.title} 전용
-              </option>
-            ))}
-          </select>
-          <input ref={fileRef} type="file" aria-label="첨부 파일" className="text-[13px]" />
+      <section className="rise d1 card p-5 lg:p-6 flex flex-col gap-3">
+        <h2 className="font-bold text-[17px] lg:text-[19px] mb-1">새 게시물</h2>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <label className={LABEL} style={{ color: "var(--sub-2)" }}>
+            제목
+            <input
+              className="field"
+              placeholder="예: 3주차 필기노트 PDF"
+              maxLength={200}
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+            />
+          </label>
+          <label className={LABEL} style={{ color: "var(--sub-2)" }}>
+            공개 범위
+            <select className="field" value={courseId} onChange={(e) => setCourseId(e.target.value)}>
+              <option value="">공용 (내 학생 전체)</option>
+              {courses.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.title} 전용
+                </option>
+              ))}
+            </select>
+          </label>
         </div>
+        <label className={LABEL} style={{ color: "var(--sub-2)" }}>
+          설명 (선택)
+          <textarea
+            className="field resize-y"
+            rows={3}
+            placeholder="학생에게 보일 설명"
+            maxLength={4000}
+            value={body}
+            onChange={(e) => setBody(e.target.value)}
+          />
+        </label>
+        {/* 첨부 — 네이티브 파일 입력을 점선 영역 안에 둔다 (끌어다 놓기도 입력 위에서 동작) */}
+        <label
+          className="rounded-[12px] border border-dashed border-[var(--border-strong)] px-4 py-5 flex flex-col items-center justify-center gap-2 text-center cursor-pointer"
+          style={{ color: "var(--sub-2)" }}
+        >
+          <span className="text-[15px] font-bold">파일을 끌어다 놓거나 눌러서 고르기</span>
+          <span className="text-[13px] text-sub">20MB까지 · ROOM 전용을 고르면 그 강좌 학생에게만 보여요</span>
+          <input ref={fileRef} type="file" aria-label="첨부 파일" className="text-[13px] max-w-full" />
+        </label>
         {err && (
           <p className="text-[13px] font-bold" style={{ color: "var(--red)" }}>
             {err}
           </p>
         )}
         {msg && <p className="text-[13px] font-bold text-blue">{msg}</p>}
-        <button onClick={submit} disabled={busy} className="btn btn-primary py-3 disabled:opacity-50 lg:self-start lg:px-8">
+        <button onClick={submit} disabled={busy} className="btn btn-primary h-12 px-6 sm:self-end disabled:opacity-50">
           {busy ? "올리는 중…" : "게시하기"}
         </button>
-        <p className="text-[12px] text-sub -mt-1">파일은 20MB까지. ROOM 전용을 고르면 그 강좌 학생에게만 보여요.</p>
       </section>
 
       {/* 목록 */}
@@ -148,30 +166,47 @@ export default function TeacherBoardPage() {
         </div>
       )}
       {/* PC는 게시물 2열 — 제목·설명이 짧아 한 줄에 하나면 여백만 남는다 */}
-      <div className="flex flex-col gap-2 lg:grid lg:grid-cols-2 lg:gap-3 lg:items-start">
+      <div className="grid gap-3 lg:grid-cols-2 lg:items-start">
         {(posts ?? []).map((p, i) => (
-          <div key={p.id} className={`rise d${Math.min(i + 2, 6)} card p-4 lg:p-5 flex flex-col gap-2`}>
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  <span className="chip !py-0.5 !px-2 !text-[11px] !cursor-default">{p.course ?? "공용"}</span>
-                  <span className="text-sub text-[12px]">
-                    {new Date(p.createdAt).toLocaleDateString("ko-KR", { month: "numeric", day: "numeric" })}
-                  </span>
-                </div>
-                <p className="font-bold text-[15px] mt-1 break-words">{p.title}</p>
-                {p.body && <p className="text-sub text-[13px] whitespace-pre-wrap break-words mt-0.5">{p.body}</p>}
-              </div>
-              <button onClick={() => remove(p.id, p.title)} className="chip !text-[12px] shrink-0" style={{ color: "var(--red)" }}>
-                삭제
-              </button>
+          <article key={p.id} className={`rise d${Math.min(i + 2, 6)} card !rounded-[14px] p-5 flex flex-col gap-2.5 min-w-0`}>
+            <div className="flex items-center justify-between gap-2">
+              <span
+                className="inline-flex items-center h-6 px-2 rounded-[8px] text-[12px] font-bold"
+                style={p.course ? { background: "var(--blue-weak)", color: "var(--blue)" } : { background: "var(--fill)", color: "var(--sub-2)" }}
+              >
+                {p.course ?? "공용"}
+              </span>
+              <span className="text-sub text-[13px]">
+                {new Date(p.createdAt).toLocaleDateString("ko-KR", { month: "numeric", day: "numeric" })}
+              </span>
             </div>
+            <p className="font-bold text-[16px] lg:text-[17px] break-words">{p.title}</p>
+            {p.body && (
+              <p className="text-[14px] whitespace-pre-wrap break-words" style={{ color: "var(--sub-2)" }}>
+                {p.body}
+              </p>
+            )}
             {p.fileUrl && (
-              <a href={p.fileUrl} className="chip !text-[13px] self-start" target="_blank" rel="noreferrer">
-                📎 {p.fileName} {p.fileSize ? `(${fmtSize(p.fileSize)})` : ""}
+              <a
+                href={p.fileUrl}
+                className="flex items-center gap-2.5 rounded-[10px] p-3 min-w-0 hover:underline"
+                style={{ background: "var(--fill-2)" }}
+                target="_blank"
+                rel="noreferrer"
+              >
+                <span aria-hidden>📎</span>
+                <span className="flex-1 min-w-0 truncate text-[14px] font-semibold">{p.fileName}</span>
+                {p.fileSize ? <span className="text-sub text-[13px] shrink-0">{fmtSize(p.fileSize)}</span> : null}
               </a>
             )}
-          </div>
+            <button
+              onClick={() => remove(p.id, p.title)}
+              className="btn h-9 px-3 text-[13px] font-semibold self-end hover:bg-[var(--red-weak)]"
+              style={{ color: "var(--red)" }}
+            >
+              삭제
+            </button>
+          </article>
         ))}
       </div>
     </main>

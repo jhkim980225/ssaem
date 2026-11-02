@@ -99,89 +99,121 @@ export default function TeacherSidebar() {
   ];
 
   const itemCls = (active: boolean) =>
-    `rounded-[10px] px-3 py-2 text-[14px] text-left transition-colors ${
-      active ? "font-bold" : "hover:bg-[var(--fill)]"
+    `block rounded-[8px] px-3 py-2.5 text-[15px] text-left transition-colors ${
+      active ? "font-bold" : "hover:bg-[var(--fill-2)]"
     }`;
   const itemStyle = (active: boolean) =>
-    active ? { background: "var(--blue-weak)", color: "var(--blue)" } : undefined;
+    active ? { background: "var(--blue-weak)", color: "var(--blue)" } : { color: "var(--text-2)" };
 
   return (
     <>
-      {/* PC — 좌측 고정 */}
-      <aside className="hidden lg:flex flex-col gap-1 w-[240px] shrink-0 px-3 py-6 sticky top-[60px] max-h-[calc(100vh-60px)] overflow-y-auto">
+      {/* PC — 좌측 고정 흰 패널 */}
+      <aside
+        className="hidden lg:flex flex-col gap-4 w-[260px] shrink-0 px-4 py-5 sticky top-[60px] h-[calc(100vh-60px)] overflow-y-auto border-r border-line"
+        style={{ background: "var(--surface)" }}
+      >
         <Link
           href="/teacher/settings"
-          className="flex items-center gap-3 rounded-[12px] px-3 py-3 mb-2 hover:bg-[var(--fill)] transition-colors"
+          className="flex items-center gap-3 rounded-[12px] p-3.5 transition-colors hover:bg-[var(--fill)]"
+          style={{ background: "var(--fill-2)" }}
         >
-          <span
-            className="w-10 h-10 rounded-full grid place-items-center font-bold text-[16px] shrink-0"
-            style={{ background: "var(--blue-weak)", color: "var(--blue)" }}
-          >
+          <span className="w-10 h-10 rounded-full grid place-items-center font-bold text-[16px] shrink-0 bg-blue text-white">
             {(profile?.name || "?").slice(0, 1)}
           </span>
           <span className="min-w-0">
-            <span className="block text-[14px] font-bold truncate">{profile?.name || "프로필 설정"}</span>
-            <span className="block text-[12px] text-sub truncate">{profile?.subject || "개인 설정 →"}</span>
+            <span className="block text-[15px] font-bold truncate">{profile?.name || "프로필 설정"}</span>
+            <span className="block text-[13px] text-sub truncate">{profile?.subject || "개인 설정 →"}</span>
           </span>
         </Link>
 
-        <p className="text-sub text-[12px] font-bold px-3 mt-1 mb-1">강좌 ROOM</p>
-        {rooms.map((r) => (
-          <Link key={r.key} href={r.href} className={itemCls(r.active)} style={itemStyle(r.active)}>
-            <span className="flex items-center justify-between gap-2">
-              <span className="truncate">{r.label}</span>
-              {r.count !== undefined && <span className="text-sub text-[12px] shrink-0">{r.count}</span>}
-            </span>
-          </Link>
-        ))}
-        {adding ? (
-          <div className="flex gap-1.5 px-1 py-1">
-            <input
-              autoFocus
-              className="field !py-2 !text-[13px] min-w-0"
-              placeholder="강좌 이름"
-              value={newTitle}
-              maxLength={100}
-              onChange={(e) => setNewTitle(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.nativeEvent.isComposing) addCourse();
-                if (e.key === "Escape") setAdding(false);
-              }}
-            />
-            <button onClick={addCourse} disabled={busy} className="btn btn-primary px-3 !text-[13px] shrink-0">
-              추가
+        <nav aria-label="강좌 ROOM" className="flex flex-col gap-0.5">
+          <p className="text-sub text-[12px] font-bold px-2 mb-1.5">강좌 ROOM</p>
+          {rooms.map((r) => (
+            <Link
+              key={r.key}
+              href={r.href}
+              aria-current={r.active ? "page" : undefined}
+              className={itemCls(r.active)}
+              style={itemStyle(r.active)}
+            >
+              <span className="flex items-center justify-between gap-2">
+                <span className="truncate">{r.label}</span>
+                {r.count !== undefined && (
+                  <span className={`text-[13px] font-normal shrink-0 ${r.active ? "" : "text-sub"}`}>{r.count}</span>
+                )}
+              </span>
+            </Link>
+          ))}
+          {adding ? (
+            <div className="flex gap-1.5 py-1">
+              <input
+                autoFocus
+                className="field !py-2 !text-[13px] min-w-0"
+                placeholder="강좌 이름"
+                value={newTitle}
+                maxLength={100}
+                onChange={(e) => setNewTitle(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.nativeEvent.isComposing) addCourse();
+                  if (e.key === "Escape") setAdding(false);
+                }}
+              />
+              <button onClick={addCourse} disabled={busy} className="btn btn-primary px-3 !text-[13px] shrink-0">
+                추가
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => setAdding(true)}
+              className="mt-1 h-10 rounded-[8px] border border-dashed border-[var(--border-strong)] text-[14px] font-semibold transition-colors hover:bg-[var(--fill-2)]"
+              style={{ color: "var(--sub-2)" }}
+            >
+              + 새 강좌 만들기
             </button>
-          </div>
-        ) : (
-          <button onClick={() => setAdding(true)} className="rounded-[10px] px-3 py-2 text-[13px] text-left text-blue hover:bg-[var(--fill)] transition-colors">
-            + 새 강좌 만들기
-          </button>
-        )}
+          )}
+        </nav>
 
-        <p className="text-sub text-[12px] font-bold px-3 mt-4 mb-1">메뉴</p>
-        {pages.map((p) => (
-          <Link key={p.href} href={p.href} className={itemCls(pathname === p.href)} style={itemStyle(pathname === p.href)}>
-            {p.label}
-          </Link>
-        ))}
-        <button
-          onClick={() => supabase.auth.signOut()}
-          className="rounded-[10px] px-3 py-2 text-[14px] text-left text-sub hover:bg-[var(--fill)] transition-colors mt-2"
-        >
-          로그아웃
-        </button>
+        <nav aria-label="메뉴" className="flex flex-col gap-0.5">
+          <p className="text-sub text-[12px] font-bold px-2 mb-1.5">메뉴</p>
+          {pages.map((p) => (
+            <Link
+              key={p.href}
+              href={p.href}
+              aria-current={pathname === p.href ? "page" : undefined}
+              className={itemCls(pathname === p.href)}
+              style={itemStyle(pathname === p.href)}
+            >
+              {p.label}
+            </Link>
+          ))}
+          <button
+            onClick={() => supabase.auth.signOut()}
+            className="rounded-[8px] px-3 py-2.5 text-[15px] text-left text-sub hover:bg-[var(--fill-2)] transition-colors mt-2"
+          >
+            로그아웃
+          </button>
+        </nav>
       </aside>
 
       {/* 모바일 — 상단 가로 스크롤 칩. 같은 링크를 좁은 화면에서도 한 줄로 */}
-      <div className="lg:hidden sticky top-[60px] z-30 border-b border-line overflow-x-auto" style={{ background: "var(--surface)" }}>
-        <div className="flex gap-1.5 px-4 py-2 w-max">
+      <nav
+        aria-label="강좌와 메뉴"
+        className="lg:hidden sticky top-[60px] z-30 overflow-x-auto"
+        style={{ background: "var(--bg)" }}
+      >
+        <div className="flex gap-1.5 px-4 py-2.5 w-max">
           {[...rooms, ...pages.map((p) => ({ key: p.href, href: p.href, label: p.label, count: undefined, active: pathname === p.href }))].map((r) => (
-            <Link key={r.key} href={r.href} className="chip !text-[13px] whitespace-nowrap" style={itemStyle(r.active)}>
+            <Link
+              key={r.key}
+              href={r.href}
+              aria-current={r.active ? "page" : undefined}
+              className={`chip !text-[14px] whitespace-nowrap ${r.active ? "chip-on font-bold" : ""}`}
+            >
               {r.label}
             </Link>
           ))}
         </div>
-      </div>
+      </nav>
     </>
   );
 }

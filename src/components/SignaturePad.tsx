@@ -101,20 +101,20 @@ export default function SignaturePad({ onChange, height = 160, disabled }: Props
         onPointerCancel={up}
         onPointerLeave={up}
         style={{ height, touchAction: "none" }}
-        className="w-full rounded-[12px] border border-line bg-transparent"
+        className="w-full rounded-[12px] border border-dashed border-[var(--border-strong)] bg-[var(--fill-2)]"
         aria-label="전자서명 입력"
       />
-      <div className="flex items-center justify-between">
-        <p className="text-[12px] text-sub">
-          {hasInk ? "서명이 입력됐어요." : "위 칸에 손가락이나 마우스로 서명해 주세요."}
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-[13px] text-sub">
+          {hasInk ? "서명이 입력됐어요." : "위 칸에 손가락이나 마우스로 이름을 써 주세요."}
         </p>
         <button
           type="button"
           onClick={clear}
           disabled={disabled || !hasInk}
-          className="chip !text-[12px] disabled:opacity-40"
+          className="shrink-0 h-9 px-3 -mr-2 rounded-[8px] text-[13px] font-semibold text-sub transition-colors hover:bg-[var(--fill)] disabled:opacity-40"
         >
-          지우기
+          다시 쓰기
         </button>
       </div>
     </div>

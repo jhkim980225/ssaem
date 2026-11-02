@@ -22,7 +22,8 @@ export default function SiteFooter() {
   );
 
   return (
-    <footer className="border-t border-line mt-16">
+    // 학생 폰 화면은 하단 탭바가 내비 역할을 해서 링크 모음 푸터는 중복 — lg부터만
+    <footer className={`${signedIn && role === "student" ? "max-lg:hidden " : ""}border-t border-line mt-16`}>
       <div className="mx-auto w-full max-w-[1600px] px-5 lg:px-8 py-10 flex flex-col gap-8">
         <div className="flex flex-col sm:flex-row sm:justify-between gap-8">
           <div className="max-w-xs">

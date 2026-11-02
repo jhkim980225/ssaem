@@ -68,23 +68,31 @@ export default function MyPage() {
     { href: "/my/reviews", label: "선생님 평가", desc: "수강평 남기기·수정", n: null },
   ];
 
+  // 메뉴 오른쪽 화살표 — 시안의 › 를 선 아이콘으로
+  const chevron = (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-sub shrink-0" aria-hidden>
+      <path d="M9 6l6 6-6 6" />
+    </svg>
+  );
+
   return (
-    <main className="flex-1 w-full max-w-2xl lg:max-w-4xl mx-auto px-5 py-8 flex flex-col gap-4">
-      <div className="rise flex flex-col gap-1">
-        <h1 className="text-[24px] lg:text-[28px] font-bold">마이페이지</h1>
-        <p className="text-sub text-[14px]">내 정보와 학습 기록을 한 곳에서 봐요.</p>
+    <main className="flex-1 w-full max-w-2xl lg:max-w-4xl mx-auto px-4 pt-3 pb-8 lg:px-5 lg:py-8 flex flex-col gap-3 lg:gap-4">
+      <div className="rise flex flex-col gap-1 px-1 min-h-[48px] justify-center lg:min-h-0">
+        <h1 className="text-[22px] lg:text-[28px] font-bold">마이</h1>
+        <p className="hidden lg:block text-sub text-[14px]">내 정보와 학습 기록을 한 곳에서 봐요.</p>
       </div>
 
-      {/* PC에선 좌(내 정보·내 선생님) / 우(요약·기록) 2단 — 모바일 기둥 방지 */}
-      <div className="flex flex-col gap-4 lg:grid lg:grid-cols-[320px_minmax(0,1fr)] lg:items-start">
-      <div className="flex flex-col gap-4 lg:sticky lg:top-[76px]">
+      {/* PC에선 좌(내 정보·내 선생님) / 우(요약·기록) 2단 — 모바일 기둥 방지.
+          모바일은 래퍼를 contents로 풀고 order로 시안 순서(프로필·출석·숫자·메뉴·선생님)를 만든다 */}
+      <div className="flex flex-col gap-3 lg:gap-4 lg:grid lg:grid-cols-[320px_minmax(0,1fr)] lg:items-start">
+      <div className="contents lg:flex lg:flex-col lg:gap-4 lg:sticky lg:top-[76px]">
       {/* 내 정보 */}
-      <section className="rise d1 card p-5 flex items-center gap-4">
-        <span className="grid place-items-center w-12 h-12 shrink-0 rounded-full bg-blue text-white text-[18px] font-bold">
+      <section className="rise d1 order-1 card p-5 flex items-center gap-3.5">
+        <span className="grid place-items-center w-14 h-14 shrink-0 rounded-full bg-blue text-white text-[22px] font-bold">
           {avatarEmoji(name || loginId)}
         </span>
         <div className="min-w-0 flex flex-col gap-0.5">
-          <p className="text-[17px] font-bold truncate">{name || loginId}</p>
+          <p className="text-[19px] font-bold truncate">{name || loginId}</p>
           {/* truncate 금지 — 320px 좌열에서 가입일이 잘린다. 줄바꿈으로 전부 보여준다 */}
           <p className="text-sub text-[13px] break-keep">
             아이디 {loginId}
@@ -95,27 +103,34 @@ export default function MyPage() {
       </section>
 
       {/* 출석 */}
-      <section className="rise d1 card p-5 flex flex-col gap-1.5">
-        <h2 className="text-[15px] font-bold">출석</h2>
-        {visit === null ? (
-          <div className="skel h-9 !rounded-[10px]" />
-        ) : visit.days === 0 ? (
-          <p className="text-sub text-[13px]">오늘부터 출석이 기록돼요. 매일 들어와서 이어가 보세요.</p>
-        ) : (
-          <>
-            <p className="text-[22px] font-bold">
-              🔥 {visit.streak > 0 ? `${visit.streak}일 연속 출석` : "오늘 출석하면 이어져요"}
-            </p>
-            <p className="text-sub text-[13px]">
-              총 방문 {visit.total}회 · 출석일 {visit.days}일
-            </p>
-          </>
-        )}
+      <section className="rise d1 order-2 card p-5 flex items-center gap-3.5">
+        <span className="grid place-items-center w-12 h-12 shrink-0 rounded-[12px] text-[24px]" style={{ background: "var(--fill)" }} aria-hidden>
+          🔥
+        </span>
+        <div className="min-w-0 flex-1 flex flex-col gap-0.5">
+          {visit === null ? (
+            <div className="skel h-9 !rounded-[10px]" />
+          ) : visit.days === 0 ? (
+            <>
+              <p className="text-[18px] font-bold">출석</p>
+              <p className="text-sub text-[13px]">오늘부터 출석이 기록돼요. 매일 들어와서 이어가 보세요.</p>
+            </>
+          ) : (
+            <>
+              <p className="text-[18px] font-bold">
+                {visit.streak > 0 ? `${visit.streak}일 연속 출석 중` : "오늘 출석하면 이어져요"}
+              </p>
+              <p className="text-sub text-[13px]">
+                총 방문 {visit.total}회 · 출석일 {visit.days}일
+              </p>
+            </>
+          )}
+        </div>
       </section>
 
       {/* 내 선생님 */}
-      <section className="rise d4 card p-5 flex flex-col gap-3">
-        <h2 className="text-[15px] font-bold">내 선생님</h2>
+      <section className="rise d4 order-5 card p-5 flex flex-col gap-3">
+        <h2 className="text-[16px] font-bold">내 선생님</h2>
         {teachers === null && <div className="skel h-10 !rounded-[10px]" />}
         {teachers && teachers.length === 0 && (
           <p className="text-sub text-[13px]">
@@ -129,7 +144,7 @@ export default function MyPage() {
         {teachers && teachers.length > 0 && (
           <div className="flex flex-wrap gap-2">
             {teachers.map((t) => (
-              <Link key={t.id} href={`/ask?teacher=${t.id}`} className="chip !text-[13px]">
+              <Link key={t.id} href={`/ask?teacher=${t.id}`} className="chip !text-[14px] !border-transparent" style={{ background: "var(--fill-2)", color: "var(--text)" }}>
                 {t.name}
                 {t.subject ? ` · ${t.subject}` : ""}
               </Link>
@@ -139,9 +154,9 @@ export default function MyPage() {
       </section>
       </div>
 
-      <div className="flex flex-col gap-4">
+      <div className="contents lg:flex lg:flex-col lg:gap-4">
       {/* 학습 요약 */}
-      <section className="rise d2 grid grid-cols-2 sm:grid-cols-5 gap-2">
+      <section className="rise d2 order-3 card p-5 grid grid-cols-3 sm:grid-cols-5 gap-x-2 gap-y-4 text-center">
         {(
           [
             ["대화", convs],
@@ -151,31 +166,34 @@ export default function MyPage() {
             ["과제 제출", hw],
           ] as const
         ).map(([label, n]) => (
-          <div key={label} className="card p-4 text-center">
+          <div key={label}>
             {n === null ? (
               <span className="skel h-7 w-10 mx-auto block !rounded-md" aria-hidden />
             ) : (
-              <p className="text-[22px] font-bold tabular-nums">{n}</p>
+              <p
+                className="text-[20px] font-bold tabular-nums"
+                style={label === "남은 오답" && n > 0 ? { color: "var(--red)" } : undefined}
+              >
+                {n}
+              </p>
             )}
-            <p className="text-[12px] text-sub mt-0.5">{label}</p>
+            <p className="text-[13px] text-sub mt-0.5">{label}</p>
           </div>
         ))}
       </section>
 
       {/* 기록 바로가기 */}
-      <section className="rise d3 flex flex-col gap-2">
+      <section className="rise d3 order-4 card py-1.5">
         {menu.map((m) => (
-          <Link key={m.href} href={m.href} className="card p-4 flex items-center gap-3 hover:border-blue transition-colors">
+          <Link key={m.href} href={m.href} className="flex items-center gap-3.5 px-5 py-3.5 hover:bg-[var(--fill-2)] transition-colors">
             <div className="min-w-0 flex-1">
-              <p className="text-[15px] font-bold">{m.label}</p>
+              <p className="text-[16px] font-bold">{m.label}</p>
               <p className="text-sub text-[13px] truncate">{m.desc}</p>
             </div>
             {m.n !== null && m.n !== undefined && m.n > 0 && (
-              <span className="chip !text-[12px] shrink-0 tabular-nums">{m.n}</span>
+              <span className="text-sub text-[14px] shrink-0 tabular-nums">{m.n}</span>
             )}
-            <span className="text-sub shrink-0" aria-hidden>
-              ›
-            </span>
+            {chevron}
           </Link>
         ))}
       </section>

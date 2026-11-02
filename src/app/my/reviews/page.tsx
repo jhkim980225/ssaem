@@ -82,19 +82,19 @@ export default function MyReviewsPage() {
   if (gate) return gate;
 
   return (
-    <main className="flex-1 w-full max-w-2xl lg:max-w-4xl mx-auto px-5 py-8 flex flex-col gap-4">
-      <div className="rise flex items-start justify-between gap-3">
-        <div className="flex flex-col gap-1">
-          <BackButton fallback="/ask" />
-          <h1 className="text-[24px] lg:text-[28px] font-bold">선생님 평가</h1>
-          <p className="text-sub text-[14px]">
-            수업이 어땠는지 알려주세요. <b>선생님께는 이름 없이</b> 전달돼요.
-          </p>
-        </div>
+    <main className="flex-1 w-full max-w-2xl lg:max-w-4xl mx-auto px-4 pb-8 lg:px-5 lg:py-8 flex flex-col gap-3 lg:gap-4">
+      <header className="h-[50px] flex items-center justify-between gap-3">
+        <BackButton fallback="/ask" />
         <Link href="/ask" className="chip shrink-0 !text-[13px]">
           질문하기
         </Link>
-      </div>
+      </header>
+      <section className="rise px-1 pb-1">
+        <h1 className="text-[24px] lg:text-[28px] font-bold mb-1.5">선생님 평가</h1>
+        <p className="text-sub text-[15px] leading-normal break-keep">
+          수업이 어땠는지 알려주세요. <b>선생님께는 이름 없이</b> 전달돼요.
+        </p>
+      </section>
 
       {err && (
         <p className="text-[13px] font-bold" style={{ color: "var(--red)" }}>
@@ -114,57 +114,71 @@ export default function MyReviewsPage() {
       )}
 
       {/* PC에선 강사 카드 2열 — 카드끼리 독립 폼이라 1열일 이유가 없다 */}
-      <div className="grid gap-4 lg:grid-cols-2 items-start">
+      <div className="grid gap-3 lg:gap-4 lg:grid-cols-2 items-start">
       {teachers?.map((t) => {
         const saved = mine[t.id];
         const d = draft[t.id] ?? { rating: saved?.rating ?? 0, comment: saved?.comment ?? "" };
         return (
-          <div key={t.id} className="rise card p-5 flex flex-col gap-3">
-            <div className="flex items-center gap-2">
-              <span className="grid place-items-center w-9 h-9 rounded-full text-[15px]" style={{ background: "var(--blue-weak)" }}>
+          <article key={t.id} className="rise card p-5 flex flex-col">
+            <div className="flex items-center gap-3 mb-[18px]">
+              <span className="grid place-items-center w-11 h-11 shrink-0 rounded-full bg-blue text-white font-bold">
                 {avatarEmoji(t.name)}
               </span>
               <div className="flex-1 min-w-0">
-                <p className="text-[15px] font-bold truncate">{t.name}</p>
-                <p className="text-sub text-[12px]">{t.subject ?? ""}</p>
+                <p className="text-[17px] font-bold truncate">{t.name}</p>
+                <p className="text-sub text-[13px]">{t.subject ?? ""}</p>
               </div>
-              {saved && <span className="chip !text-[12px] !cursor-default shrink-0">평가함</span>}
+              {saved && (
+                <span
+                  className="shrink-0 h-[26px] px-2.5 rounded-[8px] text-[12px] font-bold inline-flex items-center text-blue"
+                  style={{ background: "var(--blue-weak)" }}
+                >
+                  평가함
+                </span>
+              )}
             </div>
 
             {/* 별점 */}
-            <div className="flex gap-1.5">
+            <div role="radiogroup" aria-label="별점" className="flex gap-1.5 justify-center mb-1.5">
               {[1, 2, 3, 4, 5].map((n) => (
                 <button
                   key={n}
+                  role="radio"
+                  aria-checked={n === d.rating}
                   onClick={() => setDraft((p) => ({ ...p, [t.id]: { ...d, rating: n } }))}
                   aria-label={`${n}점`}
-                  className="text-[26px] leading-none transition-transform hover:scale-110"
-                  style={{ color: n <= d.rating ? "var(--blue)" : "var(--border)" }}
+                  className="grid place-items-center w-11 h-11 transition-transform hover:scale-110"
+                  style={{ color: n <= d.rating ? "var(--blue)" : "var(--fill)" }}
                 >
-                  ★
+                  <svg width="36" height="36" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+                    <path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z" />
+                  </svg>
                 </button>
               ))}
-              <span className="self-center text-[13px] text-sub ml-1">
-                {d.rating ? `${d.rating}점` : "별점을 골라 주세요"}
-              </span>
             </div>
+            <p className={`text-center text-[14px] mb-4 ${d.rating ? "font-bold text-[var(--sub-2)]" : "text-sub"}`}>
+              {d.rating ? `${d.rating}점` : "별점을 골라 주세요"}
+            </p>
 
-            <input
-              className="field"
-              placeholder="한 줄 평 (선택)"
-              maxLength={300}
-              value={d.comment}
-              onChange={(e) => setDraft((p) => ({ ...p, [t.id]: { ...d, comment: e.target.value } }))}
-            />
+            <label className="flex flex-col gap-2 text-[13px] font-semibold text-[var(--sub-2)]">
+              한 줄 평 (선택)
+              <input
+                className="field !text-[16px] text-text font-normal"
+                placeholder="수업이 어땠나요?"
+                maxLength={300}
+                value={d.comment}
+                onChange={(e) => setDraft((p) => ({ ...p, [t.id]: { ...d, comment: e.target.value } }))}
+              />
+            </label>
 
             <button
               onClick={() => save(t.id)}
               disabled={busy === t.id}
-              className="btn btn-primary py-3 disabled:opacity-60"
+              className={`btn ${saved ? "btn-ghost" : "btn-primary"} mt-3.5 h-[52px] text-[16px] disabled:opacity-60`}
             >
               {busy === t.id ? "저장 중…" : saved ? "수정하기" : "평가 남기기"}
             </button>
-          </div>
+          </article>
         );
       })}
       </div>

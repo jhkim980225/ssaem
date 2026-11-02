@@ -3,6 +3,32 @@
 // 기출문제 본문·해설 공용 표현 컴포넌트 — 공부/한 문제씩(bank/page)과 CBT(CbtRunner)가 같이 쓴다.
 // 데이터는 그대로 두고 줄 단위로 "표현 역할"만 나눈다.
 
+// 화면 톤 공용 클래스 — 공부/한 문제씩/CBT/문제검색/오답노트가 같은 모양을 쓴다 (표현만, 렌더 경로와 무관)
+// 태그: 문항 번호·영역·급수 표시. TAG_ON은 강조(급수·번호)
+export const TAG = "inline-flex items-center h-6 px-2 rounded-[8px] text-[12px] font-semibold shrink-0";
+export const TAG_FILL = { background: "var(--fill)", color: "var(--sub-2)" } as const;
+export const TAG_ON = { background: "var(--blue-weak)", color: "var(--blue)", fontWeight: 700 } as const;
+// 보기 한 칸 — 기본 / on(고른 답·정답, 네이비) / bad(틀린 내 답, 빨강)
+export const CHOICE_BOX =
+  "text-left rounded-[12px] border border-line px-4 py-3 min-h-[50px] text-[15px] leading-[1.65] break-keep flex items-start gap-3 transition-colors";
+export const CHOICE_NUM = "shrink-0 grid place-items-center w-[26px] h-[26px] rounded-full text-[13px] font-bold";
+export function choiceTone(t: "on" | "bad" | null): { box: React.CSSProperties; num: React.CSSProperties } {
+  if (t === "on")
+    return {
+      box: { borderColor: "var(--blue)", background: "var(--blue-weak)", color: "var(--blue)", fontWeight: 700 },
+      num: { background: "var(--blue)", color: "#fff" },
+    };
+  if (t === "bad")
+    return {
+      box: { borderColor: "var(--red)", background: "var(--red-weak)", color: "var(--red)", fontWeight: 700 },
+      num: { background: "var(--red)", color: "#fff" },
+    };
+  return {
+    box: { background: "var(--fill-2)" },
+    num: { background: "var(--surface)", color: "var(--sub)", boxShadow: "inset 0 0 0 1px var(--border)" },
+  };
+}
+
 // stem에서 첨부 서식([[서식]]) 분리 — 행 정렬이 생명이라 가로 스크롤 박스로
 function splitStem(stem: string): { body: string; form: string | null } {
   const parts = stem.split("\n[[서식]]\n");

@@ -58,54 +58,60 @@ export default function MyHistoryPage() {
   // 대화 본문 — 모바일 아코디언과 PC 우측 패널이 같이 쓴다
   const detailBody = (c: Conv) => (
     <>
-      {!msgs[c.id] && !msgErr[c.id] && <div className="skel h-10" />}
-      {msgErr[c.id] && (
-        <p className="text-[13px] font-bold" style={{ color: "var(--red)" }}>
-          {msgErr[c.id]}
-        </p>
-      )}
-      {msgs[c.id]?.map((m) =>
-        m.role === "user" ? (
-          <div
-            key={m.id}
-            className="self-end max-w-[85%] px-4 py-2.5 text-[14px] leading-relaxed whitespace-pre-wrap bg-blue text-white rounded-[12px] rounded-br-[5px]"
-          >
-            {m.content}
-          </div>
-        ) : (
-          <div key={m.id} className="self-start max-w-[92%] flex flex-col gap-1">
+      <div className="rounded-[12px] p-3.5 flex flex-col gap-2.5" style={{ background: "var(--fill-2)" }}>
+        {!msgs[c.id] && !msgErr[c.id] && <div className="skel h-10" />}
+        {msgErr[c.id] && (
+          <p className="text-[13px] font-bold" style={{ color: "var(--red)" }}>
+            {msgErr[c.id]}
+          </p>
+        )}
+        {msgs[c.id]?.map((m) =>
+          m.role === "user" ? (
             <div
-              className="md min-w-0 px-4 py-2.5 text-[14px] leading-relaxed whitespace-pre-wrap rounded-[12px] rounded-bl-[5px] border border-line"
-              style={{ background: "var(--fill-2)" }}
+              key={m.id}
+              className="self-end max-w-[80%] px-3.5 py-2.5 text-[14px] leading-normal whitespace-pre-wrap bg-blue text-white rounded-[12px] rounded-br-[4px]"
             >
-              {renderMd(m.content)}
+              {m.content}
             </div>
-            {m.rating !== null && (
-              <span className="text-sub text-[12px] pl-1">
-                내 평가: {m.rating >= 4 ? "도움됐어요" : "아쉬워요"}
-              </span>
-            )}
-          </div>
-        )
-      )}
-      <Link href={`/ask?teacher=${c.teacher_id}`} className="btn btn-ghost py-2.5 text-[13px] text-center mt-1">
+          ) : (
+            <div key={m.id} className="self-start max-w-[85%] flex flex-col gap-1">
+              <div className="md min-w-0 px-3.5 py-2.5 text-[14px] leading-[1.55] whitespace-pre-wrap rounded-[12px] rounded-tl-[4px] bg-surface border border-line">
+                {renderMd(m.content)}
+              </div>
+              {m.rating !== null && (
+                <span className="text-sub text-[13px] pl-1">
+                  내 평가: {m.rating >= 4 ? "도움됐어요" : "아쉬워요"}
+                </span>
+              )}
+            </div>
+          )
+        )}
+      </div>
+      <Link
+        href={`/ask?teacher=${c.teacher_id}`}
+        className="btn btn-ghost !rounded-[8px] h-11 text-[14px] flex items-center justify-center"
+      >
         이 선생님께 새로 질문하기
       </Link>
     </>
   );
 
   return (
-    <main className="flex-1 w-full max-w-2xl lg:max-w-5xl mx-auto px-5 py-8 flex flex-col gap-4">
-      <div className="rise flex items-start justify-between gap-3">
-        <div className="flex flex-col gap-1">
-          <BackButton fallback="/ask" />
-          <h1 className="text-[24px] lg:text-[28px] font-bold">내 대화내역</h1>
-          <p className="text-sub text-[14px]">지금까지 선생님께 물어본 내용이에요.</p>
-        </div>
+    <main className="flex-1 w-full max-w-2xl lg:max-w-5xl mx-auto px-4 pb-8 lg:px-5 lg:py-8 flex flex-col gap-3 lg:gap-4">
+      <header className="h-[50px] flex items-center justify-between gap-3">
+        <BackButton fallback="/ask" />
         <Link href="/ask" className="chip shrink-0 !text-[13px]">
           질문하기
         </Link>
-      </div>
+      </header>
+      <section className="rise px-1 pb-1">
+        <h1 className="text-[24px] lg:text-[28px] font-bold mb-1.5">내 대화내역</h1>
+        <p className="text-sub text-[15px] tabular-nums">
+          {convs && convs.length > 0
+            ? `대화 ${convs.length} · 주고받은 글 ${totalMsgs}`
+            : "지금까지 선생님께 물어본 내용이에요."}
+        </p>
+      </section>
 
       {convs === null && (
         <div className="flex flex-col gap-2">
@@ -115,76 +121,91 @@ export default function MyHistoryPage() {
         </div>
       )}
 
-      {convs && convs.length > 0 && (
-        <div className="rise d1 grid grid-cols-2 gap-2">
-          {(
-            [
-              ["대화", convs.length],
-              ["주고받은 글", totalMsgs],
-            ] as const
-          ).map(([label, n]) => (
-            <div key={label} className="card p-4 text-center">
-              <p className="text-[24px] font-bold tabular-nums">{n}</p>
-              <p className="text-[12px] text-sub mt-0.5">{label}</p>
-            </div>
-          ))}
-        </div>
-      )}
-
       {convs?.length === 0 && (
-        <div className="rise d1 card p-10 text-center">
-          <p className="text-[15px] font-bold mb-1">아직 대화가 없어요</p>
-          <p className="text-sub text-[13px] mb-5">선생님을 골라 첫 질문을 남겨보세요.</p>
-          <Link href="/ask" className="btn btn-primary py-3 px-6 inline-block">
+        <>
+          <section className="rise d1 card min-h-[320px] px-6 py-8 flex flex-col items-center justify-center text-center gap-2.5">
+            <span className="grid place-items-center w-[72px] h-[72px] rounded-[16px] text-blue" style={{ background: "var(--blue-weak)" }}>
+              <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" aria-hidden>
+                <path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z" />
+              </svg>
+            </span>
+            <h2 className="mt-1.5 text-[20px] font-bold">아직 대화가 없어요</h2>
+            <p className="text-sub text-[15px] leading-relaxed break-keep">
+              수업 중 헷갈린 부분을 물어보면
+              <br />
+              여기에 차곡차곡 쌓여요.
+            </p>
+          </section>
+          <Link href="/ask" className="rise d2 btn btn-primary h-[50px] text-[17px] flex items-center justify-center lg:self-center lg:px-10">
             질문하러 가기
           </Link>
-        </div>
+        </>
       )}
 
       {/* PC에선 좌(목록) / 우(대화 내용 sticky) 마스터-디테일, 모바일은 아코디언 그대로 */}
       <div className="lg:grid lg:grid-cols-[360px_minmax(0,1fr)] lg:gap-6 lg:items-start">
-      <div className="flex flex-col gap-2">
-        {convs?.map((c, i) => (
-          <div
-            key={c.id}
-            className={`rise d${Math.min(i + 2, 6)} card overflow-hidden`}
-            style={openId === c.id ? { borderColor: "var(--blue)" } : undefined}
-          >
-            <button onClick={() => toggle(c.id)} className="w-full text-left p-4 lg:p-5 cursor-pointer">
-              <div className="flex items-center justify-between gap-3">
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <span className="avatar !w-8 !h-8 !text-[13px]">{avatarEmoji(c.teacher_name ?? "선생님")}</span>
-                  <div className="min-w-0">
-                    <p className="font-bold text-[15px] truncate">{c.title || "제목 없음"}</p>
-                    <p className="text-sub text-[12px] truncate">{c.teacher_name ?? "선생님"}</p>
+      {convs && convs.length > 0 && (
+        <section className="rise d1 card py-1 overflow-hidden">
+          {convs.map((c, i) => {
+            const isOpen = openId === c.id;
+            return (
+              <article key={c.id} className={i > 0 ? "border-t border-line" : ""}>
+                <button
+                  onClick={() => toggle(c.id)}
+                  aria-expanded={isOpen}
+                  className={`w-full text-left px-5 py-4 cursor-pointer flex items-center gap-3 transition-colors ${
+                    isOpen ? "lg:bg-[var(--blue-weak)]" : "hover:bg-[var(--fill-2)]"
+                  }`}
+                >
+                  <span className="grid place-items-center w-10 h-10 shrink-0 rounded-full bg-blue text-white font-bold">
+                    {avatarEmoji(c.teacher_name ?? "선생님")}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="font-bold text-[16px] truncate">{c.title || "제목 없음"}</p>
+                    <p className="text-sub text-[13px] truncate mt-0.5">
+                      {c.teacher_name ?? "선생님"} · {c.messages}개 ·{" "}
+                      {new Date(c.created_at).toLocaleDateString("ko-KR", { month: "numeric", day: "numeric" })}
+                    </p>
                   </div>
-                </div>
-                <span className="text-sub text-[12px] shrink-0">
-                  {c.messages}개 ·{" "}
-                  {new Date(c.created_at).toLocaleDateString("ko-KR", { month: "numeric", day: "numeric" })}
-                </span>
-              </div>
-            </button>
+                  <svg
+                    width="20"
+                    height="20"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className={`shrink-0 text-sub transition-transform lg:-rotate-90 ${isOpen ? "rotate-180 lg:-rotate-90" : ""}`}
+                    aria-hidden
+                  >
+                    <path d="M6 9l6 6 6-6" />
+                  </svg>
+                </button>
 
-            {openId === c.id && (
-              <div className="px-4 lg:px-5 pb-4 flex flex-col gap-2 border-t border-line pt-3 lg:hidden">
-                {detailBody(c)}
-              </div>
-            )}
-          </div>
-        ))}
-      </div>
+                {isOpen && (
+                  <div className="px-5 pb-4 flex flex-col gap-2.5 lg:hidden">
+                    {detailBody(c)}
+                  </div>
+                )}
+              </article>
+            );
+          })}
+        </section>
+      )}
 
       {/* PC 우측 패널 */}
       {convs && convs.length > 0 && (
-        <div className="hidden lg:flex flex-col gap-2 card p-5 lg:sticky lg:top-[76px]">
+        <div className="hidden lg:flex flex-col gap-3 card p-5 lg:sticky lg:top-[76px]">
           {openConv ? (
             <>
-              <div className="flex items-center gap-2.5 pb-3 border-b border-line">
-                <span className="avatar !w-8 !h-8 !text-[13px]">{avatarEmoji(openConv.teacher_name ?? "선생님")}</span>
+              <div className="flex items-center gap-3 pb-3 border-b border-line">
+                <span className="grid place-items-center w-10 h-10 shrink-0 rounded-full bg-blue text-white font-bold">
+                  {avatarEmoji(openConv.teacher_name ?? "선생님")}
+                </span>
                 <div className="min-w-0">
-                  <p className="font-bold text-[15px] truncate">{openConv.title || "제목 없음"}</p>
-                  <p className="text-sub text-[12px] truncate">{openConv.teacher_name ?? "선생님"}</p>
+                  <p className="font-bold text-[16px] truncate">{openConv.title || "제목 없음"}</p>
+                  <p className="text-sub text-[13px] truncate">{openConv.teacher_name ?? "선생님"}</p>
                 </div>
               </div>
               {detailBody(openConv)}

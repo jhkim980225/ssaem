@@ -10,9 +10,14 @@ export default function BackButton({ fallback = "/", label = "뒤로" }: { fallb
         if (window.history.length > 1) router.back();
         else router.push(fallback);
       }}
-      className="text-sub text-[13px] hover:text-blue transition-colors self-start"
+      // 글자는 화면에서 빼고 꺾쇠 아이콘만 — 44px 터치 영역. 스크린리더용 이름은 label 그대로
+      aria-label={label}
+      title={label}
+      className="grid place-items-center w-11 h-11 -ml-3 shrink-0 rounded-[12px] text-text hover:bg-[var(--fill)] transition-colors self-start"
     >
-      ← {label}
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <path d="M15 18l-6-6 6-6" />
+      </svg>
     </button>
   );
 }

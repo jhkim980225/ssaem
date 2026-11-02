@@ -80,20 +80,20 @@ export default function ExcelPadPage() {
   if (gate) return gate;
 
   return (
-    <main className="flex-1 w-full max-w-[1240px] mx-auto px-4 lg:px-6 py-8 flex flex-col gap-4">
-      <div className="rise flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
-        <div className="flex flex-col gap-1 min-w-0">
+    <main className="flex-1 w-full max-w-[1280px] mx-auto px-4 lg:px-6 py-6 lg:py-8 flex flex-col gap-4 lg:gap-5">
+      <div className="rise flex flex-wrap items-end justify-between gap-3">
+        <div className="flex flex-col gap-1.5 min-w-0">
           <BackButton fallback="/bank" />
           <h1 className="text-[24px] lg:text-[28px] font-bold">엑셀 연습장</h1>
-          <p className="text-sub text-[14px] break-keep">
+          <p className="text-sub text-[15px] break-keep">
             컴활 2과목 함수·참조를 직접 넣어 보며 익혀요. 시트는 이 기기의 브라우저에 저장돼요.
           </p>
         </div>
-        <div className="flex flex-wrap gap-1.5 sm:shrink-0">
-          <button onClick={loadExample} className="chip !text-[13px]">
+        <div className="flex flex-wrap gap-2">
+          <button onClick={loadExample} className="chip h-10 !text-[14px] !font-bold" style={{ color: "var(--text)" }}>
             예제 다시 깔기
           </button>
-          <Link href="/bank" className="chip !text-[13px]">
+          <Link href="/bank" className="chip h-10 !text-[14px] !font-bold inline-flex items-center" style={{ color: "var(--text)" }}>
             기출문제
           </Link>
         </div>
@@ -104,37 +104,42 @@ export default function ExcelPadPage() {
           <ExcelPad key={ver} rows={ROWS} cols={COLS} storageKey={KEY} initial={EXAMPLE} />
         </section>
 
-        <aside className="rise d2 card p-5 flex flex-col gap-3 lg:sticky lg:top-[76px] lg:max-h-[calc(100vh-96px)] lg:overflow-auto">
-          <h2 className="font-bold text-[15px]">사용법</h2>
-          <ul className="text-[13px] leading-relaxed flex flex-col gap-1.5 break-keep" style={{ color: "var(--text-2)" }}>
-            <li>칸을 고르고 바로 입력 — 수식은 <b>=</b>로 시작해요.</li>
-            <li>수식을 쓰다가 칸을 누르면 주소가, 끌면 범위가 들어가요.</li>
-            <li>
-              <b>F4</b> — 커서가 있는 주소를 A1 → $A$1 → A$1 → $A1로 바꿔요.
-            </li>
-            <li>선택 칸 오른쪽 아래 <b>채우기 핸들</b>을 끌면 수식이 상대 참조로 복사되고, 월·화·수나 갑·을·병처럼 이어지는 값은 다음 값이 채워져요.</li>
-            <li>칸 여러 개를 끌어 고르면 아래에 평균·개수·합계가 보여요.</li>
-            <li>
-              Ctrl+C / Ctrl+V(참조가 옮겨 붙어요), Ctrl+D(아래로 채우기), Delete(지우기), F2(고치기)
-            </li>
-          </ul>
-          <h2 className="font-bold text-[15px] mt-2">함수 목록</h2>
-          <div className="flex flex-col gap-1">
-            {GROUPS.map(([g, names]) => (
-              <details key={g} className="rounded-[10px] border border-line px-3 py-2">
-                <summary className="text-[13px] font-bold cursor-pointer select-none">
-                  {g} <span className="text-sub font-normal">{names.length}</span>
-                </summary>
-                <ul className="mt-2 flex flex-col gap-1.5">
-                  {names.map((n) => (
-                    <li key={n} className="text-[12px] leading-snug break-keep" style={{ color: "var(--text-2)" }}>
-                      <span className="font-mono">{FUNC_HELP[n] ?? n}</span>
-                    </li>
-                  ))}
-                </ul>
-              </details>
-            ))}
-          </div>
+        <aside className="rise d2 flex flex-col gap-3 lg:sticky lg:top-[76px] lg:max-h-[calc(100vh-96px)] lg:overflow-auto">
+          <section className="card p-5">
+            <h2 className="font-bold text-[17px] mb-3">사용법</h2>
+            <ul className="text-[14px] leading-[1.7] flex flex-col gap-1 break-keep list-disc pl-[18px]" style={{ color: "var(--text-2)" }}>
+              <li>칸을 고르고 바로 입력 — 수식은 <b>=</b>로 시작해요.</li>
+              <li>수식을 쓰다가 칸을 누르면 주소가, 끌면 범위가 들어가요.</li>
+              <li>
+                <b>F4</b> — 커서가 있는 주소를 A1 → $A$1 → A$1 → $A1로 바꿔요.
+              </li>
+              <li>선택 칸 오른쪽 아래 <b>채우기 핸들</b>을 끌면 수식이 상대 참조로 복사되고, 월·화·수나 갑·을·병처럼 이어지는 값은 다음 값이 채워져요.</li>
+              <li>칸 여러 개를 끌어 고르면 아래에 평균·개수·합계가 보여요.</li>
+              <li>
+                Ctrl+C / Ctrl+V(참조가 옮겨 붙어요), Ctrl+D(아래로 채우기), Delete(지우기), F2(고치기)
+              </li>
+            </ul>
+          </section>
+          <section className="card py-2">
+            <h2 className="font-bold text-[17px] mx-5 mt-3 mb-1.5">함수 목록</h2>
+            <div className="flex flex-col">
+              {GROUPS.map(([g, names]) => (
+                <details key={g} className="group">
+                  <summary className="flex items-center justify-between px-5 py-3 text-[15px] cursor-pointer select-none list-none [&::-webkit-details-marker]:hidden transition-colors hover:bg-[var(--fill-2)] group-open:bg-[var(--blue-weak)] group-open:text-blue group-open:font-bold">
+                    <span>{g}</span>
+                    <span className="text-sub group-open:text-blue">{names.length}</span>
+                  </summary>
+                  <ul className="px-5 py-2.5 flex flex-col gap-1.5">
+                    {names.map((n) => (
+                      <li key={n} className="text-[12px] leading-snug break-keep" style={{ color: "var(--text-2)" }}>
+                        <span className="font-mono">{FUNC_HELP[n] ?? n}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </details>
+              ))}
+            </div>
+          </section>
         </aside>
       </div>
     </main>

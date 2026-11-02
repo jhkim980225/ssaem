@@ -17,6 +17,8 @@
   --blue-weak: #eef1fa;
   --red: #c53030;
   --red-weak: #fcefef;
+  --green: #2f855a;     /* 정답 · 완료 */
+  --green-weak: #eaf5ee;
   --border-strong: #d6d9e4;
   --ghost-hover: #e2e7f4;
   --gray-hover: #e8eaf1;
@@ -47,6 +49,8 @@
     --blue-weak: rgba(84, 128, 187, 0.18);
     --red: #f2606c;
     --red-weak: rgba(240, 68, 82, 0.16);
+    --green: #5bb98a;
+    --green-weak: rgba(91, 185, 138, 0.16);
     --border-strong: #3a3a45;
     --ghost-hover: rgba(84, 128, 187, 0.28);
     --gray-hover: #2e2e38;
@@ -75,6 +79,8 @@
   --blue-weak: #eef1fa;
   --red: #c53030;
   --red-weak: #fcefef;
+  --green: #2f855a;     /* 정답 · 완료 */
+  --green-weak: #eaf5ee;
   --border-strong: #d6d9e4;
   --ghost-hover: #e2e7f4;
   --gray-hover: #e8eaf1;
@@ -102,6 +108,8 @@
   --blue-weak: rgba(84, 128, 187, 0.18);
   --red: #f2606c;
   --red-weak: rgba(240, 68, 82, 0.16);
+  --green: #5bb98a;
+  --green-weak: rgba(91, 185, 138, 0.16);
   --border-strong: #3a3a45;
   --ghost-hover: rgba(84, 128, 187, 0.28);
   --gray-hover: #2e2e38;
@@ -120,6 +128,8 @@
   --color-sub: var(--sub);
   --color-line: var(--border);
   --color-blue: var(--blue);
+  --color-green: var(--green);
+  --color-red: var(--red);
 }
 
 html { -webkit-tap-highlight-color: transparent; color-scheme: light dark; }

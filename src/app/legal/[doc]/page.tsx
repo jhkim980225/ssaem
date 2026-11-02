@@ -44,25 +44,54 @@ export default async function LegalPage({ params }: { params: Promise<{ doc: str
   if (!d) notFound();
 
   return (
-    <main className="flex-1 w-full max-w-2xl mx-auto px-5 py-12">
-      <Link href="/" className="text-sub text-[13px]">
-        ← 홈
+    <main className="flex-1 w-full max-w-2xl mx-auto px-6 pt-6 pb-8 lg:py-12">
+      <Link href="/" aria-label="홈으로" className="-ml-3 w-11 h-11 grid place-items-center text-text">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+          <path d="M15 18l-6-6 6-6" />
+        </svg>
       </Link>
-      <h1 className="rise text-[26px] lg:text-[30px] font-bold mt-1">{d.title}</h1>
-      <p className="rise d1 text-sub text-[13px] mt-1.5">시행일 {d.updated}</p>
+      <h1 className="rise mt-4 text-[26px] lg:text-[30px] font-bold tracking-[-0.5px]">{d.title}</h1>
+      <p className="rise d1 text-sub text-[14px] mt-1.5">시행일 {d.updated}</p>
 
-      <div className="rise d2 mt-8 flex flex-col gap-6">
-        {d.sections.map(([h, body]) => (
-          <section key={h}>
-            <h2 className="text-[15px] font-bold">{h}</h2>
-            <p className="mt-1.5 text-[14px] leading-relaxed" style={{ color: "var(--sub-2)" }}>
+      {/* 두 문서 사이 이동 */}
+      <nav aria-label="문서" className="rise d1 mt-5 flex gap-2">
+        {(Object.keys(DOCS) as (keyof typeof DOCS)[]).map((k) => (
+          <Link
+            key={k}
+            href={`/legal/${k}`}
+            aria-current={k === doc ? "page" : undefined}
+            className={`chip ${k === doc ? "chip-on" : ""}`}
+          >
+            {DOCS[k].title}
+          </Link>
+        ))}
+      </nav>
+
+      <nav aria-label="목차" className="rise d2 mt-6 rounded-[12px] px-[18px] py-4" style={{ background: "var(--fill)" }}>
+        <p className="text-[13px] font-bold" style={{ color: "var(--sub-2)" }}>
+          목차
+        </p>
+        <div className="mt-2.5 grid grid-cols-2 gap-x-3 gap-y-2 text-[14px]">
+          {d.sections.map(([h], i) => (
+            <a key={h} href={`#s${i + 1}`} className="text-text hover:text-blue">
+              {h.replace(/\s*\(.*\)$/, "")}
+            </a>
+          ))}
+        </div>
+      </nav>
+
+      <article className="rise d2 mt-7 flex flex-col gap-7">
+        {d.sections.map(([h, body], i) => (
+          <section key={h} id={`s${i + 1}`} className="scroll-mt-20">
+            <h2 className="text-[18px] font-bold">{h}</h2>
+            <p className="mt-2.5 text-[16px] leading-[1.75]" style={{ color: "var(--text-2)" }}>
               {body}
             </p>
           </section>
         ))}
-      </div>
+      </article>
 
-      <p className="mt-10 text-[12px] text-sub leading-relaxed">
+      <p className="mt-10 pt-5 border-t border-line text-[13px] text-sub leading-relaxed">
         이 문서는 서비스 이해를 돕기 위한 것으로, 실제 계약 전 법률 검토를 거쳐 확정됩니다.
       </p>
     </main>

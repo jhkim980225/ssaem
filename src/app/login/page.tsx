@@ -1,5 +1,5 @@
 "use client";
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
@@ -161,9 +161,47 @@ function LoginInner() {
   }
 
   return (
-    <main className="flex-1 w-full max-w-sm mx-auto px-5 py-14">
-      {/* 역할 탭 */}
-      <div className="rise flex gap-1.5 mb-7">
+    // 폰: 화면 높이를 채우고 주 버튼을 아래쪽에 둔다 (헤더 60px 제외). 데스크톱은 가운데 좁은 열
+    <main className="flex-1 w-full max-w-sm mx-auto px-6 pt-6 pb-8 lg:py-14 flex flex-col max-lg:min-h-[calc(100dvh-60px)]">
+      {mode === "signup" && (
+        <button
+          type="button"
+          aria-label="로그인으로 돌아가기"
+          onClick={() => {
+            setMode("login");
+            setErr("");
+          }}
+          className="-ml-3 w-11 h-11 grid place-items-center text-text"
+        >
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <path d="M15 18l-6-6 6-6" />
+          </svg>
+        </button>
+      )}
+
+      <h1 className={`rise text-[26px] leading-[1.35] font-bold tracking-[-0.5px] ${mode === "login" ? "mt-6" : "mt-2"}`}>
+        {mode === "login" ? (
+          <>
+            반가워요!
+            <br />
+            {role === "teacher" ? "강사 공간에 로그인해요" : "로그인하고 바로 질문해요"}
+          </>
+        ) : (
+          `${role === "teacher" ? "강사" : "학생"} 회원가입`
+        )}
+      </h1>
+      <p className="rise d1 mt-2 text-[15px] text-sub leading-normal">
+        {mode === "login"
+          ? role === "teacher"
+            ? "올린 자료로 학생 질문에 답해 주는 우리 학원 AI 튜터예요."
+            : "선생님이 올린 자료로 답해 주는 우리 학원 AI 튜터예요."
+          : role === "teacher"
+            ? "초대코드가 있어야 가입할 수 있어요."
+            : "1분이면 끝나요. 선생님 코드는 비워 둬도 돼요."}
+      </p>
+
+      {/* 역할 탭 — 탭 선택값은 "이 탭으로는 이 역할만" 필터일 뿐, 역할 근거가 아니다 */}
+      <div role="tablist" aria-label="계정 종류" className="rise d1 mt-6 grid grid-cols-2 gap-1 p-1 rounded-[10px]" style={{ background: "var(--fill)" }}>
         {(
           [
             ["student", "학생"],
@@ -172,120 +210,153 @@ function LoginInner() {
         ).map(([r, label]) => (
           <button
             key={r}
+            role="tab"
+            aria-selected={role === r}
             onClick={() => {
               setRole(r);
               setErr("");
             }}
-            className={`chip flex-1 !py-2.5 ${role === r ? "chip-on" : ""}`}
+            className={`h-10 rounded-[8px] text-[15px] transition-colors ${
+              role === r ? "bg-surface text-text font-bold shadow-sm" : "text-sub font-semibold"
+            }`}
           >
             {label}
           </button>
         ))}
       </div>
 
-      <h1 className="rise d1 text-[24px] font-bold">
-        {role === "teacher" ? "강사" : "학생"} {mode === "login" ? "로그인" : "회원가입"}
-      </h1>
-      <div className="rise d2 mt-6 flex flex-col gap-3">
-        <input
-          className="field"
-          placeholder="아이디 (영문·숫자 2~30자)"
-          autoCapitalize="none"
-          autoCorrect="off"
-          value={id}
-          onChange={(e) => {
-            setId(e.target.value);
-            setErr("");
-          }}
-        />
-        {!phoneSignup && (
+      <div className="rise d2 mt-6 flex flex-col gap-4">
+        {mode === "signup" && (
+          <Field label="이름">
+            <input className="field text-[16px] font-normal text-text" placeholder="홍길동" value={name} onChange={(e) => setName(e.target.value)} />
+          </Field>
+        )}
+        <Field label="아이디">
           <input
-            className="field"
-            type="password"
-            placeholder="비밀번호"
-            value={pw}
-            onChange={(e) => setPw(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && submit()}
+            className="field text-[16px] font-normal text-text"
+            placeholder="영문·숫자 2~30자"
+            autoCapitalize="none"
+            autoCorrect="off"
+            value={id}
+            onChange={(e) => {
+              setId(e.target.value);
+              setErr("");
+            }}
           />
+        </Field>
+        {!phoneSignup && (
+          <Field label="비밀번호">
+            <input
+              className="field text-[16px] font-normal text-text"
+              type="password"
+              placeholder={mode === "signup" ? "8자 이상" : "비밀번호"}
+              value={pw}
+              onChange={(e) => setPw(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && submit()}
+            />
+          </Field>
         )}
         {phoneSignup && (
-          <>
+          <Field
+            label="휴대폰 번호"
+            hint={
+              <>
+                비밀번호는 <b>휴대폰 뒷 4자리</b>예요. 이대로 계속 쓰면 돼요.
+              </>
+            }
+          >
             <input
-              className="field"
+              className="field text-[16px] font-normal text-text"
               type="tel"
               inputMode="numeric"
-              placeholder="휴대폰 번호 (숫자만, 예: 01012345678)"
+              placeholder="숫자만, 예: 01012345678"
               maxLength={11}
               value={phone}
               onChange={(e) => setPhone(e.target.value.replace(/\D/g, ""))}
               onKeyDown={(e) => e.key === "Enter" && submit()}
             />
-            <p className="text-sub text-[12px] -mt-1.5 leading-relaxed">
-              비밀번호는 <b>휴대폰 뒷 4자리</b>예요. 이대로 계속 쓰면 돼요.
-            </p>
-          </>
+          </Field>
         )}
         {mode === "signup" && (
           <>
             {!phoneSignup && (
-            <input
-              className="field"
-              type="password"
-              placeholder="비밀번호 확인"
-              value={pw2}
-              onChange={(e) => setPw2(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && submit()}
-            />
+              <Field label="비밀번호 확인">
+                <input
+                  className="field text-[16px] font-normal text-text"
+                  type="password"
+                  placeholder="한 번 더 입력"
+                  value={pw2}
+                  onChange={(e) => setPw2(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && submit()}
+                />
+              </Field>
             )}
-            <input
-              className="field"
-              placeholder="이름"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-            />
-            <input
-              className="field"
-              placeholder={role === "teacher" ? "초대코드 (전역 코드 또는 원장님 초대코드)" : "선생님 초대코드 (선택)"}
-              autoCapitalize="none"
-              autoCorrect="off"
-              value={invite}
-              onChange={(e) => setInvite(e.target.value)}
-            />
-            {role === "student" && (
-              <p className="text-sub text-[12px] -mt-1.5 leading-relaxed">
-                선생님께 받은 코드를 넣으면 그 선생님 반에 바로 등록돼요. 없으면 비워두세요.
-              </p>
-            )}
+            <Field
+              label={role === "teacher" ? "초대코드" : "선생님 초대코드 (선택)"}
+              hint={
+                role === "student"
+                  ? "선생님께 받은 코드를 넣으면 그 선생님 반에 바로 등록돼요. 없으면 비워두세요."
+                  : undefined
+              }
+            >
+              <input
+                className="field text-[16px] font-normal text-text"
+                placeholder={role === "teacher" ? "전역 코드 또는 원장님 초대코드" : "선생님께 받은 코드"}
+                autoCapitalize="none"
+                autoCorrect="off"
+                value={invite}
+                onChange={(e) => setInvite(e.target.value)}
+              />
+            </Field>
           </>
         )}
+      </div>
 
-        <button onClick={submit} disabled={busy} className="btn btn-primary py-4 mt-1">
-          {busy ? "처리 중…" : mode === "login" ? "로그인" : "가입하고 시작하기"}
-        </button>
+      {mode === "login" && (
+        <Link href="/reset" className="self-end mt-3 text-[14px] text-sub">
+          비밀번호를 잊으셨나요?
+        </Link>
+      )}
 
-        {err && (
-          <p className="text-[13px] font-bold" style={{ color: "var(--red)" }}>
-            {err}
-          </p>
-        )}
+      <div className="flex-1 min-h-8" />
 
+      {err && (
+        <p
+          role="alert"
+          className="mb-3 rounded-[12px] px-4 py-3 text-[14px] font-bold"
+          style={{ background: "var(--red-weak)", color: "var(--red)" }}
+        >
+          {err}
+        </p>
+      )}
+      <button onClick={submit} disabled={busy} className="btn btn-primary w-full h-[50px] text-[17px]">
+        {busy ? "처리 중…" : mode === "login" ? "로그인" : "가입하고 시작하기"}
+      </button>
+
+      <p className="mt-4 text-center text-[14px] text-sub">
+        {mode === "login" ? "계정이 없나요? " : "이미 계정이 있나요? "}
         <button
+          type="button"
           onClick={() => {
             setMode(mode === "login" ? "signup" : "login");
             setErr("");
           }}
-          className="text-sub text-[14px] mt-1"
+          className="font-bold text-blue"
         >
-          {mode === "login" ? "계정이 없나요? 회원가입" : "이미 계정이 있나요? 로그인"}
+          {mode === "login" ? "회원가입" : "로그인"}
         </button>
-
-        {mode === "login" && (
-          <Link href="/reset" className="text-sub text-[13px] text-center">
-            비밀번호를 잊으셨나요?
-          </Link>
-        )}
-
-      </div>
+      </p>
     </main>
+  );
+}
+
+// 라벨 있는 입력칸 (라벨 13px · 입력 50px · 아래 보조 문구)
+function Field({ label, hint, children }: { label: string; hint?: ReactNode; children: ReactNode }) {
+  return (
+    <label className="flex flex-col gap-2 text-[13px] font-semibold" style={{ color: "var(--sub-2)" }}>
+      {label}
+      {children}
+      {hint && <span className="font-medium text-sub leading-relaxed">{hint}</span>}
+    </label>
   );
 }

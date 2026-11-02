@@ -50,7 +50,8 @@ export default function SiteHeader() {
 
         <div className="flex items-center gap-0.5 sm:gap-1 min-w-0">
         {/* 좁은 화면에선 내비가 가로 스크롤 — 페이지 전체가 밀려나지 않게 */}
-        <nav className="flex items-center gap-0.5 sm:gap-1 min-w-0 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        {/* 학생은 폰에서 하단 탭바(StudentTabBar)로 이동한다 — 헤더 내비는 lg부터 */}
+        <nav className={`${role === "student" ? "max-lg:hidden " : ""}flex items-center gap-0.5 sm:gap-1 min-w-0 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden`}>
           {!settled && (
             // 폭을 실제 내비와 비슷하게 잡아 확정될 때 레이아웃이 밀리지 않게 한다
             <span className="skel h-7 w-[132px] sm:w-[150px] !rounded-full" aria-hidden />
@@ -66,8 +67,8 @@ export default function SiteHeader() {
               <Link
                 key={n.href}
                 href={n.href}
-                className={`px-2 sm:px-3.5 py-2 rounded-full text-[13px] sm:text-[14px] font-bold whitespace-nowrap transition-colors ${
-                  active ? "bg-blue text-white" : "text-sub hover:text-text hover:bg-[var(--fill)]"
+                className={`px-2 sm:px-3.5 py-2 rounded-[10px] text-[13px] sm:text-[14px] font-bold whitespace-nowrap transition-colors ${
+                  active ? "bg-[var(--fill)] text-text" : "text-sub hover:text-text hover:bg-[var(--fill)]"
                 }`}
               >
                 {n.label}

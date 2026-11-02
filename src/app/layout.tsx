@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import SiteHeader from "@/components/SiteHeader";
 import SiteFooter from "@/components/SiteFooter";
+import StudentTabBar from "@/components/StudentTabBar";
 import StudentProtection from "@/components/StudentProtection";
 import VisitPing from "@/components/VisitPing";
 
@@ -51,6 +52,7 @@ export default function RootLayout({
         <SiteHeader />
         {children}
         <SiteFooter />
+        <StudentTabBar />
         <StudentProtection />
         <VisitPing />
       </body>
