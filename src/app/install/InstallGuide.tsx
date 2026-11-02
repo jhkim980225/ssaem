@@ -97,7 +97,7 @@ export default function InstallGuide({ url, appUrl }: { url: string; appUrl: str
   const [copied, setCopied] = useState(false);
 
   // 감지 전엔 자리만 잡아둔다 (잘못된 안내가 잠깐이라도 보이면 안 됨)
-  if (platform === "unknown") return <div className="skel h-52 !rounded-[20px]" />;
+  if (platform === "unknown") return <div className="skel h-52 !rounded-[16px]" />;
 
   const g = GUIDES[platform];
 
@@ -106,11 +106,11 @@ export default function InstallGuide({ url, appUrl }: { url: string; appUrl: str
       <InstallButton />
 
       <section className="card p-5 lg:p-6">
-        <h2 className="text-[16px] font-extrabold">{g.title}</h2>
+        <h2 className="text-[16px] font-bold">{g.title}</h2>
         <ol className="mt-3 flex flex-col gap-2.5">
           {g.steps.map((t, i) => (
             <li key={t} className="flex gap-2.5 text-[14px] leading-relaxed" style={{ color: "var(--sub-2)" }}>
-              <span className="shrink-0 grid place-items-center w-5 h-5 rounded-full bg-blue text-white text-[11px] font-extrabold mt-0.5">
+              <span className="shrink-0 grid place-items-center w-5 h-5 rounded-full bg-blue text-white text-[11px] font-bold mt-0.5">
                 {i + 1}
               </span>
               {t}

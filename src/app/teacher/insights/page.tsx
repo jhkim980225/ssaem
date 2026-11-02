@@ -34,7 +34,7 @@ export default function InsightsPage() {
         <Link href="/teacher" className="text-sub text-[13px]">
           ← 대시보드
         </Link>
-        <h1 className="text-[24px] lg:text-[28px] font-extrabold">인사이트</h1>
+        <h1 className="text-[24px] lg:text-[28px] font-bold">인사이트</h1>
         <p className="text-sub text-[14px]">최근 {data?.days ?? 14}일 학생 질문과 답변 품질이에요.</p>
       </div>
 
@@ -47,7 +47,7 @@ export default function InsightsPage() {
       {!data && !err && (
         <div className="flex flex-col gap-2">
           {[0, 1, 2].map((i) => (
-            <div key={i} className="skel h-24 !rounded-[20px]" />
+            <div key={i} className="skel h-24 !rounded-[16px]" />
           ))}
         </div>
       )}
@@ -66,7 +66,7 @@ export default function InsightsPage() {
             ).map(([label, n]) => (
               <div key={label} className="card p-4">
                 <p className="text-sub text-[12px]">{label}</p>
-                <p className="text-[24px] font-extrabold tabular-nums">{n}</p>
+                <p className="text-[24px] font-bold tabular-nums">{n}</p>
               </div>
             ))}
           </div>
@@ -113,7 +113,7 @@ export default function InsightsPage() {
               <p className="text-sub text-[14px] py-3 text-center">낮은 평가를 받은 답변이 없어요</p>
             ) : (
               data.lowRated.map((r, i) => (
-                <div key={i} className="rounded-[14px] border border-line p-3" style={{ background: "var(--fill-2)" }}>
+                <div key={i} className="rounded-[12px] border border-line p-3" style={{ background: "var(--fill-2)" }}>
                   <p className="text-[13px] font-bold mb-0.5">Q. {r.question || "(질문 없음)"}</p>
                   <p className="text-sub text-[13px] truncate">A. {r.answer}…</p>
                 </div>
@@ -131,7 +131,7 @@ export default function InsightsPage() {
               <p className="text-sub text-[14px] py-3 text-center">자료 공백이 발견되지 않았어요</p>
             ) : (
               data.weak.map((w, i) => (
-                <div key={i} className="rounded-[14px] border border-line p-3 flex justify-between gap-2" style={{ background: "var(--fill-2)" }}>
+                <div key={i} className="rounded-[12px] border border-line p-3 flex justify-between gap-2" style={{ background: "var(--fill-2)" }}>
                   <p className="text-[13px] min-w-0 truncate">{w.question || "(질문 없음)"}</p>
                   <span className="text-sub text-[12px] shrink-0">{w.reason}</span>
                 </div>

@@ -38,7 +38,7 @@ export default function BankStats({ stats }: { stats: BankStatsData }) {
       {/* 전체 정답률 — 숫자 + 게이지 */}
       <div className="flex items-center gap-4">
         <div className="text-center shrink-0">
-          <p className="text-[30px] font-extrabold tabular-nums leading-none" style={{ color: rateColor(t.rate) }}>
+          <p className="text-[30px] font-bold tabular-nums leading-none" style={{ color: rateColor(t.rate) }}>
             {t.rate}%
           </p>
           <p className="text-sub text-[11px] mt-1">전체 정답률</p>

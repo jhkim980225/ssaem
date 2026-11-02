@@ -63,7 +63,7 @@ export default function RecordDetailPage({ params }: { params: Promise<{ id: str
       <div className="rise flex items-start justify-between gap-3">
         <div className="flex flex-col gap-1 min-w-0">
           <BackButton fallback="/my/records" />
-          <h1 className="text-[24px] lg:text-[28px] font-extrabold truncate">{title || "시험 기록"}</h1>
+          <h1 className="text-[24px] lg:text-[28px] font-bold truncate">{title || "시험 기록"}</h1>
           {s && (
             <p className="text-sub text-[14px]">
               {new Date(s.at).toLocaleString("ko-KR", {
@@ -90,7 +90,7 @@ export default function RecordDetailPage({ params }: { params: Promise<{ id: str
         </section>
       )}
 
-      {!data && !err && <div className="rise d1 skel h-64 !rounded-[20px]" />}
+      {!data && !err && <div className="rise d1 skel h-64 !rounded-[16px]" />}
 
       {data && s && (
         <div className="lg:grid lg:grid-cols-[1fr_280px] lg:gap-5 lg:items-start flex flex-col gap-4">
@@ -105,7 +105,7 @@ export default function RecordDetailPage({ params }: { params: Promise<{ id: str
                 ] as const
               ).map(([label, v]) => (
                 <div key={label} className="card p-3 text-center">
-                  <p className="text-[18px] font-extrabold tabular-nums">{v}</p>
+                  <p className="text-[18px] font-bold tabular-nums">{v}</p>
                   <p className="text-[11px] text-sub mt-0.5">{label}</p>
                 </div>
               ))}
@@ -189,9 +189,9 @@ export default function RecordDetailPage({ params }: { params: Promise<{ id: str
                                     <div
                                       key={ci}
                                       style={style}
-                                      className="rounded-[14px] border border-line px-4 py-3.5 min-h-[54px] text-[15px] leading-[1.65] break-keep flex items-start gap-3"
+                                      className="rounded-[12px] border border-line px-4 py-3.5 min-h-[54px] text-[15px] leading-[1.65] break-keep flex items-start gap-3"
                                     >
-                                      <span className="shrink-0 grid place-items-center w-5 h-5 mt-0.5 rounded-full border border-current text-[11px] font-extrabold">
+                                      <span className="shrink-0 grid place-items-center w-5 h-5 mt-0.5 rounded-full border border-current text-[11px] font-bold">
                                         {ci + 1}
                                       </span>
                                       <span className="flex-1 min-w-0"><ChoiceView text={c} /></span>
@@ -211,7 +211,7 @@ export default function RecordDetailPage({ params }: { params: Promise<{ id: str
                               </div>
                             ) : (
                               n.answerText && (
-                                <div className="rounded-[14px] border border-line p-4" style={{ background: "var(--blue-weak)" }}>
+                                <div className="rounded-[12px] border border-line p-4" style={{ background: "var(--blue-weak)" }}>
                                   <p className="text-[12px] font-bold text-blue mb-1.5">정답 (분개)</p>
                                   <JournalEntry text={n.answerText} />
                                 </div>
@@ -219,7 +219,7 @@ export default function RecordDetailPage({ params }: { params: Promise<{ id: str
                             )}
                             <ExcelTry area={n.area} stem={n.stem} choices={n.choices} />
                             {n.explanation && (
-                              <div className="rounded-[14px] border border-line p-4">
+                              <div className="rounded-[12px] border border-line p-4">
                                 <p className="text-[12px] font-bold text-sub mb-1.5">해설</p>
                                 <ExplanationView text={n.explanation} />
                               </div>
@@ -237,7 +237,7 @@ export default function RecordDetailPage({ params }: { params: Promise<{ id: str
           <aside className="rise d2 card p-5 hidden lg:flex flex-col gap-3">
             <h3 className="font-bold text-[15px]">채점 결과</h3>
             <div className="text-center py-2">
-              <p className="text-[32px] font-extrabold tabular-nums leading-none">
+              <p className="text-[32px] font-bold tabular-nums leading-none">
                 {s.score}
                 <span className="text-[16px] text-sub"> / {s.total}</span>
               </p>

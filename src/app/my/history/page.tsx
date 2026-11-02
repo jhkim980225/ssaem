@@ -68,14 +68,14 @@ export default function MyHistoryPage() {
         m.role === "user" ? (
           <div
             key={m.id}
-            className="self-end max-w-[85%] px-4 py-2.5 text-[14px] leading-relaxed whitespace-pre-wrap bg-blue text-white rounded-[16px] rounded-br-[5px]"
+            className="self-end max-w-[85%] px-4 py-2.5 text-[14px] leading-relaxed whitespace-pre-wrap bg-blue text-white rounded-[12px] rounded-br-[5px]"
           >
             {m.content}
           </div>
         ) : (
           <div key={m.id} className="self-start max-w-[92%] flex flex-col gap-1">
             <div
-              className="md min-w-0 px-4 py-2.5 text-[14px] leading-relaxed whitespace-pre-wrap rounded-[16px] rounded-bl-[5px] border border-line"
+              className="md min-w-0 px-4 py-2.5 text-[14px] leading-relaxed whitespace-pre-wrap rounded-[12px] rounded-bl-[5px] border border-line"
               style={{ background: "var(--fill-2)" }}
             >
               {renderMd(m.content)}
@@ -99,7 +99,7 @@ export default function MyHistoryPage() {
       <div className="rise flex items-start justify-between gap-3">
         <div className="flex flex-col gap-1">
           <BackButton fallback="/ask" />
-          <h1 className="text-[24px] lg:text-[28px] font-extrabold">내 대화내역</h1>
+          <h1 className="text-[24px] lg:text-[28px] font-bold">내 대화내역</h1>
           <p className="text-sub text-[14px]">지금까지 선생님께 물어본 내용이에요.</p>
         </div>
         <Link href="/ask" className="chip shrink-0 !text-[13px]">
@@ -110,7 +110,7 @@ export default function MyHistoryPage() {
       {convs === null && (
         <div className="flex flex-col gap-2">
           {[0, 1, 2].map((i) => (
-            <div key={i} className="skel h-16 !rounded-[20px]" />
+            <div key={i} className="skel h-16 !rounded-[16px]" />
           ))}
         </div>
       )}
@@ -124,7 +124,7 @@ export default function MyHistoryPage() {
             ] as const
           ).map(([label, n]) => (
             <div key={label} className="card p-4 text-center">
-              <p className="text-[24px] font-extrabold tabular-nums">{n}</p>
+              <p className="text-[24px] font-bold tabular-nums">{n}</p>
               <p className="text-[12px] text-sub mt-0.5">{label}</p>
             </div>
           ))}

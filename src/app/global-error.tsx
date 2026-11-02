@@ -28,7 +28,7 @@ export default function GlobalError({ error, reset }: { error: Error & { digest?
               padding: "12px 24px",
               borderRadius: 12,
               border: "none",
-              background: "#3d6bf4",
+              background: "#1e3a5f",
               color: "#fff",
               fontWeight: 700,
               fontSize: 14,

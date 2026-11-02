@@ -342,7 +342,7 @@ export default function BankPage() {
       {/* 모바일에선 칩 4개가 제목 폭을 먹어 세로 1자씩 깨진다 — 제목 아래로 스택 */}
       <div className="rise flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
         <div className="flex flex-col gap-1">
-          <h1 className="text-[24px] lg:text-[28px] font-extrabold">기출문제</h1>
+          <h1 className="text-[24px] lg:text-[28px] font-bold">기출문제</h1>
           <p className="text-sub text-[14px]">전산회계·세무·컴활 기출 {tree ? countFor({}).toLocaleString() : "…"}문항</p>
         </div>
         <div className="flex flex-wrap gap-1.5 sm:shrink-0">
@@ -369,7 +369,7 @@ export default function BankPage() {
       <div className="flex flex-col gap-4 lg:grid lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
         <div className="rise d1 card p-5 flex flex-col gap-4">
           {tree === null ? (
-            <div className="skel h-40 !rounded-[16px]" />
+            <div className="skel h-40 !rounded-[12px]" />
           ) : (
             <>
               <div className="flex gap-1.5 flex-wrap">
@@ -547,7 +547,7 @@ export default function BankPage() {
             </button>
           </div>
           {recStats && recStats.totals.attempts > 0 && (
-            <div className="mt-3 rounded-[14px] border border-line p-4">
+            <div className="mt-3 rounded-[12px] border border-line p-4">
               <p className="text-[13px] font-bold mb-3">{recStats.name} 학생 풀이 통계</p>
               <BankStats stats={recStats} />
             </div>
@@ -556,7 +556,7 @@ export default function BankPage() {
             <div className="flex flex-col gap-1.5 mt-3">
               {recs.length === 0 && <p className="text-sub text-[13px]">기록이 없어요. (같은 학원만 검색돼요)</p>}
               {recs.map((r, i) => (
-                <div key={i} className="flex items-center gap-2 rounded-[12px] border border-line px-3 py-2 text-[13px]">
+                <div key={i} className="flex items-center gap-2 rounded-[10px] border border-line px-3 py-2 text-[13px]">
                   <span className="font-bold shrink-0">{r.name}</span>
                   <span className="truncate flex-1 text-sub">
                     {r.subject === "오답노트" ? "오답노트 다시 풀기" : r.source ? r.source : `${r.subject} 랜덤`}
@@ -633,10 +633,10 @@ export default function BankPage() {
                 {q.choices.map((c, i) => (
                   <div
                     key={i}
-                    className="text-left rounded-[14px] border border-line px-4 py-3.5 min-h-[54px] text-[15px] leading-[1.65] break-keep flex items-start gap-3"
+                    className="text-left rounded-[12px] border border-line px-4 py-3.5 min-h-[54px] text-[15px] leading-[1.65] break-keep flex items-start gap-3"
                     style={q.answerIdx === i ? { borderColor: "var(--blue)", background: "var(--blue-weak)" } : {}}
                   >
-                    <span className="shrink-0 grid place-items-center w-5 h-5 mt-0.5 rounded-full border border-current text-[11px] font-extrabold">
+                    <span className="shrink-0 grid place-items-center w-5 h-5 mt-0.5 rounded-full border border-current text-[11px] font-bold">
                       {i + 1}
                     </span>
                     <span className="min-w-0"><ChoiceView text={c} /></span>
@@ -651,7 +651,7 @@ export default function BankPage() {
             {q.type === "theory" ? (
               <>
                 <p className="text-[15px] font-bold text-blue">정답 {(q.answerIdx ?? 0) + 1}번</p>
-                <p className="text-[19px] lg:text-[20px] font-extrabold leading-snug break-keep">
+                <p className="text-[19px] lg:text-[20px] font-bold leading-snug break-keep">
                   <ChoiceView text={q.choices[q.answerIdx ?? 0]} />
                 </p>
                 {q.explanation ? (
@@ -727,9 +727,9 @@ export default function BankPage() {
                     onClick={() => pick(i)}
                     disabled={!!graded || picked !== null}
                     style={style}
-                    className="text-left rounded-[14px] border border-line px-4 py-3.5 min-h-[54px] text-[15px] leading-[1.65] break-keep transition-colors disabled:cursor-default hover:border-[var(--blue)] flex items-start gap-3"
+                    className="text-left rounded-[12px] border border-line px-4 py-3.5 min-h-[54px] text-[15px] leading-[1.65] break-keep transition-colors disabled:cursor-default hover:border-[var(--blue)] flex items-start gap-3"
                   >
-                    <span className="shrink-0 grid place-items-center w-5 h-5 mt-0.5 rounded-full border border-current text-[11px] font-extrabold">
+                    <span className="shrink-0 grid place-items-center w-5 h-5 mt-0.5 rounded-full border border-current text-[11px] font-bold">
                       {i + 1}
                     </span>
                     <span className="min-w-0"><ChoiceView text={c} /></span>
@@ -756,12 +756,12 @@ export default function BankPage() {
                 </button>
               ) : (
                 <>
-                  <div className="rounded-[14px] border border-line p-4" style={{ background: "var(--blue-weak)" }}>
+                  <div className="rounded-[12px] border border-line p-4" style={{ background: "var(--blue-weak)" }}>
                     <p className="text-[12px] font-bold text-blue mb-2">정답 (분개)</p>
                     {q.answerText ? <JournalEntry text={q.answerText} /> : <p className="text-sub text-[13px]">정답 없음</p>}
                   </div>
                   {q.explanation && (
-                    <div className="rounded-[14px] border border-line p-4">
+                    <div className="rounded-[12px] border border-line p-4">
                       <p className="text-[12px] font-bold text-sub mb-1.5">해설</p>
                       <ExplanationView text={q.explanation} />
                     </div>
@@ -802,7 +802,7 @@ export default function BankPage() {
                     : `아쉬워요, 정답은 ${graded.answer + 1}번`}
               </p>
               {graded.explanation && (
-                <div className="rounded-[14px] border border-line p-4">
+                <div className="rounded-[12px] border border-line p-4">
                   <p className="text-[12px] font-bold text-sub mb-1.5">해설</p>
                   <ExplanationView text={graded.explanation} />
                 </div>
@@ -823,7 +823,7 @@ export default function BankPage() {
         <div className="rise card p-8 text-center flex flex-col gap-4">
           <div>
             <p className="text-[13px] text-sub">{qs!.length}문제 중</p>
-            <p className="text-[40px] font-extrabold tabular-nums">
+            <p className="text-[40px] font-bold tabular-nums">
               {score.right}
               <span className="text-[20px] text-sub"> / {score.done}</span>
             </p>

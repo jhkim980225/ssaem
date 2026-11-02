@@ -899,7 +899,7 @@ export function ExcelTry({ area, stem, choices }: { area?: string | null; stem: 
   if (area !== SPREADSHEET_AREA) return null;
   const formulas = open ? formulasFrom(stem, choices) : [];
   return (
-    <div className="rounded-[14px] border border-line flex flex-col min-w-0" style={{ background: "var(--fill-2)" }}>
+    <div className="rounded-[12px] border border-line flex flex-col min-w-0" style={{ background: "var(--fill-2)" }}>
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}

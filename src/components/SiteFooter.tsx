@@ -26,8 +26,8 @@ export default function SiteFooter() {
       <div className="mx-auto w-full max-w-[1600px] px-5 lg:px-8 py-10 flex flex-col gap-8">
         <div className="flex flex-col sm:flex-row sm:justify-between gap-8">
           <div className="max-w-xs">
-            <p className="flex items-center gap-2 font-extrabold text-[15px]">
-              <span className="grid place-items-center w-7 h-7 rounded-[9px] bg-blue text-white text-[12px] font-extrabold">마</span>
+            <p className="flex items-center gap-2 font-bold text-[15px]">
+              <span className="grid place-items-center w-7 h-7 rounded-[9px] bg-blue text-white text-[12px] font-bold">마</span>
               마스터 전산회계 학원
             </p>
           </div>

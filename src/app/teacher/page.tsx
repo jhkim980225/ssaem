@@ -522,7 +522,7 @@ function Dashboard({ session }: { session: Session }) {
               </button>
             </div>
           ) : (
-            <h1 className="text-[24px] lg:text-[28px] font-extrabold">
+            <h1 className="text-[24px] lg:text-[28px] font-bold">
               {room === "none" ? "공용 자료" : roomCourse ? roomCourse.title : inRoom ? "강좌" : "강사 대시보드"}
             </h1>
           )}
@@ -602,7 +602,7 @@ function Dashboard({ session }: { session: Session }) {
               hint="학생이 회원가입 때 초대코드 칸에 넣어요"
             />
           ) : (
-            <div className="skel h-24 !rounded-[16px]" />
+            <div className="skel h-24 !rounded-[12px]" />
           )}
         </section>
       )}
@@ -617,7 +617,7 @@ function Dashboard({ session }: { session: Session }) {
             </span>
           </h2>
           {members?.courseId !== roomCourse.id ? (
-            <div className="skel h-10 !rounded-[12px]" />
+            <div className="skel h-10 !rounded-[10px]" />
           ) : members.list.length === 0 ? (
             <p className="text-sub text-[13px]">
               아직 등록된 학생이 없어요. 위 초대 코드로 가입하면 여기에 나와요.
@@ -653,7 +653,7 @@ function Dashboard({ session }: { session: Session }) {
               const submittedIds = new Set(hl.submissions.map((s) => s.studentId));
               const missing = homework.roster.filter((r) => !submittedIds.has(r.id));
               return (
-                <details key={hl.id} className="rounded-[14px] border border-line p-3">
+                <details key={hl.id} className="rounded-[12px] border border-line p-3">
                   <summary className="cursor-pointer select-none flex items-center justify-between gap-2">
                     <span className="text-[14px] font-bold min-w-0 truncate">
                       {hl.date.slice(5).replace("-", "/")} · {hl.title}
@@ -668,7 +668,7 @@ function Dashboard({ session }: { session: Session }) {
                   <div className="mt-2.5 flex flex-col gap-2">
                     {hl.submissions.length === 0 && <p className="text-sub text-[13px]">아직 제출한 학생이 없어요.</p>}
                     {hl.submissions.map((s) => (
-                      <div key={s.studentId} className="rounded-[12px] p-3" style={{ background: "var(--fill-2)" }}>
+                      <div key={s.studentId} className="rounded-[10px] p-3" style={{ background: "var(--fill-2)" }}>
                         <p className="text-[13px] font-bold">
                           {s.name}{" "}
                           <span className="text-sub font-normal text-[11px]">
@@ -777,8 +777,8 @@ function Dashboard({ session }: { session: Session }) {
         {!docsErr && docs === null && (
           <div className="flex flex-col gap-2 mt-1">
             <div className="skel h-3.5 w-40" />
-            <div className="skel h-16 !rounded-[14px]" />
-            <div className="skel h-16 !rounded-[14px]" />
+            <div className="skel h-16 !rounded-[12px]" />
+            <div className="skel h-16 !rounded-[12px]" />
           </div>
         )}
 
@@ -821,7 +821,7 @@ function Dashboard({ session }: { session: Session }) {
 
             {shownDocs.slice(0, docLimit).map((d) =>
               editId === d.id ? (
-                <div key={d.id} className="flex flex-col gap-2 rounded-[14px] border border-line p-3" style={{ background: "var(--fill-2)" }}>
+                <div key={d.id} className="flex flex-col gap-2 rounded-[12px] border border-line p-3" style={{ background: "var(--fill-2)" }}>
                   {/* 배경은 .field(--surface)에 맡긴다 — Tailwind dark:는 prefers-color-scheme,
                       이 앱 테마는 data-theme이라 흰 배경을 강제하면 다크에서 흰 글자+흰 배경이 됨 */}
                   <textarea
@@ -835,7 +835,7 @@ function Dashboard({ session }: { session: Session }) {
                   </div>
                 </div>
               ) : (
-              <div key={d.id} className="rounded-[14px] border border-line p-3" style={{ background: "var(--fill-2)" }}>
+              <div key={d.id} className="rounded-[12px] border border-line p-3" style={{ background: "var(--fill-2)" }}>
               <div className="flex justify-between gap-2">
                 <div className="text-[14px] min-w-0">
                   <div className="flex items-center gap-1.5 mb-1 flex-wrap">
@@ -896,7 +896,7 @@ function Dashboard({ session }: { session: Session }) {
                   </summary>
                   <ol className="mt-2 flex flex-col gap-2">
                     {quizzes[d.id].map((q, qi) => (
-                      <li key={q.id} className="rounded-[12px] border border-line p-3" style={{ background: "var(--surface)" }}>
+                      <li key={q.id} className="rounded-[10px] border border-line p-3" style={{ background: "var(--surface)" }}>
                         <div className="flex justify-between gap-2">
                           <p className="text-[13px] font-medium min-w-0">
                             {qi + 1}. {q.question}
@@ -953,7 +953,7 @@ function Dashboard({ session }: { session: Session }) {
               <p className="text-sub text-[13px]">학생이 남긴 평가예요. 누가 썼는지는 보이지 않아요.</p>
             </div>
             <div className="text-right shrink-0">
-              <p className="text-[22px] font-extrabold tabular-nums text-blue">
+              <p className="text-[22px] font-bold tabular-nums text-blue">
                 {reviews.avg?.toFixed(1) ?? "-"}
               </p>
               <p className="text-sub text-[12px]">{reviews.count}개</p>
@@ -961,7 +961,7 @@ function Dashboard({ session }: { session: Session }) {
           </div>
           <div className="flex flex-col gap-2">
             {reviews.reviews.map((r) => (
-              <div key={r.id} className="rounded-[14px] border border-line p-3.5">
+              <div key={r.id} className="rounded-[12px] border border-line p-3.5">
                 <p className="text-[13px]" style={{ color: "var(--blue)" }}>
                   {"★".repeat(r.rating)}
                   <span style={{ color: "var(--border)" }}>{"★".repeat(5 - r.rating)}</span>
@@ -1024,7 +1024,7 @@ function Dashboard({ session }: { session: Session }) {
         {assessments.length > 0 && (
           <div className="flex flex-col gap-2 mt-1">
             {assessments.map((a) => (
-              <div key={a.id} className="flex items-center gap-2 rounded-[14px] border border-line p-3">
+              <div key={a.id} className="flex items-center gap-2 rounded-[12px] border border-line p-3">
                 <div className="flex-1 min-w-0">
                   <p className="text-[14px] font-bold truncate">{a.title}</p>
                   <p className="text-sub text-[12px]">
@@ -1104,7 +1104,7 @@ function Dashboard({ session }: { session: Session }) {
           등록한 자료로 어떻게 답하는지 바로 확인하세요.
         </p>
         {savedProfile === null ? (
-          <div className="skel h-32 !rounded-[16px]" />
+          <div className="skel h-32 !rounded-[12px]" />
         ) : savedProfile ? (
           /* token 없으면 자가 테스트가 익명 학생 질문으로 집계돼 인사이트를 오염시킴 */
           <ChatPanel teacherId={uid} teacherName={name || "나"} compact token={token} />

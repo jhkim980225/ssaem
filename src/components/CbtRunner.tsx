@@ -41,7 +41,7 @@ function QuestionCard({
         <span className="chip !py-0.5 !px-2 !text-[11px] !cursor-default">{item.area}</span>
         {g && (
           <span
-            className="ml-auto text-[12px] font-extrabold shrink-0"
+            className="ml-auto text-[12px] font-bold shrink-0"
             style={{ color: g.correct ? "var(--blue)" : "var(--red)" }}
           >
             {g.correct ? "정답" : "오답"}
@@ -69,9 +69,9 @@ function QuestionCard({
               onClick={() => !locked && onPick(ci)}
               disabled={locked}
               style={style}
-              className="text-left rounded-[14px] border border-line px-4 py-3.5 min-h-[54px] text-[15px] leading-[1.65] break-keep flex items-start gap-3 transition-colors disabled:cursor-default hover:border-[var(--blue)]"
+              className="text-left rounded-[12px] border border-line px-4 py-3.5 min-h-[54px] text-[15px] leading-[1.65] break-keep flex items-start gap-3 transition-colors disabled:cursor-default hover:border-[var(--blue)]"
             >
-              <span className="shrink-0 grid place-items-center w-5 h-5 mt-0.5 rounded-full border border-current text-[11px] font-extrabold">
+              <span className="shrink-0 grid place-items-center w-5 h-5 mt-0.5 rounded-full border border-current text-[11px] font-bold">
                 {ci + 1}
               </span>
               <span className="flex-1 min-w-0">
@@ -94,11 +94,11 @@ function QuestionCard({
       {/* 채점 후 해설 */}
       {g && (
         <div className="flex flex-col gap-2">
-          <p className="text-[15px] font-extrabold" style={{ color: g.correct ? "var(--blue)" : "var(--red)" }}>
+          <p className="text-[15px] font-bold" style={{ color: g.correct ? "var(--blue)" : "var(--red)" }}>
             {g.correct ? "정답이에요" : `틀렸어요 — 정답은 ${g.answerIdx + 1}번`}
           </p>
           {g.explanation && (
-            <div className="rounded-[14px] p-4" style={{ background: "var(--fill-2)" }}>
+            <div className="rounded-[12px] p-4" style={{ background: "var(--fill-2)" }}>
               <ExplanationView text={g.explanation} />
             </div>
           )}
@@ -190,7 +190,7 @@ export default function CbtRunner({
   const header = (
     <div className="flex items-start justify-between gap-3">
       <div className="min-w-0">
-        <h2 className="text-[18px] font-extrabold truncate">{title}</h2>
+        <h2 className="text-[18px] font-bold truncate">{title}</h2>
         <p className="text-sub text-[13px]">
           {graded
             ? `채점 완료 · ${score} / ${graded.length}점 (정답률 ${graded.length ? Math.round((score / graded.length) * 100) : 0}%)`

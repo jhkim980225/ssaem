@@ -48,13 +48,13 @@ export default async function LegalPage({ params }: { params: Promise<{ doc: str
       <Link href="/" className="text-sub text-[13px]">
         ← 홈
       </Link>
-      <h1 className="rise text-[26px] lg:text-[30px] font-extrabold mt-1">{d.title}</h1>
+      <h1 className="rise text-[26px] lg:text-[30px] font-bold mt-1">{d.title}</h1>
       <p className="rise d1 text-sub text-[13px] mt-1.5">시행일 {d.updated}</p>
 
       <div className="rise d2 mt-8 flex flex-col gap-6">
         {d.sections.map(([h, body]) => (
           <section key={h}>
-            <h2 className="text-[15px] font-extrabold">{h}</h2>
+            <h2 className="text-[15px] font-bold">{h}</h2>
             <p className="mt-1.5 text-[14px] leading-relaxed" style={{ color: "var(--sub-2)" }}>
               {body}
             </p>

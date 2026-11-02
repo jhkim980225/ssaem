@@ -47,7 +47,7 @@ export default function MyRecordsPage() {
       <div className="rise flex items-start justify-between gap-3">
         <div className="flex flex-col gap-1">
           <BackButton fallback="/bank" />
-          <h1 className="text-[24px] lg:text-[28px] font-extrabold">내 시험 기록</h1>
+          <h1 className="text-[24px] lg:text-[28px] font-bold">내 시험 기록</h1>
           <p className="text-sub text-[14px]">CBT 모의고사 응시 기록이에요. 채점할 때마다 쌓여요.</p>
         </div>
         <Link href="/bank" className="chip shrink-0 !text-[13px]">
@@ -55,7 +55,7 @@ export default function MyRecordsPage() {
         </Link>
       </div>
 
-      {recs === null && <div className="skel h-40 !rounded-[20px]" />}
+      {recs === null && <div className="skel h-40 !rounded-[16px]" />}
 
       {/* PC는 회차 목록(좌) + 통계(우) 2컬럼 — 통계 막대가 길어 세로로 쌓으면 정작 기록이 화면 밖으로 밀린다 */}
       <div
@@ -73,7 +73,7 @@ export default function MyRecordsPage() {
             ] as const
           ).map(([label, v]) => (
             <div key={label} className="card p-4 text-center">
-              <p className="text-[24px] font-extrabold tabular-nums">{v}</p>
+              <p className="text-[24px] font-bold tabular-nums">{v}</p>
               <p className="text-[12px] text-sub mt-0.5">{label}</p>
             </div>
           ))}
@@ -118,7 +118,7 @@ export default function MyRecordsPage() {
                 </p>
               </div>
               <div className="text-right shrink-0">
-                <p className="text-[18px] font-extrabold tabular-nums">
+                <p className="text-[18px] font-bold tabular-nums">
                   {r.score}
                   <span className="text-[13px] text-sub"> / {r.total}</span>
                 </p>

@@ -60,7 +60,7 @@ export default function HistoryPage() {
         <Link href="/teacher" className="text-sub text-[13px]">
           ← 대시보드
         </Link>
-        <h1 className="text-[24px] lg:text-[28px] font-extrabold">학생 질문 이력</h1>
+        <h1 className="text-[24px] lg:text-[28px] font-bold">학생 질문 이력</h1>
         <p className="text-sub text-[14px]">학생들이 내 튜터에게 물어본 내용이에요.</p>
       </div>
 
@@ -79,7 +79,7 @@ export default function HistoryPage() {
       {convs === null && (
         <div className="flex flex-col gap-2">
           {[0, 1, 2].map((i) => (
-            <div key={i} className="skel h-16 !rounded-[20px]" />
+            <div key={i} className="skel h-16 !rounded-[16px]" />
           ))}
         </div>
       )}
@@ -128,13 +128,13 @@ export default function HistoryPage() {
                 {msgs[c.id]?.map((m) =>
                   m.role === "user" ? (
                     /* PC에서 폭을 넓힌 뒤로 말풍선이 한 줄 60자를 넘어 눈이 못 따라간다 — 읽기 폭 상한 */
-                    <div key={m.id} className="self-end max-w-[85%] lg:max-w-[620px] px-4 py-2.5 text-[14px] leading-relaxed whitespace-pre-wrap bg-blue text-white rounded-[16px] rounded-br-[5px]">
+                    <div key={m.id} className="self-end max-w-[85%] lg:max-w-[620px] px-4 py-2.5 text-[14px] leading-relaxed whitespace-pre-wrap bg-blue text-white rounded-[12px] rounded-br-[5px]">
                       {m.content}
                     </div>
                   ) : (
                     <div key={m.id} className="self-start max-w-[92%] lg:max-w-[680px] flex flex-col gap-1">
                       <div
-                        className="md min-w-0 px-4 py-2.5 text-[14px] leading-relaxed whitespace-pre-wrap rounded-[16px] rounded-bl-[5px] border border-line"
+                        className="md min-w-0 px-4 py-2.5 text-[14px] leading-relaxed whitespace-pre-wrap rounded-[12px] rounded-bl-[5px] border border-line"
                         style={{ background: "var(--fill-2)" }}
                       >
                         {renderMd(m.content)}

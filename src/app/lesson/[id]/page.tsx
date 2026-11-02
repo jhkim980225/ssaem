@@ -46,7 +46,7 @@ export default function LessonPage({ params }: { params: Promise<{ id: string }>
     <main className="flex-1 w-full max-w-2xl lg:max-w-5xl mx-auto px-5 py-8 flex flex-col gap-4">
       <div className="rise flex flex-col gap-1">
         <BackButton fallback={home} />
-        <h1 className="text-[24px] lg:text-[28px] font-extrabold">수업 내용</h1>
+        <h1 className="text-[24px] lg:text-[28px] font-bold">수업 내용</h1>
       </div>
 
       {err && (
@@ -61,8 +61,8 @@ export default function LessonPage({ params }: { params: Promise<{ id: string }>
       {/* PC는 본문 + 우측 정보 레일 2컬럼 (teacher 대시보드와 같은 구조), 모바일은 세로 스택 */}
       {!lesson && !err && (
         <div className="lg:grid lg:grid-cols-[1fr_300px] lg:gap-5 lg:items-start flex flex-col gap-4">
-          <div className="rise d1 skel h-64 !rounded-[16px]" />
-          <div className="rise d1 skel h-32 !rounded-[16px] hidden lg:block" />
+          <div className="rise d1 skel h-64 !rounded-[12px]" />
+          <div className="rise d1 skel h-32 !rounded-[12px] hidden lg:block" />
         </div>
       )}
 
@@ -81,7 +81,7 @@ export default function LessonPage({ params }: { params: Promise<{ id: string }>
               {lesson.title}
             </h2>
             {lesson.summary ? (
-              <div className="rounded-[14px] px-4 py-3 lg:px-5 lg:py-4" style={{ background: "var(--blue-weak)" }}>
+              <div className="rounded-[12px] px-4 py-3 lg:px-5 lg:py-4" style={{ background: "var(--blue-weak)" }}>
                 <p className="text-blue text-[12px] font-bold mb-1">AI 요약</p>
                 <p className="text-[15px] lg:text-[16px] leading-relaxed break-words whitespace-pre-wrap" style={{ color: "var(--sub-2)" }}>
                   {lesson.summary}

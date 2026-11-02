@@ -105,7 +105,7 @@ function AuthForm() {
 
   return (
     <div className="animate-pop flex flex-col gap-3 max-w-sm mx-auto mt-10">
-      <h1 className="rise d1 text-[26px] font-extrabold">
+      <h1 className="rise d1 text-[26px] font-bold">
         학원장 {mode === "signup" ? "가입" : "로그인"}
       </h1>
       <p className="rise d2 text-sub text-[14px] mb-3">
@@ -218,8 +218,8 @@ function Dashboard({ session }: { session: Session }) {
   if (!data)
     return (
       <div className="flex flex-col gap-3">
-        <div className="skel h-20 !rounded-[20px]" />
-        <div className="skel h-40 !rounded-[20px]" />
+        <div className="skel h-20 !rounded-[16px]" />
+        <div className="skel h-40 !rounded-[16px]" />
       </div>
     );
 
@@ -232,7 +232,7 @@ function Dashboard({ session }: { session: Session }) {
       <div className="rise flex items-start justify-between gap-3">
         <div>
           <p className="text-sub text-[13px]">학원장 대시보드</p>
-          <h1 className="text-[24px] lg:text-[28px] font-extrabold flex items-center gap-2">
+          <h1 className="text-[24px] lg:text-[28px] font-bold flex items-center gap-2">
             {data.academy.name}
           </h1>
           <p className="text-sub text-[13px]">
@@ -273,16 +273,16 @@ function Dashboard({ session }: { session: Session }) {
               ["답변 평가", `${data.stats.up} / ${data.stats.down}`, "도움됐어요 / 아쉬워요"],
             ] as const
           ).map(([k, v, sub]) => (
-            <div key={k} className="rounded-[14px] border border-line p-4" style={{ background: "var(--fill-2)" }}>
+            <div key={k} className="rounded-[12px] border border-line p-4" style={{ background: "var(--fill-2)" }}>
               <p className="text-sub text-[12px]">{k}</p>
-              <p className="text-[22px] font-extrabold tabular-nums mt-0.5">{v}</p>
+              <p className="text-[22px] font-bold tabular-nums mt-0.5">{v}</p>
               <p className="text-sub text-[11px] mt-1 leading-snug">{sub}</p>
             </div>
           ))}
         </div>
 
         {/* 누적 환산 — 강사 응대 시간을 얼마나 덜었는지 숫자로 */}
-        <div className="mt-3 rounded-[14px] px-4 py-3.5" style={{ background: "var(--blue-weak)" }}>
+        <div className="mt-3 rounded-[12px] px-4 py-3.5" style={{ background: "var(--blue-weak)" }}>
           <p className="text-[14px] font-bold text-blue">
             지금까지 답변 {data.cumulative.answers.toLocaleString()}건 · 조교 약 {data.cumulative.hoursSaved}시간 분량
           </p>
@@ -333,7 +333,7 @@ function Dashboard({ session }: { session: Session }) {
         ) : (
           <div className="flex flex-col gap-1.5 mt-1">
             {data.students.map((s) => (
-              <div key={s.id} className="rounded-[12px] border border-line" style={{ background: "var(--fill-2)" }}>
+              <div key={s.id} className="rounded-[10px] border border-line" style={{ background: "var(--fill-2)" }}>
                 <button
                   onClick={() => toggleStudent(s.id)}
                   className="w-full flex items-center gap-3 px-3 py-2.5 text-left"
@@ -385,7 +385,7 @@ function Dashboard({ session }: { session: Session }) {
             학생이 아쉬워요를 준 답변이에요. 관련 자료를 보강하면 좋아져요.
           </p>
           {data.lowRated.map((l, i) => (
-            <details key={i} className="rounded-[14px] border border-line p-3" style={{ background: "var(--fill-2)" }}>
+            <details key={i} className="rounded-[12px] border border-line p-3" style={{ background: "var(--fill-2)" }}>
               <summary className="text-[14px] font-medium cursor-pointer select-none">
                 {l.question || "(제목 없음)"}
                 <span className="text-sub text-[12px] ml-2">
@@ -410,7 +410,7 @@ function Dashboard({ session }: { session: Session }) {
 
           <div className="flex flex-wrap gap-2">
             {rev.byTeacher.map((t) => (
-              <div key={t.teacherId} className="rounded-[14px] border border-line px-4 py-2.5">
+              <div key={t.teacherId} className="rounded-[12px] border border-line px-4 py-2.5">
                 <p className="text-[13px] font-bold">{t.teacher}</p>
                 <p className="text-[13px]">
                   <b className="text-blue tabular-nums">{t.avg.toFixed(1)}</b>
@@ -422,7 +422,7 @@ function Dashboard({ session }: { session: Session }) {
 
           <div className="flex flex-col gap-2">
             {rev.reviews.slice(0, 20).map((r) => (
-              <div key={r.id} className="rounded-[14px] border border-line p-3.5">
+              <div key={r.id} className="rounded-[12px] border border-line p-3.5">
                 <div className="flex items-center gap-2 text-[13px]">
                   <span style={{ color: "var(--blue)" }}>
                     {"★".repeat(r.rating)}
@@ -448,7 +448,7 @@ function Dashboard({ session }: { session: Session }) {
           </p>
         ) : (
           data.teachers.map((t) => (
-            <div key={t.id} className="rounded-[14px] border border-line p-3" style={{ background: "var(--fill-2)" }}>
+            <div key={t.id} className="rounded-[12px] border border-line p-3" style={{ background: "var(--fill-2)" }}>
               {/* 통계+버튼은 좁은 화면(375px)에서 아래 줄로 내려야 이름이 안 잘린다 */}
               <div className="flex flex-wrap items-center gap-3">
                 <span className="avatar !w-10 !h-10 !text-[18px]">{avatarEmoji(t.name)}</span>

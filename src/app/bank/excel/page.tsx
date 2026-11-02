@@ -84,7 +84,7 @@ export default function ExcelPadPage() {
       <div className="rise flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
         <div className="flex flex-col gap-1 min-w-0">
           <BackButton fallback="/bank" />
-          <h1 className="text-[24px] lg:text-[28px] font-extrabold">엑셀 연습장</h1>
+          <h1 className="text-[24px] lg:text-[28px] font-bold">엑셀 연습장</h1>
           <p className="text-sub text-[14px] break-keep">
             컴활 2과목 함수·참조를 직접 넣어 보며 익혀요. 시트는 이 기기의 브라우저에 저장돼요.
           </p>

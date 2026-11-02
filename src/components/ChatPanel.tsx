@@ -20,7 +20,7 @@ const TutorBubble = memo(function TutorBubble({
   return (
     <div className="bubble-in self-start flex items-end gap-2 max-w-[92%]">
       <div className="avatar !w-8 !h-8 !text-[15px] mb-1">{emoji}</div>
-      <div className="md card !rounded-[20px] !rounded-bl-[6px] px-4 py-3 text-[15px] leading-relaxed whitespace-pre-wrap min-w-0">
+      <div className="md card !rounded-[16px] !rounded-bl-[6px] px-4 py-3 text-[15px] leading-relaxed whitespace-pre-wrap min-w-0">
         {renderMd(text)}
         {sources && sources.length > 0 && (
           <details className="mt-2 not-prose">
@@ -214,7 +214,7 @@ export default function ChatPanel({
           m.role === "user" ? (
             <div
               key={i}
-              className="bubble-in self-end max-w-[85%] px-4 py-3 text-[15px] leading-relaxed whitespace-pre-wrap bg-blue text-white rounded-[20px] rounded-br-[6px]"
+              className="bubble-in self-end max-w-[85%] px-4 py-3 text-[15px] leading-relaxed whitespace-pre-wrap bg-blue text-white rounded-[16px] rounded-br-[6px]"
             >
               {m.text}
             </div>
@@ -255,7 +255,7 @@ export default function ChatPanel({
         {loading && (
           <div className="bubble-in self-start flex items-end gap-2">
             <div className="avatar !w-8 !h-8 !text-[15px] mb-1">{emoji}</div>
-            <div className="card !rounded-[20px] !rounded-bl-[6px] px-4 py-3.5 flex gap-1">
+            <div className="card !rounded-[16px] !rounded-bl-[6px] px-4 py-3.5 flex gap-1">
               {[0, 1, 2].map((i) => (
                 <span
                   key={i}
@@ -270,7 +270,7 @@ export default function ChatPanel({
 
       <div className="flex gap-2 mt-3 items-end pb-[env(safe-area-inset-bottom)]">
         <textarea
-          className="field !rounded-[26px] resize-none leading-snug disabled:opacity-60"
+          className="field !rounded-[20px] resize-none leading-snug disabled:opacity-60"
           // 답변 생성 중엔 send()가 조용히 return한다 — 입력은 되는데 Enter가 무반응이면
           // 사용자는 앱이 멈춘 줄 안다. 막을 거면 막혔다고 보이게 한다.
           disabled={loading || streaming}

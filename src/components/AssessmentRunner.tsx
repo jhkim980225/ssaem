@@ -133,7 +133,7 @@ export default function AssessmentRunner({
       <div className="animate-pop flex flex-col gap-4">
         <div className="card p-8 text-center flex flex-col gap-2">
           <p className="text-[13px] text-sub">{result.total}문제 중</p>
-          <p className="text-[40px] font-extrabold tabular-nums">
+          <p className="text-[40px] font-bold tabular-nums">
             {result.score}
             <span className="text-[20px] text-sub"> / {result.total}</span>
           </p>
@@ -154,7 +154,7 @@ export default function AssessmentRunner({
               {r.choices.map((c, ci) => (
                 <div
                   key={ci}
-                  className="flex items-start gap-2.5 rounded-[14px] border border-line px-4 py-3 text-[14px]"
+                  className="flex items-start gap-2.5 rounded-[12px] border border-line px-4 py-3 text-[14px]"
                   style={
                     ci === r.answer
                       ? { borderColor: "var(--blue)", background: "var(--blue-weak)" }
@@ -163,7 +163,7 @@ export default function AssessmentRunner({
                         : {}
                   }
                 >
-                  <span className="shrink-0 grid place-items-center w-5 h-5 mt-0.5 rounded-full border border-current text-[11px] font-extrabold">
+                  <span className="shrink-0 grid place-items-center w-5 h-5 mt-0.5 rounded-full border border-current text-[11px] font-bold">
                     {ci + 1}
                   </span>
                   <span className="flex-1">{c}</span>
@@ -178,7 +178,7 @@ export default function AssessmentRunner({
             </div>
             {r.explanation && (
               <p
-                className="text-[13px] leading-relaxed rounded-[14px] p-3.5"
+                className="text-[13px] leading-relaxed rounded-[12px] p-3.5"
                 style={{ background: "var(--fill-2)", color: "var(--sub-2)" }}
               >
                 {r.explanation}
@@ -196,7 +196,7 @@ export default function AssessmentRunner({
       <div className="animate-pop flex flex-col gap-4">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <h2 className="text-[18px] font-extrabold">{open.title}</h2>
+            <h2 className="text-[18px] font-bold">{open.title}</h2>
             <p className="text-sub text-[13px]">{open.qs.length}문항 · 제출하면 다시 응시할 수 없어요</p>
           </div>
           <button onClick={() => setOpen(null)} className="chip !text-[13px] shrink-0">
@@ -214,10 +214,10 @@ export default function AssessmentRunner({
                 <button
                   key={ci}
                   onClick={() => setPicked((p) => ({ ...p, [q.id]: ci }))}
-                  className="text-left rounded-[14px] border border-line px-4 py-3 text-[14px] leading-relaxed flex items-start gap-2.5 transition-colors hover:border-[var(--blue)]"
+                  className="text-left rounded-[12px] border border-line px-4 py-3 text-[14px] leading-relaxed flex items-start gap-2.5 transition-colors hover:border-[var(--blue)]"
                   style={picked[q.id] === ci ? { borderColor: "var(--blue)", background: "var(--blue-weak)" } : {}}
                 >
-                  <span className="shrink-0 grid place-items-center w-5 h-5 mt-0.5 rounded-full border border-current text-[11px] font-extrabold">
+                  <span className="shrink-0 grid place-items-center w-5 h-5 mt-0.5 rounded-full border border-current text-[11px] font-bold">
                     {ci + 1}
                   </span>
                   <span>{c}</span>
@@ -256,7 +256,7 @@ export default function AssessmentRunner({
           {err}
         </p>
       )}
-      {list === null && <div className="skel h-32 !rounded-[20px]" />}
+      {list === null && <div className="skel h-32 !rounded-[16px]" />}
       {list?.length === 0 && !err && (
         <div className="card p-10 text-center">
           <p className="text-[15px] font-bold mb-1">아직 등록된 평가가 없어요</p>

@@ -67,7 +67,7 @@ function TableBlock({ data, highlight, grid }: { data: string; highlight?: strin
         : items;
     return (
       // PC는 시험지처럼 2단(열 우선으로 채워 원래 읽는 순서 유지), 좁은 화면은 한 줄에 하나
-      <div className="mt-1 rounded-[12px] border border-line px-4 py-3 sm:columns-2 sm:gap-x-8" style={box}>
+      <div className="mt-1 rounded-[10px] border border-line px-4 py-3 sm:columns-2 sm:gap-x-8" style={box}>
         {ordered.map((it, i) => (
           <p key={i} className="text-[15px] leading-[1.7] tabular-nums break-keep break-inside-avoid">
             <Hi text={it} kw={highlight} />
@@ -80,7 +80,7 @@ function TableBlock({ data, highlight, grid }: { data: string; highlight?: strin
   if (!grid && rows.length === 1) {
     // 표지 없는 한 줄(분개 한 줄·절차 나열 등)도 격자가 아니다 — 칸 단위로 이어 쓰고 넘치면 줄바꿈
     return (
-      <div className="mt-1 rounded-[12px] border border-line px-4 py-2.5 flex flex-wrap gap-x-5 gap-y-1" style={box}>
+      <div className="mt-1 rounded-[10px] border border-line px-4 py-2.5 flex flex-wrap gap-x-5 gap-y-1" style={box}>
         {cells.map((c, i) => (
           <span key={i} className="text-[15px] leading-[1.7] tabular-nums break-keep">
             <Hi text={c} kw={highlight} />
@@ -156,7 +156,7 @@ function HiText({ text, kw }: { text: string; kw?: string }) {
         <span key={i}>
           {p}
           {i < parts.length - 1 && (
-            <mark className="font-extrabold" style={{ background: "transparent", color: "var(--red)" }}>
+            <mark className="font-bold" style={{ background: "transparent", color: "var(--red)" }}>
               {kw}
             </mark>
           )}
@@ -239,7 +239,7 @@ export function StemView({ stem, images, highlight }: { stem: string; images?: s
           원문을 그대로 찍으면 "[[표]]카드매출전표||∥…" 기호가 그대로 보인다(183문항). */}
       {form && (
         <div
-          className="text-[12px] leading-snug overflow-x-auto rounded-[12px] border border-line p-3 mt-1"
+          className="text-[12px] leading-snug overflow-x-auto rounded-[10px] border border-line p-3 mt-1"
           style={{ background: "var(--fill-2)" }}
         >
           {form.split("\n").map((line, i) => {
@@ -279,7 +279,7 @@ export function StemView({ stem, images, highlight }: { stem: string; images?: s
           key={src}
           src={src}
           alt="문제 그림 자료"
-          className="max-w-full rounded-[12px] border border-line mt-1 self-start"
+          className="max-w-full rounded-[10px] border border-line mt-1 self-start"
           style={{ background: "#fff" }}
         />
       ))}

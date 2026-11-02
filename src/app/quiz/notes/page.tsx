@@ -54,12 +54,12 @@ export default function NotesPage() {
           <p className="font-bold text-[15px] leading-relaxed">{n.question}</p>
           <span className="flex items-center gap-1.5 shrink-0 mt-0.5">
             {n.cleared && (
-              <span className="text-[11px] font-extrabold px-1.5 py-0.5 rounded-full text-blue" style={{ background: "var(--blue-weak)" }}>
+              <span className="text-[11px] font-bold px-1.5 py-0.5 rounded-full text-blue" style={{ background: "var(--blue-weak)" }}>
                 극복
               </span>
             )}
             {n.wrongCount > 1 && (
-              <span className="text-[11px] font-extrabold px-1.5 py-0.5 rounded-full" style={{ color: "var(--red)", background: "var(--red-weak)" }}>
+              <span className="text-[11px] font-bold px-1.5 py-0.5 rounded-full" style={{ color: "var(--red)", background: "var(--red-weak)" }}>
                 {n.wrongCount}번 틀림
               </span>
             )}
@@ -76,7 +76,7 @@ export default function NotesPage() {
             return (
               <div
                 key={ci}
-                className="flex items-start gap-2.5 rounded-[12px] border border-line p-3 text-[14px] leading-relaxed"
+                className="flex items-start gap-2.5 rounded-[10px] border border-line p-3 text-[14px] leading-relaxed"
                 style={
                   isAnswer
                     ? { borderColor: "var(--blue)", background: "var(--blue-weak)" }
@@ -85,13 +85,13 @@ export default function NotesPage() {
                       : {}
                 }
               >
-                <span className="shrink-0 grid place-items-center w-5 h-5 rounded-full border border-line text-[11px] font-extrabold">
+                <span className="shrink-0 grid place-items-center w-5 h-5 rounded-full border border-line text-[11px] font-bold">
                   {ci + 1}
                 </span>
                 <span className="flex-1">{c}</span>
-                {isAnswer && <span className="text-[11px] font-extrabold text-blue shrink-0">정답</span>}
+                {isAnswer && <span className="text-[11px] font-bold text-blue shrink-0">정답</span>}
                 {isMine && !isAnswer && (
-                  <span className="text-[11px] font-extrabold shrink-0" style={{ color: "var(--red)" }}>
+                  <span className="text-[11px] font-bold shrink-0" style={{ color: "var(--red)" }}>
                     내 답
                   </span>
                 )}
@@ -99,7 +99,7 @@ export default function NotesPage() {
             );
           })}
           {n.explanation && (
-            <p className="text-[14px] leading-relaxed rounded-[12px] p-3.5 mt-1" style={{ background: "var(--fill-2)", color: "var(--sub-2)" }}>
+            <p className="text-[14px] leading-relaxed rounded-[10px] p-3.5 mt-1" style={{ background: "var(--fill-2)", color: "var(--sub-2)" }}>
               {n.explanation}
             </p>
           )}
@@ -113,7 +113,7 @@ export default function NotesPage() {
       <div className="rise flex items-start justify-between gap-3">
         <div className="flex flex-col gap-1">
           <BackButton fallback="/quiz" />
-          <h1 className="text-[24px] lg:text-[28px] font-extrabold">오답노트</h1>
+          <h1 className="text-[24px] lg:text-[28px] font-bold">오답노트</h1>
           <p className="text-sub text-[14px]">틀렸던 문제는 전부 기록돼요. 다시 맞히면 극복한 오답으로 내려가요.</p>
         </div>
         <Link href="/quiz" className="chip shrink-0 !text-[13px]">
@@ -121,7 +121,7 @@ export default function NotesPage() {
         </Link>
       </div>
 
-      {data === null && <div className="skel h-24 !rounded-[20px]" />}
+      {data === null && <div className="skel h-24 !rounded-[16px]" />}
 
       {data && (
         // PC에선 좌(요약·다시 풀기 sticky) / 우(오답 목록) 2단 — 모바일 기둥 방지
@@ -138,7 +138,7 @@ export default function NotesPage() {
             ).map(([label, n, warn]) => (
               <div key={label} className="card p-4 text-center">
                 <p
-                  className="text-[24px] font-extrabold tabular-nums"
+                  className="text-[24px] font-bold tabular-nums"
                   style={warn && n > 0 ? { color: "var(--red)" } : label === "극복한 오답" && n > 0 ? { color: "var(--blue)" } : undefined}
                 >
                   {n}
@@ -185,7 +185,7 @@ export default function NotesPage() {
           {overcome.length > 0 && (
             <>
               <div className="rise d3 flex flex-col gap-0.5 mt-2">
-                <h2 className="text-[16px] font-extrabold">극복한 오답 ({overcome.length})</h2>
+                <h2 className="text-[16px] font-bold">극복한 오답 ({overcome.length})</h2>
                 <p className="text-sub text-[13px]">틀렸다가 다시 풀어서 맞힌 문제예요. 시험 전에 한 번 더 봐두면 좋아요.</p>
               </div>
               <div className="flex flex-col gap-2">{overcome.map(noteCard)}</div>

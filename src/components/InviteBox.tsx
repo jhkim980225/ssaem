@@ -30,7 +30,7 @@ export default function InviteBox({
   return (
     <div className="flex flex-col sm:flex-row gap-4 items-start">
       <div
-        className="rounded-[14px] border border-line p-2 bg-white shrink-0 [&>svg]:block [&>svg]:w-[150px] [&>svg]:h-[150px]"
+        className="rounded-[12px] border border-line p-2 bg-white shrink-0 [&>svg]:block [&>svg]:w-[150px] [&>svg]:h-[150px]"
         dangerouslySetInnerHTML={{ __html: qrSvg }}
       />
       <div className="flex flex-col gap-3 min-w-0 w-full">

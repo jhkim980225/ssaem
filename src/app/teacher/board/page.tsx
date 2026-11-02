@@ -92,7 +92,7 @@ export default function TeacherBoardPage() {
         <Link href="/teacher" className="text-sub text-[13px]">
           ← 대시보드
         </Link>
-        <h1 className="text-[24px] lg:text-[28px] font-extrabold">자료 게시판</h1>
+        <h1 className="text-[24px] lg:text-[28px] font-bold">자료 게시판</h1>
         <p className="text-sub text-[14px]">
           학생이 그대로 내려받는 파일·공지예요. AI 답변 근거로 쓰는 <b>학습 자료</b>와는 별개예요.
         </p>
@@ -100,7 +100,7 @@ export default function TeacherBoardPage() {
 
       {/* 새 게시물 */}
       <section className="rise d1 card p-5 flex flex-col gap-3">
-        <h2 className="text-[15px] font-extrabold">새 게시물</h2>
+        <h2 className="text-[15px] font-bold">새 게시물</h2>
         <input
           className="field"
           placeholder="제목 (예: 3주차 필기노트 PDF)"
@@ -140,7 +140,7 @@ export default function TeacherBoardPage() {
       </section>
 
       {/* 목록 */}
-      {posts === null && <div className="skel h-32 !rounded-[20px]" />}
+      {posts === null && <div className="skel h-32 !rounded-[16px]" />}
       {posts && posts.length === 0 && (
         <div className="rise d2 card p-10 text-center">
           <p className="text-[15px] font-bold mb-1">아직 게시물이 없어요</p>

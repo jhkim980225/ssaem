@@ -109,8 +109,8 @@ export default function JoinPage({ params }: { params: Promise<{ code: string }>
     <main className="flex-1 w-full max-w-md mx-auto px-5 py-12 flex flex-col gap-5">
       {!teacher ? (
         <div className="flex flex-col gap-3">
-          <div className="skel h-24 !rounded-[20px]" />
-          <div className="skel h-40 !rounded-[20px]" />
+          <div className="skel h-24 !rounded-[16px]" />
+          <div className="skel h-40 !rounded-[16px]" />
         </div>
       ) : (
         <>
@@ -118,7 +118,7 @@ export default function JoinPage({ params }: { params: Promise<{ code: string }>
             <span className="avatar !w-14 !h-14 !text-[20px]">{avatarEmoji(teacher.name)}</span>
             <div>
               <p className="text-[13px] text-sub">선생님의 초대</p>
-              <p className="text-[19px] font-extrabold">{teacher.name}</p>
+              <p className="text-[19px] font-bold">{teacher.name}</p>
               {teacher.subject && <p className="text-[13px] text-sub">{teacher.subject}</p>}
               {course?.title && (
                 <p className="text-[12px] font-bold text-blue mt-1">

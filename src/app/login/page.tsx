@@ -183,7 +183,7 @@ function LoginInner() {
         ))}
       </div>
 
-      <h1 className="rise d1 text-[24px] font-extrabold">
+      <h1 className="rise d1 text-[24px] font-bold">
         {role === "teacher" ? "강사" : "학생"} {mode === "login" ? "로그인" : "회원가입"}
       </h1>
       <div className="rise d2 mt-6 flex flex-col gap-3">

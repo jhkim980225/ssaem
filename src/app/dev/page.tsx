@@ -49,7 +49,7 @@ export default function DevPage() {
 
   const tile = (label: string, v: number | string, sub?: string) => (
     <div key={label} className="card p-4 text-center">
-      <p className="text-[22px] font-extrabold tabular-nums">{v}</p>
+      <p className="text-[22px] font-bold tabular-nums">{v}</p>
       <p className="text-[12px] text-sub mt-0.5">{label}</p>
       {sub && <p className="text-[11px] text-sub">{sub}</p>}
     </div>
@@ -58,7 +58,7 @@ export default function DevPage() {
   return (
     <main className="flex-1 w-full max-w-4xl mx-auto px-5 py-8 flex flex-col gap-4">
       <div className="rise flex flex-col gap-1">
-        <h1 className="text-[24px] lg:text-[28px] font-extrabold">개발자 대시보드</h1>
+        <h1 className="text-[24px] lg:text-[28px] font-bold">개발자 대시보드</h1>
         <p className="text-sub text-[14px]">
           서비스 전반 지표예요. 활성 사용자(DAU·WAU·MAU)는 학생 접속 기록(v0.40.0~) 기준이에요.
         </p>
@@ -69,12 +69,12 @@ export default function DevPage() {
           {err}
         </p>
       )}
-      {!m && !err && <div className="skel h-40 !rounded-[20px]" />}
+      {!m && !err && <div className="skel h-40 !rounded-[16px]" />}
 
       {m && (
         <>
           <section className="rise d1 flex flex-col gap-2">
-            <h2 className="text-[15px] font-extrabold">활성 사용자</h2>
+            <h2 className="text-[15px] font-bold">활성 사용자</h2>
             <div className="grid grid-cols-3 gap-2">
               {tile("DAU (오늘)", m.active.dau)}
               {tile("WAU (7일)", m.active.wau)}
@@ -83,7 +83,7 @@ export default function DevPage() {
           </section>
 
           <section className="rise d2 flex flex-col gap-2">
-            <h2 className="text-[15px] font-extrabold">일별 접속 (30일)</h2>
+            <h2 className="text-[15px] font-bold">일별 접속 (30일)</h2>
             <div className="card p-4">
               <div className="flex items-end gap-[2px] h-24">
                 {m.daily.map((d) => (
@@ -103,7 +103,7 @@ export default function DevPage() {
           </section>
 
           <section className="rise d3 flex flex-col gap-2">
-            <h2 className="text-[15px] font-extrabold">가입자</h2>
+            <h2 className="text-[15px] font-bold">가입자</h2>
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
               {tile("총 가입자", m.users.students + m.users.teachers + m.users.admins)}
               {tile("학생", m.users.students)}
@@ -161,7 +161,7 @@ export default function DevPage() {
           </section>
 
           <section className="rise d4 flex flex-col gap-2">
-            <h2 className="text-[15px] font-extrabold">사용량 (최근 30일)</h2>
+            <h2 className="text-[15px] font-bold">사용량 (최근 30일)</h2>
             <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
               {tile("새 대화", m.usage30.conversations)}
               {tile("질문", m.usage30.questions)}
@@ -172,7 +172,7 @@ export default function DevPage() {
           </section>
 
           <section className="rise d5 flex flex-col gap-2">
-            <h2 className="text-[15px] font-extrabold">누적</h2>
+            <h2 className="text-[15px] font-bold">누적</h2>
             <div className="grid grid-cols-2 gap-2">
               {tile("총 대화", m.totals.conversations)}
               {tile("등록 자료", m.totals.documents)}
@@ -180,7 +180,7 @@ export default function DevPage() {
           </section>
 
           <section className="rise d6 flex flex-col gap-2">
-            <h2 className="text-[15px] font-extrabold">사용자별 접속 (학생 전원 · 전 기간)</h2>
+            <h2 className="text-[15px] font-bold">사용자별 접속 (학생 전원 · 전 기간)</h2>
             <div className="card p-0 overflow-x-auto">
               <table className="w-full text-[13px] min-w-[560px]">
                 <thead>
@@ -282,7 +282,7 @@ function DevLogin({ signedInWrongRole }: { signedInWrongRole: boolean }) {
     <main className="flex-1 grid place-items-center px-5">
       <div className="card p-6 w-full max-w-sm flex flex-col gap-3">
         <div>
-          <h1 className="text-[18px] font-extrabold">개발자 로그인</h1>
+          <h1 className="text-[18px] font-bold">개발자 로그인</h1>
           <p className="text-sub text-[13px] mt-0.5">서비스 지표 대시보드 — 개발자 전용이에요.</p>
         </div>
         <input

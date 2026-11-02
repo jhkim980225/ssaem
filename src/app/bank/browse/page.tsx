@@ -262,7 +262,7 @@ function BrowseInner() {
       <div className="rise flex items-start justify-between gap-3">
         <div className="flex flex-col gap-1">
           <BackButton fallback="/bank" />
-          <h1 className="text-[24px] lg:text-[28px] font-extrabold">
+          <h1 className="text-[24px] lg:text-[28px] font-bold">
             문제검색 {kind === "practice" ? "(실무)" : "(이론)"}
           </h1>
           <p className="text-sub text-[14px]">
@@ -294,7 +294,7 @@ function BrowseInner() {
 
       <div className="rise d1 card p-5 flex flex-col gap-3">
         {tree === null ? (
-          <div className="skel h-20 !rounded-[16px]" />
+          <div className="skel h-20 !rounded-[12px]" />
         ) : (
           <>
             {/* 급수 선택 — 이론은 "전체"(전 급수 통합, 결과에 급수 태그)가 기본이고 급수로 좁힐 수 있다. 실무는 급수 필수 */}
@@ -442,9 +442,9 @@ function BrowseInner() {
                         <div
                           key={i}
                           style={show && n.answerIdx === i ? { borderColor: "var(--blue)", background: "var(--blue-weak)" } : {}}
-                          className="rounded-[14px] border border-line px-4 py-3.5 min-h-[54px] text-[15px] leading-[1.65] break-keep flex items-start gap-3"
+                          className="rounded-[12px] border border-line px-4 py-3.5 min-h-[54px] text-[15px] leading-[1.65] break-keep flex items-start gap-3"
                         >
-                          <span className="shrink-0 grid place-items-center w-5 h-5 mt-0.5 rounded-full border border-current text-[11px] font-extrabold">
+                          <span className="shrink-0 grid place-items-center w-5 h-5 mt-0.5 rounded-full border border-current text-[11px] font-bold">
                             {i + 1}
                           </span>
                           <span className="flex-1 min-w-0"><ChoiceView text={c} highlight={result.q} /></span>
@@ -464,13 +464,13 @@ function BrowseInner() {
                   ) : (
                     <>
                       {!isTheory && n.answerText && (
-                        <div className="rounded-[14px] border border-line p-4" style={{ background: "var(--blue-weak)" }}>
+                        <div className="rounded-[12px] border border-line p-4" style={{ background: "var(--blue-weak)" }}>
                           <p className="text-[12px] font-bold text-blue mb-1.5">정답 (분개)</p>
                           <JournalEntry text={n.answerText} />
                         </div>
                       )}
                       {n.explanation && (
-                        <div className="rounded-[14px] border border-line p-4">
+                        <div className="rounded-[12px] border border-line p-4">
                           <p className="text-[12px] font-bold text-sub mb-1.5">해설</p>
                           <ExplanationView text={n.explanation} />
                         </div>

@@ -78,12 +78,12 @@ export default function JoinTeacherPage({ params }: { params: Promise<{ code: st
   return (
     <main className="flex-1 w-full max-w-md mx-auto px-5 py-12 flex flex-col gap-5">
       {academy === null ? (
-        <div className="skel h-52 !rounded-[20px]" />
+        <div className="skel h-52 !rounded-[16px]" />
       ) : (
         <>
           <div className="animate-pop card p-6">
             <p className="text-[13px] text-sub">강사 초대</p>
-            <p className="text-[19px] font-extrabold">{academy || "학원"}</p>
+            <p className="text-[19px] font-bold">{academy || "학원"}</p>
             <p className="text-[13px] text-sub mt-1">가입하면 이 학원 소속 강사가 돼요.</p>
           </div>
           <div className="rise card p-6 flex flex-col gap-3">

@@ -67,7 +67,7 @@ function ResetInner() {
 
   return (
     <main className="flex-1 w-full max-w-sm mx-auto px-5 py-16">
-      <h1 className="rise text-[24px] font-extrabold">
+      <h1 className="rise text-[24px] font-bold">
         {mode === "update" ? "새 비밀번호 설정" : "비밀번호 재설정"}
       </h1>
       <p className="rise d1 text-sub text-[14px] mt-1.5 mb-6 leading-relaxed">
@@ -120,7 +120,7 @@ function ResetInner() {
         )}
 
         {msg && (
-          <p className="animate-pop rounded-[12px] px-4 py-3 text-[13px] font-bold text-blue" style={{ background: "var(--blue-weak)" }}>
+          <p className="animate-pop rounded-[10px] px-4 py-3 text-[13px] font-bold text-blue" style={{ background: "var(--blue-weak)" }}>
             {msg}
           </p>
         )}

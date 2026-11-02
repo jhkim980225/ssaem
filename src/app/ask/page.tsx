@@ -305,11 +305,11 @@ export default function AskPage() {
     <main className="flex-1 w-full max-w-[1600px] mx-auto px-5 lg:px-8 py-5 lg:py-7">
       {previewing && (
         <div
-          className="rise mb-4 rounded-[16px] border border-line p-4 flex flex-wrap items-center justify-between gap-3"
+          className="rise mb-4 rounded-[12px] border border-line p-4 flex flex-wrap items-center justify-between gap-3"
           style={{ background: "var(--blue-weak)" }}
         >
           <div className="min-w-0">
-            <p className="text-[14px] font-extrabold text-blue">학생 화면 미리보기</p>
+            <p className="text-[14px] font-bold text-blue">학생 화면 미리보기</p>
             <p className="text-sub text-[13px] leading-relaxed">
               학생에게는 이렇게 보여요. 대화 이력·과제 제출은 학생 계정에 저장되는 것이라 여기서는 비어 있고,
               제출·등록 버튼도 눌리지 않아요. 학생은 자기가 등록된 선생님과 ROOM만 봐요.
@@ -499,7 +499,7 @@ export default function AskPage() {
                     <p className="text-sub text-[12px] px-1">이 날은 이 강좌 수업 자료가 없어요.</p>
                   )}
                   {dayLessons.map((l) => (
-                    <div key={l.id} className="rounded-[12px] border border-line p-2.5" style={{ background: "var(--fill-2)" }}>
+                    <div key={l.id} className="rounded-[10px] border border-line p-2.5" style={{ background: "var(--fill-2)" }}>
                       {/* 제목 클릭 → 수업 상세 페이지. 좁은 레일에선 요약이 잘려 읽기 힘들다 */}
                       <Link href={`/lesson/${l.id}`} className="text-[13px] font-bold leading-snug hover:text-blue transition-colors block">
                         {l.title}
@@ -553,7 +553,7 @@ export default function AskPage() {
               <p className="text-sub text-[12px] font-bold px-1 pb-1.5">자료실</p>
               <div className="flex flex-col gap-1.5">
                 {boardPosts.slice(0, 6).map((p) => (
-                  <div key={p.id} className="rounded-[12px] border border-line p-2.5" style={{ background: "var(--fill-2)" }}>
+                  <div key={p.id} className="rounded-[10px] border border-line p-2.5" style={{ background: "var(--fill-2)" }}>
                     <p className="text-[13px] font-bold leading-snug break-words">{p.title}</p>
                     {p.body && <p className="text-[12px] text-sub leading-relaxed mt-0.5 break-words">{p.body}</p>}
                     <div className="flex items-center gap-1.5 mt-1 flex-wrap">
@@ -605,7 +605,7 @@ export default function AskPage() {
 
           {/* 좌측 하단 안내 카드 */}
           <div className="hidden lg:block card p-4" style={{ background: "var(--blue-weak)", borderColor: "transparent" }}>
-            <p className="text-[13px] font-extrabold text-blue">근거 있는 답만 드려요</p>
+            <p className="text-[13px] font-bold text-blue">근거 있는 답만 드려요</p>
             <p className="mt-1 text-[12px] leading-relaxed" style={{ color: "var(--sub-2)" }}>
               인터넷이 아니라 선생님이 올린 자료에서만 찾아요. 답변 아래 출처로 직접 확인할 수 있어요.
             </p>
@@ -667,7 +667,7 @@ export default function AskPage() {
                   <span className="chip !py-1 !px-2.5 !text-[12px] !cursor-default !bg-[var(--surface)]">
                     우리 학원 자료 기반
                   </span>
-                  <h1 className="mt-3 text-[21px] lg:text-[26px] font-extrabold leading-[1.35] tracking-tight text-balance">
+                  <h1 className="mt-3 text-[21px] lg:text-[26px] font-bold leading-[1.35] tracking-tight text-balance">
                     선생님이 올린 자료로 정확한 답을 받으세요
                   </h1>
                   <p className="mt-2.5 text-[14px] leading-relaxed" style={{ color: "var(--sub-2)" }}>
@@ -687,10 +687,10 @@ export default function AskPage() {
 
                 {/* 정적 대화 미리보기 — 일러스트 대신 제품 자체 */}
                 <div className="shrink-0 w-full xl:w-[264px] card p-4 flex flex-col gap-2">
-                  <div className="self-end max-w-[88%] px-3.5 py-2 text-[13px] leading-relaxed bg-blue text-white rounded-[16px] rounded-br-[5px]">
+                  <div className="self-end max-w-[88%] px-3.5 py-2 text-[13px] leading-relaxed bg-blue text-white rounded-[12px] rounded-br-[5px]">
                     감가상각 정액법 계산 어떻게 해요?
                   </div>
-                  <div className="self-start max-w-[92%] px-3.5 py-2 text-[13px] leading-relaxed rounded-[16px] rounded-bl-[5px] border border-line bg-[var(--fill-2)]">
+                  <div className="self-start max-w-[92%] px-3.5 py-2 text-[13px] leading-relaxed rounded-[12px] rounded-bl-[5px] border border-line bg-[var(--fill-2)]">
                     (취득원가 − 잔존가치) ÷ 내용연수예요. 선생님 자료 2장의 예제로 같이 볼게요.
                   </div>
                   <p className="text-[11px] text-sub pl-1">근거: 선생님 자료 2건 인용</p>
@@ -700,7 +700,7 @@ export default function AskPage() {
               {/* 요즘 많이 묻는 질문 — 클릭 시 그 선생님에게 바로 질문 */}
               <div className="rise d2 card p-5 lg:p-6">
                 <div className="flex items-baseline justify-between mb-1">
-                  <h2 className="font-extrabold text-[16px]">요즘 많이 묻는 질문</h2>
+                  <h2 className="font-bold text-[16px]">요즘 많이 묻는 질문</h2>
                   <span className="text-sub text-[12px]">눌러서 바로 물어보기</span>
                 </div>
                 <p className="text-sub text-[13px] mb-4">다른 학생들이 최근에 물어본 주제예요.</p>
@@ -708,7 +708,7 @@ export default function AskPage() {
                 {popular === null && (
                   <div className="flex flex-col gap-2">
                     {[0, 1, 2].map((i) => (
-                      <div key={i} className="skel h-14 !rounded-[14px]" />
+                      <div key={i} className="skel h-14 !rounded-[12px]" />
                     ))}
                   </div>
                 )}
@@ -729,10 +729,10 @@ export default function AskPage() {
                         const t = teachers?.find((x) => x.id === top) ?? teachers?.[0];
                         if (t) pick(t, qq.text);
                       }}
-                      className="group flex items-center gap-3 rounded-[14px] border border-line p-3 text-left transition-colors hover:border-[var(--border-strong)]"
+                      className="group flex items-center gap-3 rounded-[12px] border border-line p-3 text-left transition-colors hover:border-[var(--border-strong)]"
                       style={{ background: "var(--fill-2)" }}
                     >
-                      <span className="grid place-items-center w-7 h-7 rounded-full text-[13px] font-extrabold shrink-0 bg-blue text-white">
+                      <span className="grid place-items-center w-7 h-7 rounded-full text-[13px] font-bold shrink-0 bg-blue text-white">
                         {i + 1}
                       </span>
                       <span className="min-w-0 flex-1">
@@ -757,7 +757,7 @@ export default function AskPage() {
         <aside className="flex flex-col gap-4 min-w-0 lg:col-span-2 xl:col-span-1">
           <div className="rise d1 card p-5">
             <div className="flex items-baseline justify-between mb-4">
-              <h2 className="font-extrabold text-[15px]">
+              <h2 className="font-bold text-[15px]">
                 {session && asStudent ? "나의 학습 현황" : "우리 학원 현황"}
               </h2>
             </div>
@@ -774,8 +774,8 @@ export default function AskPage() {
                     ["누적 답변", totals.convs],
                   ] as const)
               ).map(([label, n]) => (
-                <div key={label} className="rounded-[14px] py-3" style={{ background: "var(--fill-2)" }}>
-                  <p className="text-[20px] font-extrabold tabular-nums">{n.toLocaleString()}</p>
+                <div key={label} className="rounded-[12px] py-3" style={{ background: "var(--fill-2)" }}>
+                  <p className="text-[20px] font-bold tabular-nums">{n.toLocaleString()}</p>
                   <p className="text-[11px] text-sub mt-0.5">{label}</p>
                 </div>
               ))}
@@ -785,7 +785,7 @@ export default function AskPage() {
           {/* 질문이 몰리는 과목 */}
           {(popular?.byTeacher.length ?? 0) > 0 && (
             <div className="rise d2 card p-5">
-              <h2 className="font-extrabold text-[15px] mb-4">질문이 많은 선생님</h2>
+              <h2 className="font-bold text-[15px] mb-4">질문이 많은 선생님</h2>
               <div className="flex flex-col gap-3">
                 {popular!.byTeacher.map((b) => (
                   <button
@@ -814,7 +814,7 @@ export default function AskPage() {
 
           {/* 이렇게 물어보세요 */}
           <div className="rise d3 card p-5">
-            <h2 className="font-extrabold text-[15px] mb-3">이렇게 물어보세요</h2>
+            <h2 className="font-bold text-[15px] mb-3">이렇게 물어보세요</h2>
             <div className="flex flex-col gap-3">
               {TIPS.map(([t, s]) => (
                 <div key={t}>

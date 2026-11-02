@@ -88,7 +88,7 @@ function ChangePassword({ session }: { session: Session }) {
   return (
     <main className="flex-1 w-full max-w-sm mx-auto px-5 py-14">
       <div className="animate-pop flex flex-col gap-3">
-        <h1 className="text-[24px] font-extrabold">비밀번호를 바꿔 주세요</h1>
+        <h1 className="text-[24px] font-bold">비밀번호를 바꿔 주세요</h1>
         <p className="text-sub text-[14px] mb-2">
           지금은 휴대폰 뒷자리를 쓰고 있어요. 다른 사람이 알 수 있으니 나만 아는 비밀번호로 바꿔야
           시작할 수 있어요.
@@ -128,8 +128,8 @@ function RoleLoading() {
   return (
     <main className="flex-1 w-full max-w-lg lg:max-w-3xl mx-auto px-5 py-8 flex flex-col gap-3">
       <div className="skel h-7 w-40" />
-      <div className="skel h-24 !rounded-[20px]" />
-      <div className="skel h-40 !rounded-[20px]" />
+      <div className="skel h-24 !rounded-[16px]" />
+      <div className="skel h-40 !rounded-[16px]" />
     </main>
   );
 }

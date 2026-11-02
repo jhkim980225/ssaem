@@ -101,7 +101,7 @@ export default function SignaturePad({ onChange, height = 160, disabled }: Props
         onPointerCancel={up}
         onPointerLeave={up}
         style={{ height, touchAction: "none" }}
-        className="w-full rounded-[14px] border border-line bg-transparent"
+        className="w-full rounded-[12px] border border-line bg-transparent"
         aria-label="전자서명 입력"
       />
       <div className="flex items-center justify-between">

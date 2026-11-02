@@ -105,7 +105,7 @@ export default function StudentsPage() {
         <Link href="/teacher" className="text-sub text-[13px]">
           ← 대시보드
         </Link>
-        <h1 className="text-[24px] lg:text-[28px] font-extrabold">학생별 리포트</h1>
+        <h1 className="text-[24px] lg:text-[28px] font-bold">학생별 리포트</h1>
         <p className="text-sub text-[14px]">최근 {days}일, 학생마다 얼마나 묻고 어디서 막혔는지예요.</p>
       </div>
 
@@ -118,7 +118,7 @@ export default function StudentsPage() {
       {students === null && (
         <div className="flex flex-col gap-2">
           {[0, 1, 2].map((i) => (
-            <div key={i} className="skel h-20 !rounded-[20px]" />
+            <div key={i} className="skel h-20 !rounded-[16px]" />
           ))}
         </div>
       )}
@@ -152,7 +152,7 @@ export default function StudentsPage() {
                 </p>
               </div>
               <div className="text-right shrink-0">
-                <p className="text-[15px] font-extrabold tabular-nums">질문 {s.questions}</p>
+                <p className="text-[15px] font-bold tabular-nums">질문 {s.questions}</p>
                 {s.down > 0 && (
                   <p className="text-[12px] font-bold" style={{ color: "var(--red)" }}>
                     아쉬움 {s.down}
@@ -178,7 +178,7 @@ export default function StudentsPage() {
             </div>
 
             {openId === s.id && (
-              <div className="animate-pop mt-3 rounded-[14px] border border-line p-4 flex flex-col gap-2">
+              <div className="animate-pop mt-3 rounded-[12px] border border-line p-4 flex flex-col gap-2">
                 <p className="text-[12px] text-sub">
                   학생 개인정보예요. 필요한 것만 적고, 학원 밖으로 공유하지 마세요.
                 </p>
@@ -215,10 +215,10 @@ export default function StudentsPage() {
 
             {issued?.id === s.id && (
               <div
-                className="animate-pop mt-3 rounded-[14px] p-4 text-[13px] leading-relaxed"
+                className="animate-pop mt-3 rounded-[12px] p-4 text-[13px] leading-relaxed"
                 style={{ background: "var(--blue-weak)" }}
               >
-                <p className="font-extrabold text-blue mb-1.5">임시 비밀번호를 학생에게 알려주세요</p>
+                <p className="font-bold text-blue mb-1.5">임시 비밀번호를 학생에게 알려주세요</p>
                 <p style={{ color: "var(--sub-2)" }}>
                   아이디 <b className="tabular-nums">{issued.loginId}</b>
                   <br />

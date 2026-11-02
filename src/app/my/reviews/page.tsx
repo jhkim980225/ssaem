@@ -86,7 +86,7 @@ export default function MyReviewsPage() {
       <div className="rise flex items-start justify-between gap-3">
         <div className="flex flex-col gap-1">
           <BackButton fallback="/ask" />
-          <h1 className="text-[24px] lg:text-[28px] font-extrabold">선생님 평가</h1>
+          <h1 className="text-[24px] lg:text-[28px] font-bold">선생님 평가</h1>
           <p className="text-sub text-[14px]">
             수업이 어땠는지 알려주세요. <b>선생님께는 이름 없이</b> 전달돼요.
           </p>
@@ -105,7 +105,7 @@ export default function MyReviewsPage() {
         <p className="text-[13px] font-bold text-blue">{msg}</p>
       )}
 
-      {teachers === null && <div className="skel h-40 !rounded-[20px]" />}
+      {teachers === null && <div className="skel h-40 !rounded-[16px]" />}
       {teachers?.length === 0 && (
         <div className="rise card p-10 text-center">
           <p className="text-[15px] font-bold mb-1">평가할 선생님이 없어요</p>

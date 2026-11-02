@@ -97,15 +97,15 @@ export default function TeacherSettingsPage() {
         <Link href="/teacher" className="text-sub text-[13px]">
           ← 대시보드
         </Link>
-        <h1 className="text-[24px] lg:text-[28px] font-extrabold">개인 설정</h1>
+        <h1 className="text-[24px] lg:text-[28px] font-bold">개인 설정</h1>
       </div>
 
       <section className="rise d1 card p-5 lg:p-6 flex flex-col gap-3">
         <h2 className="font-bold text-[17px]">내 프로필</h2>
         {!loaded ? (
           <div className="flex flex-col gap-2">
-            <div className="skel h-12 !rounded-[14px]" />
-            <div className="skel h-12 !rounded-[14px]" />
+            <div className="skel h-12 !rounded-[12px]" />
+            <div className="skel h-12 !rounded-[12px]" />
           </div>
         ) : (
           <>

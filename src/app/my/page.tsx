@@ -71,7 +71,7 @@ export default function MyPage() {
   return (
     <main className="flex-1 w-full max-w-2xl lg:max-w-4xl mx-auto px-5 py-8 flex flex-col gap-4">
       <div className="rise flex flex-col gap-1">
-        <h1 className="text-[24px] lg:text-[28px] font-extrabold">마이페이지</h1>
+        <h1 className="text-[24px] lg:text-[28px] font-bold">마이페이지</h1>
         <p className="text-sub text-[14px]">내 정보와 학습 기록을 한 곳에서 봐요.</p>
       </div>
 
@@ -80,11 +80,11 @@ export default function MyPage() {
       <div className="flex flex-col gap-4 lg:sticky lg:top-[76px]">
       {/* 내 정보 */}
       <section className="rise d1 card p-5 flex items-center gap-4">
-        <span className="grid place-items-center w-12 h-12 shrink-0 rounded-full bg-blue text-white text-[18px] font-extrabold">
+        <span className="grid place-items-center w-12 h-12 shrink-0 rounded-full bg-blue text-white text-[18px] font-bold">
           {avatarEmoji(name || loginId)}
         </span>
         <div className="min-w-0 flex flex-col gap-0.5">
-          <p className="text-[17px] font-extrabold truncate">{name || loginId}</p>
+          <p className="text-[17px] font-bold truncate">{name || loginId}</p>
           {/* truncate 금지 — 320px 좌열에서 가입일이 잘린다. 줄바꿈으로 전부 보여준다 */}
           <p className="text-sub text-[13px] break-keep">
             아이디 {loginId}
@@ -96,14 +96,14 @@ export default function MyPage() {
 
       {/* 출석 */}
       <section className="rise d1 card p-5 flex flex-col gap-1.5">
-        <h2 className="text-[15px] font-extrabold">출석</h2>
+        <h2 className="text-[15px] font-bold">출석</h2>
         {visit === null ? (
           <div className="skel h-9 !rounded-[10px]" />
         ) : visit.days === 0 ? (
           <p className="text-sub text-[13px]">오늘부터 출석이 기록돼요. 매일 들어와서 이어가 보세요.</p>
         ) : (
           <>
-            <p className="text-[22px] font-extrabold">
+            <p className="text-[22px] font-bold">
               🔥 {visit.streak > 0 ? `${visit.streak}일 연속 출석` : "오늘 출석하면 이어져요"}
             </p>
             <p className="text-sub text-[13px]">
@@ -115,8 +115,8 @@ export default function MyPage() {
 
       {/* 내 선생님 */}
       <section className="rise d4 card p-5 flex flex-col gap-3">
-        <h2 className="text-[15px] font-extrabold">내 선생님</h2>
-        {teachers === null && <div className="skel h-10 !rounded-[12px]" />}
+        <h2 className="text-[15px] font-bold">내 선생님</h2>
+        {teachers === null && <div className="skel h-10 !rounded-[10px]" />}
         {teachers && teachers.length === 0 && (
           <p className="text-sub text-[13px]">
             아직 연결된 선생님이 없어요.{" "}
@@ -155,7 +155,7 @@ export default function MyPage() {
             {n === null ? (
               <span className="skel h-7 w-10 mx-auto block !rounded-md" aria-hidden />
             ) : (
-              <p className="text-[22px] font-extrabold tabular-nums">{n}</p>
+              <p className="text-[22px] font-bold tabular-nums">{n}</p>
             )}
             <p className="text-[12px] text-sub mt-0.5">{label}</p>
           </div>

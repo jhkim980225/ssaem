@@ -28,14 +28,14 @@ export default async function Home() {
       <div
         aria-hidden
         className="pointer-events-none absolute -top-40 left-1/2 -translate-x-1/2 w-[900px] h-[520px] rounded-full opacity-50"
-        style={{ background: "radial-gradient(closest-side, rgba(61,107,244,0.1), transparent)" }}
+        style={{ background: "radial-gradient(closest-side, rgba(30,58,95,0.12), transparent)" }}
       />
 
       <div className="relative mx-auto w-full max-w-[1600px] px-5 lg:px-8 py-14 lg:py-24">
         {/* 히어로 — 좌 텍스트 / 우 채팅 미리보기. 넓은 화면에서도 텍스트 줄 길이는 제한 */}
         <div className="grid gap-12 lg:grid-cols-[minmax(0,620px)_minmax(0,460px)] lg:gap-16 items-center lg:justify-center xl:justify-between">
           <div className="text-center lg:text-left">
-            <h1 className="rise text-[34px] lg:text-[52px] leading-[1.2] font-extrabold tracking-tight">
+            <h1 className="rise text-[34px] lg:text-[52px] leading-[1.2] font-bold tracking-tight">
               마스터 전산회계 학원
             </h1>
             <p className="rise d2 mt-5 text-[15px] lg:text-[17px] text-sub leading-relaxed">
@@ -62,7 +62,7 @@ export default async function Home() {
                   ] as const
                 ).map(([label, n]) => (
                   <div key={label} className="text-center lg:text-left">
-                    <p className="text-[22px] lg:text-[26px] font-extrabold tabular-nums">{n.toLocaleString()}</p>
+                    <p className="text-[22px] lg:text-[26px] font-bold tabular-nums">{n.toLocaleString()}</p>
                     <p className="text-[12px] text-sub mt-0.5">{label}</p>
                   </div>
                 ))}
@@ -79,10 +79,10 @@ export default async function Home() {
                 <p className="text-[12px] text-sub leading-tight">전산회계 2급</p>
               </div>
             </div>
-            <div className="self-end max-w-[85%] px-4 py-2.5 text-[14px] leading-relaxed bg-blue text-white rounded-[18px] rounded-br-[6px]">
+            <div className="self-end max-w-[85%] px-4 py-2.5 text-[14px] leading-relaxed bg-blue text-white rounded-[12px] rounded-br-[6px]">
               선급비용이랑 미지급비용 차이가 뭐예요?
             </div>
-            <div className="self-start max-w-[92%] px-4 py-2.5 text-[14px] leading-relaxed rounded-[18px] rounded-bl-[6px] border border-line bg-[var(--fill-2)]">
+            <div className="self-start max-w-[92%] px-4 py-2.5 text-[14px] leading-relaxed rounded-[12px] rounded-bl-[6px] border border-line bg-[var(--fill-2)]">
               선급비용은 먼저 낸 돈 중 아직 비용이 아닌 것, 미지급비용은 비용은 발생했는데 아직 안 낸
               거예요. 선생님 자료 3장의 분개 예시로 설명할게요.
             </div>
@@ -101,7 +101,7 @@ export default async function Home() {
           ).map(([t, s], i) => (
             <div key={t} className={`rise d${i + 4} card card-hover p-6 lg:p-7`}>
               <p className="w-8 h-1 rounded-full bg-blue mb-4" aria-hidden />
-              <p className="text-[16px] font-extrabold">{t}</p>
+              <p className="text-[16px] font-bold">{t}</p>
               <p className="mt-2 text-[14px] text-sub leading-relaxed">{s}</p>
             </div>
           ))}

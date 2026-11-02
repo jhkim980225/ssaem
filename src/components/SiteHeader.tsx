@@ -38,12 +38,12 @@ export default function SiteHeader() {
     >
       <div className="mx-auto w-full max-w-[1600px] px-5 lg:px-8 h-[60px] flex items-center justify-between gap-3">
         <Link href="/" className="flex items-center gap-2 shrink-0 group">
-          <span className="grid place-items-center w-8 h-8 rounded-[10px] bg-blue text-white text-[13px] font-extrabold transition-transform group-hover:rotate-[-8deg]">
+          <span className="grid place-items-center w-8 h-8 rounded-[10px] bg-blue text-white text-[13px] font-bold transition-transform group-hover:rotate-[-8deg]">
             마
           </span>
           {/* 375px에서 로고+내비+테마+로그아웃을 다 넣으면 넘친다.
               아주 좁은 화면에선 배지(마)만 남기고 이름은 접는다 — 로그아웃이 잘리면 안 되므로. */}
-          <span className="hidden min-[420px]:inline text-[14px] sm:text-[15px] font-extrabold tracking-tight whitespace-nowrap">
+          <span className="hidden min-[420px]:inline text-[14px] sm:text-[15px] font-bold tracking-tight whitespace-nowrap">
             마스터 전산회계 학원
           </span>
         </Link>

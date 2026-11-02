@@ -99,7 +99,7 @@ export default function TeacherSidebar() {
   ];
 
   const itemCls = (active: boolean) =>
-    `rounded-[12px] px-3 py-2 text-[14px] text-left transition-colors ${
+    `rounded-[10px] px-3 py-2 text-[14px] text-left transition-colors ${
       active ? "font-bold" : "hover:bg-[var(--fill)]"
     }`;
   const itemStyle = (active: boolean) =>
@@ -111,10 +111,10 @@ export default function TeacherSidebar() {
       <aside className="hidden lg:flex flex-col gap-1 w-[240px] shrink-0 px-3 py-6 sticky top-[60px] max-h-[calc(100vh-60px)] overflow-y-auto">
         <Link
           href="/teacher/settings"
-          className="flex items-center gap-3 rounded-[14px] px-3 py-3 mb-2 hover:bg-[var(--fill)] transition-colors"
+          className="flex items-center gap-3 rounded-[12px] px-3 py-3 mb-2 hover:bg-[var(--fill)] transition-colors"
         >
           <span
-            className="w-10 h-10 rounded-full grid place-items-center font-extrabold text-[16px] shrink-0"
+            className="w-10 h-10 rounded-full grid place-items-center font-bold text-[16px] shrink-0"
             style={{ background: "var(--blue-weak)", color: "var(--blue)" }}
           >
             {(profile?.name || "?").slice(0, 1)}
@@ -153,7 +153,7 @@ export default function TeacherSidebar() {
             </button>
           </div>
         ) : (
-          <button onClick={() => setAdding(true)} className="rounded-[12px] px-3 py-2 text-[13px] text-left text-blue hover:bg-[var(--fill)] transition-colors">
+          <button onClick={() => setAdding(true)} className="rounded-[10px] px-3 py-2 text-[13px] text-left text-blue hover:bg-[var(--fill)] transition-colors">
             + 새 강좌 만들기
           </button>
         )}
@@ -166,7 +166,7 @@ export default function TeacherSidebar() {
         ))}
         <button
           onClick={() => supabase.auth.signOut()}
-          className="rounded-[12px] px-3 py-2 text-[14px] text-left text-sub hover:bg-[var(--fill)] transition-colors mt-2"
+          className="rounded-[10px] px-3 py-2 text-[14px] text-left text-sub hover:bg-[var(--fill)] transition-colors mt-2"
         >
           로그아웃
         </button>

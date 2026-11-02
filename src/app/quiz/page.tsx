@@ -150,7 +150,7 @@ function QuizInner() {
     <main className={`flex-1 w-full ${width} mx-auto px-5 py-8 flex flex-col gap-4`}>
       <div className="rise flex items-start justify-between gap-3">
         <div className="flex flex-col gap-1">
-          <h1 className="text-[24px] lg:text-[28px] font-extrabold">
+          <h1 className="text-[24px] lg:text-[28px] font-bold">
             {mode === "wrong" ? "오답 다시 풀기" : "문제 풀기"}
           </h1>
           <p className="text-sub text-[14px]">
@@ -262,7 +262,7 @@ function QuizInner() {
         </p>
       )}
 
-      {qs === null && <div className="skel h-52 !rounded-[20px]" />}
+      {qs === null && <div className="skel h-52 !rounded-[16px]" />}
 
       {/* 비로그인 오답모드 — 서버가 빈 목록 + needLogin을 주므로 안내로 받는다 */}
       {needLogin && (
@@ -313,10 +313,10 @@ function QuizInner() {
                 return (
                   <div
                     key={i}
-                    className="flex items-start gap-3 rounded-[14px] border border-line p-3.5"
+                    className="flex items-start gap-3 rounded-[12px] border border-line p-3.5"
                     style={isAnswer ? { borderColor: "var(--blue)", background: "var(--blue-weak)" } : {}}
                   >
-                    <span className="shrink-0 grid place-items-center w-6 h-6 rounded-full border border-line text-[12px] font-extrabold">
+                    <span className="shrink-0 grid place-items-center w-6 h-6 rounded-full border border-line text-[12px] font-bold">
                       {i + 1}
                     </span>
                     <span className="text-[14px] leading-relaxed">{c}</span>
@@ -326,7 +326,7 @@ function QuizInner() {
             </div>
           </div>
           <div className="card p-5 lg:p-6 flex flex-col gap-3 self-start lg:sticky lg:top-[76px]">
-            <p className="text-[13px] font-extrabold text-blue">정답 {(q.answer ?? 0) + 1}번</p>
+            <p className="text-[13px] font-bold text-blue">정답 {(q.answer ?? 0) + 1}번</p>
             <p className="text-[14px] leading-relaxed" style={{ color: "var(--sub-2)" }}>
               {q.explanation || "이 문제는 해설이 없어요."}
             </p>
@@ -370,10 +370,10 @@ function QuizInner() {
                   key={i}
                   onClick={() => submit(i)}
                   disabled={Boolean(graded) || busy}
-                  className="flex items-start gap-3 rounded-[14px] border border-line p-3.5 text-left transition-colors disabled:cursor-default hover:border-[var(--border-strong)]"
+                  className="flex items-start gap-3 rounded-[12px] border border-line p-3.5 text-left transition-colors disabled:cursor-default hover:border-[var(--border-strong)]"
                   style={style}
                 >
-                  <span className="shrink-0 grid place-items-center w-6 h-6 rounded-full border border-line text-[12px] font-extrabold">
+                  <span className="shrink-0 grid place-items-center w-6 h-6 rounded-full border border-line text-[12px] font-bold">
                     {i + 1}
                   </span>
                   <span className="text-[14px] leading-relaxed">{c}</span>
@@ -384,11 +384,11 @@ function QuizInner() {
 
           {graded && (
             <div className="animate-pop flex flex-col gap-2 pt-1">
-              <p className="text-[15px] font-extrabold" style={{ color: graded.correct ? "var(--blue)" : "var(--red)" }}>
+              <p className="text-[15px] font-bold" style={{ color: graded.correct ? "var(--blue)" : "var(--red)" }}>
                 {graded.correct ? "정답이에요" : "틀렸어요"}
               </p>
               {graded.explanation && (
-                <p className="text-[14px] leading-relaxed rounded-[14px] p-3.5" style={{ background: "var(--fill-2)", color: "var(--sub-2)" }}>
+                <p className="text-[14px] leading-relaxed rounded-[12px] p-3.5" style={{ background: "var(--fill-2)", color: "var(--sub-2)" }}>
                   {graded.explanation}
                 </p>
               )}
@@ -412,7 +412,7 @@ function QuizInner() {
       {finished && (
         <div className="animate-pop card p-8 text-center flex flex-col gap-3">
           <p className="text-[15px] text-sub">오늘 푼 결과</p>
-          <p className="text-[34px] font-extrabold tabular-nums">
+          <p className="text-[34px] font-bold tabular-nums">
             {score.right} <span className="text-[20px] text-sub">/ {score.done}</span>
           </p>
           {score.done > score.right && (
