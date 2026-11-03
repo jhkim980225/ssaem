@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
 import { serviceClient } from "@/lib/supabase";
-import { userFromRequest } from "@/lib/auth";
+import { requireRole, userFromRequest } from "@/lib/auth";
 
 // 질문 이력 (강사·학생 공용 — role로 필터 분기).
 // GET            → 내 대화 목록 (최신 50개, 메시지 수 포함. 학생은 강사 이름 포함)
 // GET ?id=<uuid> → 해당 대화 메시지 전체 (당사자만)
+// DELETE ?id=    → 학생 본인 대화 삭제 (messages·citations·feedback은 FK cascade)
 export async function GET(req: Request) {
   const uid = await userFromRequest(req);
   if (!uid) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
@@ -92,4 +93,25 @@ export async function GET(req: Request) {
     .filter((c) => c.messages > 0); // 중간 이탈로 빈 대화는 숨김
   // 실제 role 그대로 — 3개를 2개로 접으면 /ask가 원장에게 "강사 계정"이라고 표시한다
   return NextResponse.json({ conversations, role: me?.role ?? null });
+}
+
+// 학생 본인 대화만. 강사 질문 이력·미해결 큐에서도 함께 사라진다 — 학생이 지운 질문은 학생 것.
+export async function DELETE(req: Request) {
+  const g = await requireRole(req, "student");
+  if ("res" in g) return g.res;
+  const id = new URL(req.url).searchParams.get("id");
+  if (!id || !/^[0-9a-f-]{36}$/i.test(id))
+    return NextResponse.json({ error: "id required" }, { status: 400 });
+
+  const db = serviceClient();
+  const { data, error } = await db
+    .from("conversations")
+    .delete()
+    .eq("id", id)
+    .eq("student_id", g.uid)
+    .select("id");
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  // 남의 대화·없는 대화 구분 없이 404 — 존재 여부를 흘리지 않는다
+  if (!data?.length) return NextResponse.json({ error: "not found" }, { status: 404 });
+  return NextResponse.json({ ok: true });
 }

@@ -3,6 +3,7 @@ import QRCode from "qrcode";
 import { serviceClient } from "@/lib/supabase";
 import { requireRole } from "@/lib/auth";
 import { createInviteCode } from "@/lib/invite";
+import { fetchAll } from "./_lib/fetch-all";
 
 // 답변 1건이 아꼈다고 보는 조교 시간(분). 근거를 화면에도 같이 표시한다.
 const MINUTES_PER_ANSWER = 3;
@@ -68,27 +69,37 @@ export async function GET(req: Request) {
       teachers: [],
       students: studentRows.map((s) => ({ ...s, questions: 0, lastAt: null })),
       lowRated: [],
+      assessments: [],
       invite: await inviteFor(uid, req),
     });
   }
 
   // 질문(user 메시지)만 필요한 컬럼으로 — 예전엔 assistant까지 2000건 제한으로 읽어서
   // 학원이 조금만 커져도 그래프·집계가 조용히 잘렸다.
-  const [qRes, fbRes, docRes, ansRes] = await Promise.all([
-    db
-      .from("messages")
-      .select("created_at, conversations!inner(teacher_id, student_id)")
-      .eq("role", "user")
-      .in("conversations.teacher_id", teacherIds)
-      .gte("created_at", sinceIso)
-      .limit(20_000),
+  // 1000행 캡 때문에 .range()로 끝까지 읽는다 (fetchAll). id를 2차 정렬키로 걸어야 페이지 경계가 안 흔들린다.
+  const [qRes, fbRes, docRes, ansRes, asRes] = await Promise.all([
+    fetchAll((from, to) =>
+      db
+        .from("messages")
+        .select("created_at, conversations!inner(teacher_id, student_id)")
+        .eq("role", "user")
+        .in("conversations.teacher_id", teacherIds)
+        .gte("created_at", sinceIso)
+        .order("created_at")
+        .order("id")
+        .range(from, to)
+    ),
     // 평가는 답변에 달리므로 message_feedback에서 바로 훑는다 (메시지 전수 스캔 불필요)
-    db
-      .from("message_feedback")
-      .select("rating, created_at, messages!inner(conversations!inner(teacher_id))")
-      .in("messages.conversations.teacher_id", teacherIds)
-      .gte("created_at", sinceIso)
-      .limit(20_000),
+    fetchAll((from, to) =>
+      db
+        .from("message_feedback")
+        .select("rating, created_at, messages!inner(conversations!inner(teacher_id))")
+        .in("messages.conversations.teacher_id", teacherIds)
+        .gte("created_at", sinceIso)
+        .order("created_at")
+        .order("message_id")
+        .range(from, to)
+    ),
     db
       .from("documents")
       .select("id", { count: "exact", head: true })
@@ -101,6 +112,13 @@ export async function GET(req: Request) {
       .select("id, conversations!inner(teacher_id)", { count: "exact", head: true })
       .eq("role", "assistant")
       .in("conversations.teacher_id", teacherIds),
+    // 평가 결과 CSV — 원장 화면엔 버튼이 없어 API로만 받을 수 있었다 (QZ-09)
+    db
+      .from("assessments")
+      .select("id, title, teacher_id, created_at, assessment_attempts(count)")
+      .in("teacher_id", teacherIds)
+      .order("created_at", { ascending: false })
+      .limit(100),
   ]);
 
   type QRow = { created_at: string; conversations: { teacher_id: string; student_id: string | null } | { teacher_id: string; student_id: string | null }[] };
@@ -109,7 +127,7 @@ export async function GET(req: Request) {
   const byDate = new Map<string, number>();
   const byTeacher = new Map<string, number>();
   const byStudent = new Map<string, { n: number; last: string }>();
-  for (const m of (qRes.data ?? []) as QRow[]) {
+  for (const m of qRes.data as QRow[]) {
     const c = one(m.conversations);
     byDate.set(m.created_at.slice(0, 10), (byDate.get(m.created_at.slice(0, 10)) ?? 0) + 1);
     if (c?.teacher_id) byTeacher.set(c.teacher_id, (byTeacher.get(c.teacher_id) ?? 0) + 1);
@@ -126,7 +144,7 @@ export async function GET(req: Request) {
   const fb = new Map<string, { up: number; down: number }>();
   let up = 0;
   let down = 0;
-  for (const f of (fbRes.data ?? []) as FRow[]) {
+  for (const f of fbRes.data as FRow[]) {
     const tid = one(one(f.messages)?.conversations)?.teacher_id;
     if (!tid) continue;
     const e = fb.get(tid) ?? { up: 0, down: 0 };
@@ -197,8 +215,16 @@ export async function GET(req: Request) {
     .sort((a, b) => b.questions - a.questions);
   const activeStudents = students.filter((s) => s.questions > 0).length;
 
-  const questions = (qRes.data ?? []).length;
+  const questions = qRes.data.length;
   const answersTotal = ansRes.count ?? 0;
+  type ARow = { id: string; title: string; teacher_id: string; created_at: string; assessment_attempts: { count: number }[] };
+  const assessments = ((asRes.data ?? []) as ARow[]).map((a) => ({
+    id: a.id,
+    title: a.title,
+    teacher: nameOf.get(a.teacher_id) ?? "",
+    created_at: a.created_at,
+    attempts: a.assessment_attempts?.[0]?.count ?? 0,
+  }));
 
   return NextResponse.json({
     admin: { name: me.name },
@@ -216,6 +242,7 @@ export async function GET(req: Request) {
     teachers,
     students,
     lowRated,
+    assessments,
     invite: await inviteFor(uid, req),
   });
 }

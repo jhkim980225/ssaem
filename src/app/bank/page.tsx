@@ -352,14 +352,14 @@ export default function BankPage() {
 
   return (
     <main className={`flex-1 w-full ${width} mx-auto px-4 lg:px-6 py-6 lg:py-8 flex flex-col gap-3 lg:gap-4`}>
-      {/* 필터 화면 — 제목 + 바로가기 4칸 (풀이 중엔 상단 바가 대신한다) */}
+      {/* 필터 화면 — 제목 + 바로가기 5칸 (풀이 중엔 상단 바가 대신한다) */}
       {!qs && !cbtQs && (
         <>
           <div className="rise px-1 pt-2 flex flex-col gap-1">
             <h1 className="text-[24px] lg:text-[28px] font-bold">기출문제</h1>
             <p className="text-sub text-[14px]">전산회계·세무·컴활 기출 {tree ? countFor({}).toLocaleString() : "…"}문항</p>
           </div>
-          <nav aria-label="바로가기" className="rise d1 grid grid-cols-4 gap-2">
+          <nav aria-label="바로가기" className="rise d1 grid grid-cols-5 gap-1.5 sm:gap-2">
             {SHORTCUTS.map(([href, label, tone, icon]) => (
               <Link
                 key={href}
@@ -691,7 +691,7 @@ export default function BankPage() {
             {q.type === "theory" && (
               <div className="flex flex-col gap-2">
                 {q.choices.map((c, i) => {
-                  const tone = choiceTone(q.answerIdx === i ? "on" : null);
+                  const tone = choiceTone(q.answerIdx === i ? "right" : null);
                   return (
                     <div key={i} className={CHOICE_BOX} style={tone.box}>
                       <span className={CHOICE_NUM} style={tone.num}>
@@ -709,7 +709,7 @@ export default function BankPage() {
           <div className="card p-5 lg:p-6 flex flex-col gap-3 self-start min-w-0 lg:sticky lg:top-[76px]">
             {q.type === "theory" ? (
               <>
-                <p className="text-[15px] font-bold text-blue">정답 {(q.answerIdx ?? 0) + 1}번</p>
+                <p className="text-[15px] font-bold text-green">정답 {(q.answerIdx ?? 0) + 1}번</p>
                 <p className="text-[18px] lg:text-[20px] font-bold leading-snug break-keep">
                   <ChoiceView text={q.choices[q.answerIdx ?? 0]} />
                 </p>
@@ -781,7 +781,7 @@ export default function BankPage() {
                   const isPicked = picked === i;
                   const isAnswer = graded?.answer === i;
                   const tone = choiceTone(
-                    graded ? (isAnswer ? "on" : isPicked ? "bad" : null) : isPicked ? "on" : null
+                    graded ? (isAnswer ? "right" : isPicked ? "bad" : null) : isPicked ? "on" : null
                   );
                   return (
                     <button
@@ -819,7 +819,7 @@ export default function BankPage() {
             {/* 이론 채점 결과 */}
             {graded && (
               <div className="flex flex-col gap-2">
-                <p className="text-[15px] font-bold" style={{ color: graded.correct ? "var(--blue)" : "var(--red)" }}>
+                <p className="text-[15px] font-bold" style={{ color: graded.correct ? "var(--green)" : "var(--red)" }}>
                   {graded.correct
                     ? "정답이에요"
                     : picked === null
@@ -944,7 +944,8 @@ export default function BankPage() {
   );
 }
 
-// 바로가기 4칸 — [주소, 이름, 색, 아이콘]. 문제검색(실무)는 검색 화면의 이론/실무 탭으로 간다
+// 바로가기 5칸 — [주소, 이름, 색, 아이콘]. 실무 검색은 같은 검색 화면을 실무 탭(?kind=practice)으로 연다
+// (분개 문제는 이론 탭에서 안 나와 따로 진입이 없으면 못 찾는다)
 const SHORTCUTS: [string, string, "blue" | "red", React.ReactNode][] = [
   ["/my/records", "내 기록", "blue", <path key="i" d="M4 19V9M10 19V5M16 19v-7M22 19H2" />],
   ["/bank/notes", "기출 오답", "red", <path key="i" d="M7 7l10 10M17 7L7 17" />],
@@ -955,6 +956,15 @@ const SHORTCUTS: [string, string, "blue" | "red", React.ReactNode][] = [
     <>
       <circle cx="11" cy="11" r="7" />
       <path d="M20 20l-3.5-3.5" />
+    </>,
+  ],
+  [
+    "/bank/browse?kind=practice",
+    "실무 검색",
+    "blue",
+    <>
+      <rect x="4" y="3" width="16" height="18" rx="2" />
+      <path d="M12 3v18M4 9h16" />
     </>,
   ],
   [

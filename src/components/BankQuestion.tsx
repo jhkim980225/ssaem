@@ -8,15 +8,21 @@
 export const TAG = "inline-flex items-center h-6 px-2 rounded-[8px] text-[12px] font-semibold shrink-0";
 export const TAG_FILL = { background: "var(--fill)", color: "var(--sub-2)" } as const;
 export const TAG_ON = { background: "var(--blue-weak)", color: "var(--blue)", fontWeight: 700 } as const;
-// 보기 한 칸 — 기본 / on(고른 답·정답, 네이비) / bad(틀린 내 답, 빨강)
+// 보기 한 칸 — 기본 / on(풀이 중 고른 답, 네이비) / right(정답, 초록) / bad(틀린 내 답, 빨강)
+// on과 right를 나눈 이유: 하나로 쓰면 "내가 고른 것"과 "정답"이 같은 색이라 채점 화면에서 구분이 안 된다
 export const CHOICE_BOX =
   "text-left rounded-[12px] border border-line px-4 py-3 min-h-[50px] text-[15px] leading-[1.65] break-keep flex items-start gap-3 transition-colors";
 export const CHOICE_NUM = "shrink-0 grid place-items-center w-[26px] h-[26px] rounded-full text-[13px] font-bold";
-export function choiceTone(t: "on" | "bad" | null): { box: React.CSSProperties; num: React.CSSProperties } {
+export function choiceTone(t: "on" | "right" | "bad" | null): { box: React.CSSProperties; num: React.CSSProperties } {
   if (t === "on")
     return {
       box: { borderColor: "var(--blue)", background: "var(--blue-weak)", color: "var(--blue)", fontWeight: 700 },
       num: { background: "var(--blue)", color: "#fff" },
+    };
+  if (t === "right")
+    return {
+      box: { borderColor: "var(--green)", background: "var(--green-weak)", color: "var(--green)", fontWeight: 700 },
+      num: { background: "var(--green)", color: "#fff" },
     };
   if (t === "bad")
     return {

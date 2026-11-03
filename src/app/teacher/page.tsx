@@ -128,6 +128,7 @@ function Dashboard({ session }: { session: Session }) {
   const [asBusy, setAsBusy] = useState(false);
 
   const [courses, setCourses] = useState<Course[]>([]);
+  const [studentTotal, setStudentTotal] = useState<number | null>(null); // 전 강좌 고유 수강생 수 (null = 집계 전·실패)
   const [courseSel, setCourseSel] = useState(""); // 업로드 대상 강좌. "" = 공용
   // 목록 전용 상태. 자료가 수십 건이면 전부 그리는 것만으로 화면이 수천 px가 된다.
   const [docQuery, setDocQuery] = useState("");
@@ -151,7 +152,22 @@ function Dashboard({ session }: { session: Session }) {
       const e = await er.json();
       if (er.ok) setEvents(e.events ?? []);
       const c = await cr.json();
-      if (cr.ok) setCourses(c.courses ?? []);
+      if (cr.ok) {
+        const list: Course[] = c.courses ?? [];
+        setCourses(list);
+        // 강좌별 인원을 더하면 두 강좌에 등록한 학생이 두 번 세어진다 — 명단을 모아 고유 학생 수로
+        Promise.all(
+          list
+            .filter((x) => x.students > 0)
+            .map((x) =>
+              fetch(`/api/courses?members=${x.id}`, { headers: { Authorization: `Bearer ${token}` } })
+                .then((r) => (r.ok ? r.json() : { members: [] }))
+                .then((d) => (d.members ?? []) as { id: string }[])
+            )
+        )
+          .then((ls) => setStudentTotal(new Set(ls.flat().map((m) => m.id)).size))
+          .catch(() => setStudentTotal(null));
+      }
       // 자료 단위로 묶어둔다 — 문제는 자료에서 나오므로 자료 카드에서 관리하는 게 자연스럽다
       const qd = await qr.json();
       if (qr.ok) {
@@ -449,8 +465,8 @@ function Dashboard({ session }: { session: Session }) {
     else say("삭제하지 못했어요 — 다시 시도해 주세요.", true);
   }
 
-  async function uploadPdf(file: File) {
-    say("PDF 읽는 중…");
+  async function uploadFile(file: File) {
+    say("파일 읽는 중…");
     const fd = new FormData();
     fd.append("file", file);
     fd.append("kind", "problem");
@@ -464,7 +480,7 @@ function Dashboard({ session }: { session: Session }) {
     const d = await r.json();
     if (!r.ok) say(d.error || "업로드 실패", true);
     else {
-      say(`PDF를 등록했어요 (${d.chars}자)`);
+      say(`자료를 등록했어요 (${d.chars.toLocaleString()}자)`);
       ping();
     }
   }
@@ -615,10 +631,12 @@ function Dashboard({ session }: { session: Session }) {
             <p className="text-sub text-[13px] lg:text-[14px]">강좌</p>
             <p className="text-[24px] lg:text-[26px] font-bold tabular-nums mt-1">
               {courses.length}
-              <span className="text-sub text-[14px] lg:text-[15px] font-semibold">
-                {" "}
-                · 수강생 {courses.reduce((s, c) => s + c.students, 0)}명
-              </span>
+              {studentTotal !== null && (
+                <span className="text-sub text-[14px] lg:text-[15px] font-semibold">
+                  {" "}
+                  · 수강생 {studentTotal}명
+                </span>
+              )}
             </p>
           </div>
           <div className="card !rounded-[14px] p-4 lg:px-5 lg:py-[18px] col-span-2 lg:col-span-1">
@@ -798,7 +816,7 @@ function Dashboard({ session }: { session: Session }) {
             )}
           </h2>
           <p className="text-sub text-[14px] mt-1">
-            문제와 풀이를 붙여넣거나 PDF를 올리면 AI가 답할 때 근거로 써요.
+            문제와 풀이를 붙여넣거나 파일(PDF·한글·워드)을 올리면 AI가 답할 때 근거로 써요.
           </p>
         </div>
         {/* ROOM 안에선 업로드 대상이 그 강좌로 고정 — 고를 필요가 없다 */}
@@ -826,14 +844,14 @@ function Dashboard({ session }: { session: Session }) {
         />
         <div className="flex items-center justify-end gap-2 flex-wrap">
           <label className="btn btn-ghost h-12 px-5 inline-flex items-center cursor-pointer">
-            PDF 업로드
+            파일 업로드
             <input
               type="file"
-              accept="application/pdf"
+              accept=".pdf,.hwp,.hwpx,.docx,application/pdf"
               className="hidden"
               onChange={(e) => {
                 const f = e.target.files?.[0];
-                if (f) uploadPdf(f);
+                if (f) uploadFile(f);
                 e.target.value = "";
               }}
             />
@@ -898,7 +916,7 @@ function Dashboard({ session }: { session: Session }) {
               ? `${fmtLesson(lessonDate)} 수업 자료가 아직 없어요. 지금 올리면 이 날짜에 담겨요.`
               : inRoom
                 ? "이 ROOM엔 아직 자료가 없어요. 위에서 올리면 여기에 담겨요."
-                : "아직 등록된 자료가 없어요. 문제·풀이를 붙여넣거나 PDF를 올려보세요."}
+                : "아직 등록된 자료가 없어요. 문제·풀이를 붙여넣거나 PDF·한글·워드 파일을 올려보세요."}
           </p>
         )}
 

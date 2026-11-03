@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { serviceClient } from "@/lib/supabase";
-import { verifyInviteCode } from "@/lib/invite";
+import { verifyInviteCode, inviteExpired, expiredInviteRes } from "@/lib/invite";
 import { rateLimit, clientIp } from "@/lib/ratelimit";
 
 // GET ?code= — 원장 강사-초대 코드 검증 + 학원 미리보기 (가입 전 화면용)
@@ -10,6 +10,7 @@ export async function GET(req: Request) {
 
   const code = new URL(req.url).searchParams.get("code") ?? "";
   const adminId = verifyInviteCode(code, "t");
+  if (!adminId && inviteExpired(code)) return expiredInviteRes("원장님");
   if (!adminId) return NextResponse.json({ error: "유효하지 않은 초대 코드예요" }, { status: 404 });
 
   const db = serviceClient();

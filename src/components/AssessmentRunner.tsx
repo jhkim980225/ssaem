@@ -153,7 +153,7 @@ export default function AssessmentRunner({
             <details key={r.questionId} className="card group">
               <summary className="list-none [&::-webkit-details-marker]:hidden cursor-pointer px-5 py-4 flex items-center gap-2.5">
                 <b className="shrink-0 text-[15px]">{i + 1}번</b>
-                <span className={TAG} style={TAG_BLUE}>
+                <span className={TAG} style={TAG_GREEN}>
                   정답
                 </span>
                 <span className="flex-1 min-w-0 truncate text-[14px]" style={{ color: "var(--sub-2)" }}>
@@ -298,6 +298,7 @@ export default function AssessmentRunner({
 
 const TAG = "inline-flex items-center h-6 px-2 rounded-[8px] text-[12px] font-bold shrink-0 whitespace-nowrap";
 const TAG_BLUE: React.CSSProperties = { background: "var(--blue-weak)", color: "var(--blue)" };
+const TAG_GREEN: React.CSSProperties = { background: "var(--green-weak)", color: "var(--green)" };
 const TAG_RED: React.CSSProperties = { background: "var(--red-weak)", color: "var(--red)" };
 const TAG_GRAY: React.CSSProperties = { background: "var(--fill)", color: "var(--sub-2)" };
 
@@ -333,7 +334,7 @@ function ResultBody({ r }: { r: ResultRow }) {
               className="flex items-start gap-2.5 rounded-[10px] px-3.5 py-3 text-[14px] leading-relaxed"
               style={
                 isAnswer
-                  ? { ...TAG_BLUE, fontWeight: 700 }
+                  ? { ...TAG_GREEN, fontWeight: 700 }
                   : isMine
                     ? { ...TAG_RED, fontWeight: 700 }
                     : { background: "var(--fill-2)" }

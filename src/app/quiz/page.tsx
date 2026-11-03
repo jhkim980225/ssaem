@@ -10,6 +10,8 @@ type Course = { id: string; title: string };
 // 공부 모드일 때만 answer·explanation가 함께 온다
 type Q = { id: string; question: string; choices: string[]; answer?: number; explanation?: string };
 type Graded = { correct: boolean; answer: number; explanation: string };
+// 결과 화면의 틀린 문항 목록 — 채점 응답(정답 번호)을 그때그때 모아 둔다 (API 추가 없이)
+type Wrong = { n: number; question: string; chosen: number; answer: number };
 
 export default function QuizPage() {
   return (
@@ -36,6 +38,7 @@ function QuizInner() {
   const [picked, setPicked] = useState<number | null>(null);
   const [graded, setGraded] = useState<Graded | null>(null);
   const [score, setScore] = useState({ right: 0, done: 0 });
+  const [wrongs, setWrongs] = useState<Wrong[]>([]);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const [needLogin, setNeedLogin] = useState(false);
@@ -86,6 +89,7 @@ function QuizInner() {
     setPicked(null);
     setGraded(null);
     setScore({ right: 0, done: 0 });
+    setWrongs([]);
     setNeedLogin(Boolean(d?.needLogin));
     if (!r.ok) {
       setErr(d?.error ?? "문제를 불러오지 못했어요.");
@@ -118,6 +122,8 @@ function QuizInner() {
       if (!r.ok) return setErr(d?.error ?? "채점하지 못했어요.");
       setGraded(d);
       setScore((s) => ({ right: s.right + (d.correct ? 1 : 0), done: s.done + 1 }));
+      if (!d.correct)
+        setWrongs((w) => [...w, { n: idx + 1, question: qs[idx].question, chosen: choice, answer: d.answer }]);
     } catch {
       // 네트워크 throw 시 busy가 영원히 true로 남아 퀴즈가 잠기던 것 방지
       setErr("네트워크 오류로 채점하지 못했어요. 다시 시도해 주세요.");
@@ -318,7 +324,7 @@ function QuizInner() {
           </div>
           <div className="flex flex-col gap-3 self-start w-full lg:sticky lg:top-[76px]">
             <div className="card p-5 lg:p-6">
-              <p className="text-[15px] font-bold text-blue mb-2">정답 {(q.answer ?? 0) + 1}번</p>
+              <p className="text-[15px] font-bold text-green mb-2">정답 {(q.answer ?? 0) + 1}번</p>
               <p className="text-[15px] leading-relaxed break-keep" style={{ color: "var(--text-2)" }}>
                 {q.explanation || "이 문제는 해설이 없어요."}
               </p>
@@ -370,9 +376,9 @@ function QuizInner() {
           {graded && (
             <div
               className="animate-pop mt-4 rounded-[12px] p-4 flex flex-col gap-1.5"
-              style={{ background: graded.correct ? "var(--blue-weak)" : "var(--red-weak)" }}
+              style={{ background: graded.correct ? "var(--green-weak)" : "var(--red-weak)" }}
             >
-              <p className="text-[16px] font-bold" style={{ color: graded.correct ? "var(--blue)" : "var(--red)" }}>
+              <p className="text-[16px] font-bold" style={{ color: graded.correct ? "var(--green)" : "var(--red)" }}>
                 {graded.correct ? "정답이에요" : "틀렸어요"}
               </p>
               {graded.explanation && (
@@ -432,6 +438,26 @@ function QuizInner() {
               <br />
               다시 맞히면 극복한 오답으로 내려가요.
             </p>
+          )}
+          {wrongs.length > 0 && (
+            <ul aria-label="틀린 문항" className="mt-6 w-full flex flex-col gap-2 text-left">
+              {wrongs.map((w) => (
+                <li key={w.n} className="rounded-[10px] px-4 py-3.5 text-[14px]" style={{ background: "var(--red-weak)" }}>
+                  <div className="flex items-start justify-between gap-3">
+                    <span className="min-w-0 line-clamp-2 break-keep">
+                      <b className="tabular-nums">{w.n}번</b> · {w.question}
+                    </span>
+                    <b className="shrink-0" style={{ color: "var(--red)" }}>
+                      오답
+                    </b>
+                  </div>
+                  <p className="mt-1 text-[13px] tabular-nums" style={{ color: "var(--sub-2)" }}>
+                    내 답 <b style={{ color: "var(--red)" }}>{w.chosen + 1}번</b> · 정답{" "}
+                    <b style={{ color: "var(--green)" }}>{w.answer + 1}번</b>
+                  </p>
+                </li>
+              ))}
+            </ul>
           )}
           <div className="grid grid-cols-2 gap-2 w-full mt-6">
             <Link href="/quiz/notes" className="btn btn-ghost h-[50px] text-[16px] flex items-center justify-center">

@@ -2,9 +2,9 @@ import { NextResponse } from "next/server";
 import { serviceClient } from "@/lib/supabase";
 import { requireRole } from "@/lib/auth";
 import { rateLimit } from "@/lib/ratelimit";
-import { saveDocument, updateDocument, logDocumentEvent, ownCourseOrNull, lessonDateOrNull } from "@/lib/documents";
-
-const MAX_CONTENT = 200_000; // 임베딩 비용·메모리 방어
+import {
+  saveDocument, updateDocument, logDocumentEvent, ownCourseOrNull, lessonDateOrNull, MAX_CONTENT, tooLongMessage,
+} from "@/lib/documents";
 
 // 내 문서 목록 (청크 수 포함)
 export async function GET(req: Request) {
@@ -62,7 +62,7 @@ export async function POST(req: Request) {
   const kind = body?.kind === "style" ? "style" : "problem";
   if (!content) return NextResponse.json({ error: "content required" }, { status: 400 });
   if (content.length > MAX_CONTENT)
-    return NextResponse.json({ error: `자료는 ${MAX_CONTENT.toLocaleString()}자 이하로 등록해주세요` }, { status: 400 });
+    return NextResponse.json({ error: tooLongMessage() }, { status: 400 });
   const courseId = await ownCourseOrNull(uid, body?.courseId);
   const lessonDate = lessonDateOrNull(body?.lessonDate);
 
@@ -93,7 +93,7 @@ export async function PATCH(req: Request) {
   const content = (body?.content ?? "").toString().trim();
   if (!id || !content) return NextResponse.json({ error: "id, content required" }, { status: 400 });
   if (content.length > MAX_CONTENT)
-    return NextResponse.json({ error: `자료는 ${MAX_CONTENT.toLocaleString()}자 이하로 등록해주세요` }, { status: 400 });
+    return NextResponse.json({ error: tooLongMessage() }, { status: 400 });
 
   try {
     const r = await updateDocument({ documentId: id, teacherId: uid, rawText: content });

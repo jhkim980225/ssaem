@@ -1,8 +1,9 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { serviceClient } from "@/lib/supabase";
 import { userWithRole, requireRole } from "@/lib/auth";
 import { sameAcademy } from "@/lib/tenant";
 import { rateLimit, clientIp } from "@/lib/ratelimit";
+import { notify, notifyEnabled, maskName, clip } from "@/lib/notify";
 
 // 과제 제출 — 달력 수업 자료(document)에 학생이 텍스트로 제출한다.
 // POST {documentId, content} (학생): 제출/재제출 (문서당 1건 upsert)
@@ -26,7 +27,7 @@ export async function POST(req: Request) {
   const db = serviceClient();
   const { data: doc } = await db
     .from("documents")
-    .select("id, teacher_id, course_id, lesson_date")
+    .select("id, teacher_id, course_id, lesson_date, title")
     .eq("id", documentId)
     .maybeSingle();
   // 수업(달력) 자료에만 제출 가능
@@ -49,6 +50,17 @@ export async function POST(req: Request) {
     { onConflict: "document_id,student_id" }
   );
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  // 강사 알림 — 응답 뒤에 보낸다(지연·실패 무영향). 제출 내용은 싣지 않고 이름은 가린다.
+  if (notifyEnabled()) after(async () => {
+    const [{ data: who }, { data: t }] = await Promise.all([
+      db.from("profiles").select("name").eq("id", g.uid).maybeSingle(),
+      db.from("profiles").select("name").eq("id", doc.teacher_id).maybeSingle(),
+    ]);
+    await notify(
+      `[과제 제출] ${t?.name ?? ""} 선생님 · ${clip(doc.title ?? "수업 자료", 40)} · ${maskName(who?.name)}`
+    );
+  });
   return NextResponse.json({ ok: true });
 }
 

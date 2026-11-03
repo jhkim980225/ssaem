@@ -23,6 +23,8 @@ export default function MyHistoryPage() {
   const [openId, setOpenId] = useState<string | null>(null);
   const [msgs, setMsgs] = useState<Record<string, Msg[]>>({});
   const [msgErr, setMsgErr] = useState<Record<string, string>>({});
+  const [deleting, setDeleting] = useState<string | null>(null);
+  const [delErr, setDelErr] = useState("");
 
   useEffect(() => {
     if (!allowed || !session) return;
@@ -40,6 +42,7 @@ export default function MyHistoryPage() {
       return setOpenId(null);
     }
     setOpenId(id);
+    setDelErr("");
     if (msgs[id] || !session) return;
     const r = await fetch(`/api/conversations?id=${id}`, {
       headers: { Authorization: `Bearer ${session.access_token}` },
@@ -48,6 +51,28 @@ export default function MyHistoryPage() {
     // 실패를 남기지 않으면 스켈레톤이 영영 안 걷힌다. 다시 열면 재시도.
     setMsgErr((e) => ({ ...e, [id]: r.ok ? "" : d?.error ?? "대화를 불러오지 못했어요." }));
     if (r.ok) setMsgs((m) => ({ ...m, [id]: d?.messages ?? [] }));
+  }
+
+  async function remove(c: Conv) {
+    if (deleting || !session) return;
+    if (!confirm(`"${c.title || "제목 없음"}" 대화를 삭제할까요?
+주고받은 내용이 모두 지워지고 되돌릴 수 없어요.`)) return;
+    setDeleting(c.id);
+    setDelErr("");
+    try {
+      const r = await fetch(`/api/conversations?id=${c.id}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+      const d = await r.json().catch(() => null);
+      if (!r.ok) return setDelErr(d?.error ?? "삭제하지 못했어요.");
+      setConvs((l) => (l ?? []).filter((x) => x.id !== c.id));
+      setOpenId(null);
+    } catch {
+      setDelErr("네트워크 오류로 삭제하지 못했어요.");
+    } finally {
+      setDeleting(null);
+    }
   }
 
   if (gate) return gate;
@@ -93,6 +118,19 @@ export default function MyHistoryPage() {
       >
         이 선생님께 새로 질문하기
       </Link>
+      {delErr && (
+        <p role="alert" className="text-[13px] font-bold" style={{ color: "var(--red)" }}>
+          {delErr}
+        </p>
+      )}
+      <button
+        onClick={() => remove(c)}
+        disabled={deleting !== null}
+        className="self-center text-[13px] font-semibold cursor-pointer disabled:opacity-40"
+        style={{ color: "var(--red)" }}
+      >
+        {deleting === c.id ? "삭제 중…" : "대화 삭제"}
+      </button>
     </>
   );
 

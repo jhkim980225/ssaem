@@ -137,14 +137,14 @@ export default function BankNotesPage() {
                       {n.choices!.map((c, i) => {
                         const isAnswer = n.answerIdx === i;
                         const isMine = n.chosen === i;
-                        const tone = choiceTone(isAnswer ? "on" : isMine ? "bad" : null);
+                        const tone = choiceTone(isAnswer ? "right" : isMine ? "bad" : null);
                         return (
                           <div key={i} style={tone.box} className={CHOICE_BOX}>
                             <span className={CHOICE_NUM} style={tone.num}>
                               {i + 1}
                             </span>
                             <span className="flex-1 min-w-0"><ChoiceView text={c} /></span>
-                            {isAnswer && <span className="text-blue text-[12px] font-bold shrink-0 mt-0.5">정답</span>}
+                            {isAnswer && <span className="text-green text-[12px] font-bold shrink-0 mt-0.5">정답</span>}
                             {isMine && !isAnswer && (
                               <span className="text-[12px] font-bold shrink-0 mt-0.5" style={{ color: "var(--red)" }}>
                                 내 답

@@ -1012,7 +1012,7 @@ async function main() {
     const su = await json("/api/signup", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ role: "student", email: phId, name: "[E2E] 폰가입", phone }),
+      body: JSON.stringify({ agree: true, role: "student", email: phId, name: "[E2E] 폰가입", phone }),
     });
     ok("휴대폰만으로 학생 가입 200", su.status === 200, `status=${su.status}`);
 
@@ -1023,7 +1023,7 @@ async function main() {
         (await status("/api/signup", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ role, email: `x${Date.now()}@gmail.com`, password: "e2epass1234", name: "x", phone }),
+          body: JSON.stringify({ agree: true, role, email: `x${Date.now()}@gmail.com`, password: "e2epass1234", name: "x", phone }),
         })) === 400
       );
     }
@@ -1125,7 +1125,7 @@ async function main() {
       (await status("/api/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+        body: JSON.stringify({ agree: true,
           role: "student",
           email: `e2einv${Date.now()}`,
           password: "12345678",
@@ -1140,7 +1140,7 @@ async function main() {
       const made = await json("/api/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+        body: JSON.stringify({ agree: true,
           role: "student",
           email: sid,
           password: "12345678",

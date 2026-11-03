@@ -6,6 +6,9 @@ import { renderMd } from "@/components/Markdown";
 export type Source = { kind: string; preview: string };
 export type Msg = { role: "user" | "tutor"; text: string; sources?: Source[] };
 
+// 서버(api/ask)가 답변 끝 안내(잘림·도중 실패) 앞에 붙이는 보이지 않는 구분자. route.ts와 같은 값.
+const NOTICE = "\u2063";
+
 // memo: 스트리밍 중 델타가 올 때마다 전체 목록이 리렌더되는데,
 // 텍스트 안 바뀐 이전 말풍선은 renderMd 재파싱 스킵 (긴 대화에서 체감).
 // 피드백·추천 줄은 부모가 pl-[42px](아바타 32 + 간격 10)로 이 열에 맞춘다.
@@ -18,6 +21,7 @@ const TutorBubble = memo(function TutorBubble({
   emoji: string;
   sources?: Source[];
 }) {
+  const [body, notice] = text.split(NOTICE);
   return (
     <div className="bubble-in self-start flex items-start gap-2.5 max-w-[92%] lg:max-w-[80%]">
       <div className="avatar !w-8 !h-8 !text-[15px]">{emoji}</div>
@@ -26,8 +30,13 @@ const TutorBubble = memo(function TutorBubble({
           className="md rounded-[14px] rounded-tl-[6px] border border-line px-4 py-3.5 text-[15px] leading-[1.65] whitespace-pre-wrap min-w-0"
           style={{ background: "var(--fill-2)" }}
         >
-          {renderMd(text)}
+          {renderMd(body)}
         </div>
+        {notice?.trim() && (
+          <p role="status" className="text-[13px] leading-snug" style={{ color: "var(--sub-2)" }}>
+            {notice.trim()}
+          </p>
+        )}
         {sources && sources.length > 0 && (
           <details className="group self-start max-w-full">
             <summary className="list-none [&::-webkit-details-marker]:hidden inline-flex items-center gap-1.5 h-8 px-3 rounded-[8px] text-[13px] font-semibold cursor-pointer select-none" style={{ background: "var(--fill)", color: "var(--sub-2)" }}>

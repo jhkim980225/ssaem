@@ -7,6 +7,7 @@ import { supabase } from "@/lib/supabase";
 import { toEmail } from "@/lib/account";
 import { avatarEmoji } from "@/lib/avatar";
 import { StateScreen, StateIcon, BIG_BTN, BIG_BTN_GRAY } from "@/components/RoleGuard";
+import AgreeTerms from "@/components/AgreeTerms";
 
 type Teacher = { id: string; name: string; subject: string | null };
 
@@ -26,6 +27,8 @@ export default function JoinPage({ params }: { params: Promise<{ code: string }>
   // 강좌 ROOM 초대 코드(c.…)면 어느 반으로 들어가는지 보여준다
   const [course, setCourse] = useState<{ id: string; title: string | null } | null>(null);
   const [err, setErr] = useState("");
+  // 만료된 코드(410)는 "잘못된 링크"와 문구를 달리한다
+  const [expired, setExpired] = useState(false);
   const [session, setSession] = useState<Session | null>(null);
   const [joining, setJoining] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -36,6 +39,7 @@ export default function JoinPage({ params }: { params: Promise<{ code: string }>
   const [pw, setPw] = useState("");
   // 학생 가입은 일반 회원가입과 동일하게 휴대폰을 받는다 (뒷 4자리가 첫 비밀번호)
   const [phone, setPhone] = useState("");
+  const [agree, setAgree] = useState(false);
   const [msg, setMsg] = useState("");
 
   useEffect(() => {
@@ -45,7 +49,10 @@ export default function JoinPage({ params }: { params: Promise<{ code: string }>
         if (d.teacher) {
           setTeacher(d.teacher);
           setCourse(d.course ?? null);
-        } else setErr(d.error ?? "확인 실패");
+        } else {
+          setExpired(!!d.expired);
+          setErr(d.error ?? "확인 실패");
+        }
       })
       .catch(() => setErr("확인 실패"));
     supabase.auth.getSession().then(({ data }) => setSession(data.session));
@@ -72,6 +79,7 @@ export default function JoinPage({ params }: { params: Promise<{ code: string }>
   async function submit() {
     // 버튼 disabled만으론 Enter 연타를 못 막는다
     if (busy) return;
+    if (mode === "signup" && !agree) return setMsg("이용약관·개인정보처리방침에 동의해 주세요");
     setBusy(true);
     setMsg("");
     try {
@@ -81,7 +89,7 @@ export default function JoinPage({ params }: { params: Promise<{ code: string }>
         headers: { "Content-Type": "application/json" },
         // 초대코드를 안 넘기면 서버가 학원을 못 찾아 "기본 학원"으로 프로필을 만든다.
         // 그러면 학생의 academy_id와 실제 수강 강사의 학원이 어긋난다 (테넌트 경계 깨짐).
-        body: JSON.stringify({ role: "student", name, email, phone, studentInviteCode: code }),
+        body: JSON.stringify({ role: "student", name, email, phone, studentInviteCode: code, agree }),
       });
       const d = await r.json();
       if (!r.ok) {
@@ -107,7 +115,7 @@ export default function JoinPage({ params }: { params: Promise<{ code: string }>
     return (
       <StateScreen
         icon={<StateIcon paths={BROKEN_LINK} />}
-        title="초대 링크를 확인할 수 없어요"
+        title={expired ? "초대 링크가 만료됐어요" : "초대 링크를 확인할 수 없어요"}
         actions={
           <>
             <Link href="/login?role=student" className={BIG_BTN}>
@@ -120,8 +128,12 @@ export default function JoinPage({ params }: { params: Promise<{ code: string }>
         }
       >
         {err}
-        <br />
-        선생님께 새 QR이나 링크를 받아 주세요.
+        {!expired && (
+          <>
+            <br />
+            선생님께 새 QR이나 링크를 받아 주세요.
+          </>
+        )}
       </StateScreen>
     );
 
@@ -238,12 +250,17 @@ export default function JoinPage({ params }: { params: Promise<{ code: string }>
 
               <div className="flex-1 min-h-8" />
 
+              {mode === "signup" && (
+                <div className="mb-4">
+                  <AgreeTerms checked={agree} onChange={setAgree} />
+                </div>
+              )}
               {msg && (
                 <p role="alert" className="mb-3 rounded-[12px] px-4 py-3 text-[14px] font-bold" style={{ background: "var(--red-weak)", color: "var(--red)" }}>
                   {msg}
                 </p>
               )}
-              <button onClick={submit} disabled={busy} className="btn btn-primary w-full h-[50px] text-[17px]">
+              <button onClick={submit} disabled={busy || (mode === "signup" && !agree)} className="btn btn-primary w-full h-[50px] text-[17px]">
                 {busy ? "처리 중…" : mode === "signup" ? "가입하고 등록하기" : "로그인하고 등록하기"}
               </button>
               <p className="mt-4 text-center text-[14px] text-sub">

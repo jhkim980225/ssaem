@@ -1,14 +1,19 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { serviceClient } from "@/lib/supabase";
 import { retrieve } from "@/lib/retrieve";
-import { generateStream, llmModel, hasLlmKey } from "@/lib/anthropic";
+import { generateStream, llmModel, hasLlmKey, type StreamMeta } from "@/lib/anthropic";
 import { buildTutorSystem } from "@/lib/prompt";
 import { requireUser } from "@/lib/auth";
 import { sameAcademy } from "@/lib/tenant";
 import { rateLimit } from "@/lib/ratelimit";
+import { notify, clip } from "@/lib/notify";
 
 const HISTORY_LIMIT = 10; // 직전 메시지 N개만 맥락으로 (토큰 방어)
 const MAX_QUESTION = 2000; // 임베딩·LLM 토큰 폭탄 방어
+// 본문 끝 안내(잘림·도중 실패) 앞에 붙이는 보이지 않는 구분자. 헤더는 스트리밍 시작 후
+// 못 바꾸니 본문으로 보낸다. ChatPanel은 이걸로 안내를 떼어 따로 그리고, 구분자를 모르는
+// 옛 클라이언트(캐시된 PWA)에는 안내 문장이 답변 끝에 그냥 글자로 보인다. ChatPanel과 같은 값.
+const NOTICE = "\u2063";
 
 export async function POST(req: Request) {
   // 로그인 필수 — 익명 질문은 이력이 안 남고 남용 방어가 IP뿐이라 닫았다
@@ -49,6 +54,28 @@ export async function POST(req: Request) {
   if (!(await sameAcademy(db, studentId, teacherId)))
     return NextResponse.json({ error: "teacher not found" }, { status: 404 });
 
+  // 수강 경계 — 학생 노출 규칙(enrollment 기준)을 검색에도 적용. 클라이언트 courseId를 믿으면
+  // 수강 해지한 학생·API 직접 호출이 다른 반 자료를 근거로 답을 받는다.
+  // 강사·원장(자가 테스트·점검)은 기존대로 전체.
+  let allowedCourses: string[] | null = null;
+  if (studentId !== teacherId) {
+    const [{ data: me }, { data: enr }] = await Promise.all([
+      db.from("profiles").select("role").eq("id", studentId).maybeSingle(),
+      db
+        .from("enrollments")
+        .select("course_id, courses!inner(teacher_id)")
+        .eq("student_id", studentId)
+        .eq("courses.teacher_id", teacherId),
+    ]);
+    if (!["teacher", "admin", "dev"].includes(me?.role ?? "")) {
+      allowedCourses = ((enr ?? []) as { course_id: string }[]).map((e) => e.course_id);
+      // 화면은 수강 중인 ROOM만 칩으로 보여주니 정상 흐름에선 안 걸린다. 조용히 공용으로
+      // 돌리면 "이 강좌 자료에서만 찾아요" 표시와 실제 검색 범위가 어긋난다 — 막고 알린다.
+      if (courseId && !allowedCourses.includes(courseId))
+        return NextResponse.json({ error: "이 강좌 수강생만 질문할 수 있어요. 새로고침해 주세요." }, { status: 403 });
+    }
+  }
+
   // 이어가기 대화 소유권 검증 — 남의 conversationId로 메시지 주입·이력 열람 차단.
   if (conversationId) {
     const { data: conv } = await db
@@ -71,7 +98,7 @@ export async function POST(req: Request) {
     // 검색 실패(RPC/lexical DB 에러)해도 라우트를 500으로 죽이지 않는다 —
     // 근거 없이(빈 배열) 답변을 이어가는 편이 'Internal Server Error'가 답변 말풍선에
     // 렌더링되는 것보다 낫다.
-    retrieve(teacherId, question, 5, courseId).catch((e) => {
+    retrieve(teacherId, question, 5, courseId, allowedCourses).catch((e) => {
       console.error("retrieve:", e instanceof Error ? e.message : e);
       return [] as Awaited<ReturnType<typeof retrieve>>;
     }),
@@ -86,6 +113,11 @@ export async function POST(req: Request) {
   ]);
   if (!teacher) return NextResponse.json({ error: "teacher not found" }, { status: 404 });
   const tp = Array.isArray(teacher.teacher_profiles) ? teacher.teacher_profiles[0] : teacher.teacher_profiles;
+
+  // 강사 알림 — 응답이 끝난 뒤 보낸다(지연·실패 무영향). 강사 본인 자가 테스트는 제외.
+  // 학생 이름은 싣지 않는다 — 질문 앞부분만으로 충분하다.
+  if (studentId !== teacherId)
+    after(() => notify(`[새 질문] ${teacher.name} 선생님 · "${clip(question)}"`));
 
   const system = buildTutorSystem(
     { name: teacher.name, subject: tp?.subject, tone_note: tp?.tone_note },
@@ -130,21 +162,27 @@ export async function POST(req: Request) {
           controller.enqueue(encoder.encode(t));
         } catch {}
       };
+      const meta: StreamMeta = {};
       try {
-        for await (const delta of generateStream(system, [
-          ...history,
-          { role: "user", content: question },
-        ])) {
+        for await (const delta of generateStream(
+          system,
+          [...history, { role: "user", content: question }],
+          undefined,
+          meta
+        )) {
           answer += delta;
           push(delta);
         }
+        // max_tokens에서 잘림 — 표시가 없으면 학생은 답이 원래 거기까지인 줄 안다
+        if (meta.truncated)
+          push(`${NOTICE}\n\n답변이 길어 중간에 끊겼어요 — '이어서'라고 보내면 계속 설명해요.`);
       } catch (e) {
         const raw = e instanceof Error ? e.message : "unknown";
-        // 무료 쿼터 초과는 학생에게 친절하게 (영문 quota 에러 원문 노출 방지)
-        const msg = /429|quota|rate/i.test(raw)
+        // 프로바이더 에러 원문(영문·내부 정보)은 학생에게 보이지 않는다 — 다시 시도 안내만
+        const msg = /429|quota|rate|RESOURCE_EXHAUSTED/i.test(raw)
           ? "⚠️ 지금 질문이 몰려 있어요. 잠시 후(1분 정도) 다시 시도해 주세요."
-          : `⚠️ 답변 생성 실패: ${raw.slice(0, 120)}`;
-        if (!answer) push(msg);
+          : "⚠️ 답변을 만들지 못했어요. 잠시 후 다시 질문해 주세요.";
+        push(answer ? `${NOTICE}\n\n답변 도중 끊겼어요. 잠시 후 다시 질문해 주세요.` : msg);
         console.error("generate:", raw);
       }
       try {

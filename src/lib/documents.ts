@@ -3,6 +3,10 @@ import { embedMany } from "./embed";
 import { chunkText } from "./chunk";
 import { hasLlmKey, generateText } from "./anthropic";
 
+/** 자료 1건 글자수 상한 — 임베딩 비용·메모리 방어. 붙여넣기·파일(추출 후) 모두 같은 값 */
+export const MAX_CONTENT = 200_000;
+export const tooLongMessage = () => `자료는 ${MAX_CONTENT.toLocaleString()}자 이하로 등록해주세요`;
+
 // 수업(달력) 자료 AI 요약 — 강사가 중구난방으로 적은 메모를 학생용 2~3문장으로.
 // 실패·키 없음이면 null: 요약은 편의 기능이라 업로드를 막으면 안 된다.
 export async function summarizeLesson(rawText: string): Promise<string | null> {

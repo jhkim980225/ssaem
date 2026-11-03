@@ -91,7 +91,7 @@ export default function MyPage() {
         <span className="grid place-items-center w-14 h-14 shrink-0 rounded-full bg-blue text-white text-[22px] font-bold">
           {avatarEmoji(name || loginId)}
         </span>
-        <div className="min-w-0 flex flex-col gap-0.5">
+        <div className="min-w-0 flex-1 flex flex-col gap-0.5">
           <p className="text-[19px] font-bold truncate">{name || loginId}</p>
           {/* truncate 금지 — 320px 좌열에서 가입일이 잘린다. 줄바꿈으로 전부 보여준다 */}
           <p className="text-sub text-[13px] break-keep">
@@ -100,6 +100,9 @@ export default function MyPage() {
             {joined ? ` · ${joined} 가입` : ""}
           </p>
         </div>
+        <Link href="/my/account" className="chip shrink-0 ml-auto !text-[13px]">
+          수정
+        </Link>
       </section>
 
       {/* 출석 */}
@@ -130,7 +133,14 @@ export default function MyPage() {
 
       {/* 내 선생님 */}
       <section className="rise d4 order-5 card p-5 flex flex-col gap-3">
-        <h2 className="text-[16px] font-bold">내 선생님</h2>
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="text-[16px] font-bold">내 선생님</h2>
+          {teachers && teachers.length > 0 && (
+            <Link href="/my/courses" className="text-sub text-[13px] font-semibold hover:underline">
+              수강 관리
+            </Link>
+          )}
+        </div>
         {teachers === null && <div className="skel h-10 !rounded-[10px]" />}
         {teachers && teachers.length === 0 && (
           <p className="text-sub text-[13px]">

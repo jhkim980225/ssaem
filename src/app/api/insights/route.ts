@@ -1,12 +1,13 @@
 import { NextResponse } from "next/server";
 import { serviceClient } from "@/lib/supabase";
 import { requireRole } from "@/lib/auth";
+import { fetchAll } from "../admin/_lib/fetch-all";
 
 const DAYS = 14;
 const PREVIEW = 80;
 
 // 강사 인사이트: 질문 추이 · 평가 · 자료 공백(근거 약한 답변).
-// ponytail: 최근 1000개 메시지 JS 집계 — 학원 규모에선 충분, 느려지면 SQL 집계 RPC로.
+// ponytail: 14일 메시지 JS 집계 — 학원 규모에선 충분, 느려지면 SQL 집계 RPC로.
 export async function GET(req: Request) {
   const gate = await requireRole(req, "teacher");
   if ("res" in gate) return gate.res;
@@ -14,15 +15,20 @@ export async function GET(req: Request) {
 
   const db = serviceClient();
   const since = new Date(Date.now() - DAYS * 86_400_000).toISOString();
-  const { data, error } = await db
-    .from("messages")
-    .select(
-      "id, conversation_id, role, content, created_at, conversations!inner(teacher_id), message_feedback(rating), message_citations(similarity)"
-    )
-    .eq("conversations.teacher_id", uid)
-    .gte("created_at", since)
-    .order("created_at", { ascending: true })
-    .limit(1000);
+  // .limit(1000)은 PostgREST 캡과 같아서 바쁜 강사는 14일 중 앞쪽 1000건만 집계됐다 — 끝까지 읽는다.
+  // id는 2차 정렬키 — created_at 동률이면 페이지 경계에서 행이 중복·누락된다
+  const { data, error } = await fetchAll((from, to) =>
+    db
+      .from("messages")
+      .select(
+        "id, conversation_id, role, content, created_at, conversations!inner(teacher_id), message_feedback(rating), message_citations(similarity)"
+      )
+      .eq("conversations.teacher_id", uid)
+      .gte("created_at", since)
+      .order("created_at", { ascending: true })
+      .order("id", { ascending: true })
+      .range(from, to)
+  );
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   type Row = {
@@ -34,7 +40,7 @@ export async function GET(req: Request) {
     message_feedback: { rating: number } | { rating: number }[] | null;
     message_citations: { similarity: number | null }[];
   };
-  const rows = (data ?? []) as unknown as Row[];
+  const rows = data as unknown as Row[];
   const ratingOf = (m: Row): number | null => {
     const f = m.message_feedback;
     return Array.isArray(f) ? f[0]?.rating ?? null : f?.rating ?? null;

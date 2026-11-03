@@ -7,6 +7,7 @@ import { toEmail, isValidId } from "@/lib/account";
 import { avatarEmoji } from "@/lib/avatar";
 import { useGate } from "@/components/RoleGuard";
 import InviteBox from "@/components/InviteBox";
+import AgreeTerms from "@/components/AgreeTerms";
 
 type AdminData = {
   admin: { name: string };
@@ -35,6 +36,7 @@ type AdminData = {
   }[];
   students: { id: string; name: string; questions: number; lastAt: string | null }[];
   lowRated: { question: string; answer: string; teacher: string; created_at: string }[];
+  assessments: { id: string; title: string; teacher: string; created_at: string; attempts: number }[];
   invite: { url: string; qrSvg: string };
 };
 
@@ -70,6 +72,7 @@ function AuthForm() {
   const [email, setEmail] = useState("");
   const [pw, setPw] = useState("");
   const [inviteCode, setInviteCode] = useState("");
+  const [agree, setAgree] = useState(false);
   const [msg, setMsg] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -80,6 +83,10 @@ function AuthForm() {
       setMsg("이메일이 아니라 아이디 형식(영문·숫자·._- 2~30자)으로 입력해 주세요.");
       return;
     }
+    if (mode === "signup" && !agree) {
+      setMsg("이용약관·개인정보처리방침에 동의해 주세요.");
+      return;
+    }
     setBusy(true);
     setMsg("");
     try {
@@ -87,7 +94,7 @@ function AuthForm() {
       const r = await fetch("/api/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ role: "admin", academyName, name, email, password: pw, inviteCode }),
+        body: JSON.stringify({ role: "admin", academyName, name, email, password: pw, inviteCode, agree }),
       });
       const d = await r.json();
       if (!r.ok) {
@@ -165,6 +172,7 @@ function AuthForm() {
           비밀번호
           <input className="field" type="password" placeholder="8자 이상" value={pw} onChange={(e) => setPw(e.target.value)} />
         </label>
+        {mode === "signup" && <AgreeTerms checked={agree} onChange={setAgree} />}
       </div>
 
       {/* msg는 실패에만 세팅된다 — 성공 톤(파랑)으로 보이면 안 됨 */}
@@ -173,7 +181,7 @@ function AuthForm() {
           {msg}
         </p>
       )}
-      <button onClick={submit} disabled={busy} className="btn btn-primary h-[50px] mt-6 text-[17px] disabled:opacity-60">
+      <button onClick={submit} disabled={busy || (mode === "signup" && !agree)} className="btn btn-primary h-[50px] mt-6 text-[17px] disabled:opacity-60">
         {busy ? "처리 중…" : mode === "signup" ? "학원 개설하기" : "로그인"}
       </button>
       {mode !== "signup" && (
@@ -199,6 +207,14 @@ function Dashboard({ session }: { session: Session }) {
   // 학생 연락처·메모 — 개인정보라 펼친 학생만 조회한다 (목록에 싣지 않는다)
   const [openStu, setOpenStu] = useState<string | null>(null);
   const [stuDetail, setStuDetail] = useState<Record<string, { phone: string; note: string }>>({});
+  // 학원명 수정 (null = 보기 모드)
+  const [nameDraft, setNameDraft] = useState<string | null>(null);
+  const [nameMsg, setNameMsg] = useState("");
+  // 학생 제명 확인 모달 대상
+  const [expel, setExpel] = useState<{ id: string; name: string } | null>(null);
+  const [expelBusy, setExpelBusy] = useState(false);
+  const [expelMsg, setExpelMsg] = useState("");
+  const [csvMsg, setCsvMsg] = useState("");
 
   useEffect(() => {
     fetch(`/api/admin?days=${days}`, { headers: { Authorization: `Bearer ${session.access_token}` } })
@@ -247,6 +263,73 @@ function Dashboard({ session }: { session: Session }) {
           ? { ...prev, teachers: prev.teachers.map((t) => (t.id === teacherId ? { ...t, is_public: d.is_public } : t)) }
           : prev
       );
+  }
+
+  const auth = { Authorization: `Bearer ${session.access_token}` };
+
+  async function saveName() {
+    if (nameDraft === null) return;
+    setNameMsg("");
+    const r = await fetch("/api/admin/academy", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...auth },
+      body: JSON.stringify({ name: nameDraft }),
+    }).catch(() => null);
+    const d = await r?.json().catch(() => null);
+    if (!r?.ok) return setNameMsg(d?.error || "학원 이름을 바꾸지 못했어요.");
+    setData((prev) => (prev ? { ...prev, academy: { ...prev.academy, name: d.name } } : prev));
+    setNameDraft(null);
+  }
+
+  async function confirmExpel() {
+    if (!expel || expelBusy) return;
+    setExpelBusy(true);
+    setExpelMsg("");
+    try {
+      const r = await fetch(`/api/admin/students?id=${expel.id}`, { method: "DELETE", headers: auth });
+      if (!r.ok) {
+        const d = await r.json().catch(() => null);
+        return setExpelMsg(d?.error || "학생을 내보내지 못했어요.");
+      }
+      const id = expel.id;
+      setData((prev) => {
+        if (!prev) return prev;
+        const gone = prev.students.find((s) => s.id === id);
+        return {
+          ...prev,
+          students: prev.students.filter((s) => s.id !== id),
+          stats: {
+            ...prev.stats,
+            students: prev.stats.students - 1,
+            activeStudents: prev.stats.activeStudents - (gone && gone.questions > 0 ? 1 : 0),
+          },
+        };
+      });
+      setOpenStu(null);
+      setExpel(null);
+    } catch {
+      setExpelMsg("학생을 내보내지 못했어요 — 네트워크를 확인해 주세요.");
+    } finally {
+      setExpelBusy(false);
+    }
+  }
+
+  /** 평가 결과 CSV 내려받기 — 강사 화면과 같은 API (원장은 우리 학원 강사 평가 전부 허용) */
+  async function downloadResults(id: string, title: string) {
+    setCsvMsg("");
+    try {
+      const r = await fetch(`/api/assessments/${id}/results?csv=1`, { headers: auth });
+      if (!r.ok) return setCsvMsg("결과를 내려받지 못했어요.");
+      const blob = await r.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${title}_결과.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      setCsvMsg("결과를 내려받지 못했어요 — 네트워크를 확인해 주세요.");
+    }
   }
 
   if (err)
@@ -300,6 +383,9 @@ function Dashboard({ session }: { session: Session }) {
     ...(rev && rev.reviews.length
       ? [{ href: "#reviews", title: "수강평", sub: `${rev.reviews.length}건 · 평균 ★ ${revAvg.toFixed(1)}` }]
       : []),
+    ...(data.assessments.length
+      ? [{ href: "#assessments", title: "평가 결과", sub: `${data.assessments.length}건 · CSV 내려받기` }]
+      : []),
     { href: "#invite", title: "강사 초대", sub: "QR·링크로 강사를 초대해요" },
   ];
 
@@ -310,9 +396,50 @@ function Dashboard({ session }: { session: Session }) {
         <div className="flex items-start justify-between gap-3 min-w-0">
           <div className="min-w-0">
             <p className="text-[12px] lg:text-[14px] font-bold text-blue">학원장 대시보드</p>
-            <h1 className="mt-0.5 text-[20px] lg:text-[28px] font-bold tracking-[-0.5px] break-keep">
-              {data.academy.name}
-            </h1>
+            {nameDraft === null ? (
+              <div className="mt-0.5 flex items-center gap-1 min-w-0">
+                <h1 className="text-[20px] lg:text-[28px] font-bold tracking-[-0.5px] break-keep min-w-0">
+                  {data.academy.name}
+                </h1>
+                <button
+                  className="shrink-0 h-8 px-2 text-sub text-[13px] font-semibold"
+                  onClick={() => {
+                    setNameMsg("");
+                    setNameDraft(data.academy.name);
+                  }}
+                >
+                  이름 수정
+                </button>
+              </div>
+            ) : (
+              <div className="mt-1.5 flex flex-col gap-2">
+                <div className="flex items-center gap-2">
+                  <input
+                    className="field !py-2 min-w-0 flex-1"
+                    aria-label="학원 이름"
+                    maxLength={40}
+                    value={nameDraft}
+                    onChange={(e) => setNameDraft(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") saveName();
+                      if (e.key === "Escape") setNameDraft(null);
+                    }}
+                    autoFocus
+                  />
+                  <button className="btn btn-primary shrink-0 h-10 px-4 text-[14px]" onClick={saveName}>
+                    저장
+                  </button>
+                  <button className="btn btn-gray shrink-0 h-10 px-3 text-[14px]" onClick={() => setNameDraft(null)}>
+                    취소
+                  </button>
+                </div>
+                {nameMsg && (
+                  <p className="text-[13px] font-semibold" style={{ color: "var(--red)" }}>
+                    {nameMsg}
+                  </p>
+                )}
+              </div>
+            )}
             <p className="mt-1 text-sub text-[13px] lg:text-[14px] break-all">
               학생 초대 URL: /a/{data.academy.slug} · {data.admin.name} 원장
             </p>
@@ -517,6 +644,16 @@ function Dashboard({ session }: { session: Session }) {
                     <p className="text-[11px] text-sub mt-1.5">
                       입력·수정은 강사 화면(학생별 리포트)에서 해요.
                     </p>
+                    <button
+                      className="mt-2 h-8 text-[13px] font-semibold"
+                      style={{ color: "var(--red)" }}
+                      onClick={() => {
+                        setExpelMsg("");
+                        setExpel({ id: s.id, name: s.name });
+                      }}
+                    >
+                      학원에서 내보내기
+                    </button>
                   </div>
                 )}
               </div>
@@ -641,6 +778,38 @@ function Dashboard({ session }: { session: Session }) {
             ))}
           </section>
         )}
+
+        {/* 평가 결과 — 원장 화면엔 CSV 버튼이 없어 API로만 받을 수 있었다 (QZ-09) */}
+        {data.assessments.length > 0 && (
+          <section id="assessments" className="rise d3 card p-5 lg:p-6 scroll-mt-20 min-w-0">
+            <h2 className={h2}>평가 결과 {data.assessments.length}건</h2>
+            <p className="text-sub text-[13px] mt-1 mb-2">
+              선생님들이 올린 평가예요. 응시 결과를 CSV로 내려받아 구글시트에 붙여넣을 수 있어요.
+            </p>
+            {csvMsg && (
+              <p className="mb-2 text-[13px] font-semibold" style={{ color: "var(--red)" }}>
+                {csvMsg}
+              </p>
+            )}
+            {data.assessments.map((a) => (
+              <div key={a.id} className="flex items-center gap-3 py-3.5 border-t border-line">
+                <div className="min-w-0 flex-1">
+                  <p className="text-[15px] font-bold truncate">{a.title}</p>
+                  <p className="mt-0.5 text-[13px] text-sub">
+                    {a.teacher} · {md(a.created_at)} · 응시 {a.attempts}명
+                  </p>
+                </div>
+                <button
+                  onClick={() => downloadResults(a.id, a.title)}
+                  disabled={a.attempts === 0}
+                  className="btn btn-ghost shrink-0 h-[34px] px-3 text-[13px]"
+                >
+                  CSV 받기
+                </button>
+              </div>
+            ))}
+          </section>
+        )}
       </div>
 
       {/* 강사 초대 */}
@@ -663,6 +832,49 @@ function Dashboard({ session }: { session: Session }) {
           학생 화면으로 보기 →
         </Link>
       </section>
+
+      {/* 학생 제명 확인 — 화면에서 되돌릴 방법이 없어 한 번 더 묻는다 */}
+      {expel && (
+        <div
+          className="fixed inset-0 z-50 grid place-items-center px-4"
+          style={{ background: "rgba(0, 0, 0, 0.4)" }}
+          onClick={() => !expelBusy && setExpel(null)}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="expel-title"
+            className="animate-pop card w-full max-w-sm p-5"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 id="expel-title" className="font-bold text-[17px] break-keep">
+              {expel.name} 학생을 학원에서 내보낼까요?
+            </h2>
+            <ul className="mt-2 text-[14px] text-sub leading-relaxed list-disc pl-5 break-keep">
+              <li>우리 학원 선생님 목록·질문·평가를 더 이상 쓸 수 없어요.</li>
+              <li>학생 계정과 지금까지의 학습 기록은 지워지지 않아요.</li>
+            </ul>
+            {expelMsg && (
+              <p className="mt-3 text-[13px] font-semibold" style={{ color: "var(--red)" }}>
+                {expelMsg}
+              </p>
+            )}
+            <div className="mt-5 grid grid-cols-2 gap-2">
+              <button className="btn btn-gray h-11 text-[15px]" onClick={() => setExpel(null)} disabled={expelBusy}>
+                취소
+              </button>
+              <button
+                className="btn h-11 text-[15px] text-white"
+                style={{ background: "var(--red)" }}
+                onClick={confirmExpel}
+                disabled={expelBusy}
+              >
+                {expelBusy ? "처리 중…" : "내보내기"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

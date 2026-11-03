@@ -59,7 +59,7 @@ function QuestionCard({
         {g && (
           <span
             className="ml-auto text-[13px] font-bold shrink-0"
-            style={{ color: g.correct ? "var(--blue)" : "var(--red)" }}
+            style={{ color: g.correct ? "var(--green)" : "var(--red)" }}
           >
             {g.correct ? "정답" : "오답"}
           </span>
@@ -71,7 +71,7 @@ function QuestionCard({
       <div className="flex flex-col gap-2.5">
         {item.choices.map((c, ci) => {
           const mine = mineIdx === ci;
-          const tone = choiceTone(g ? (ci === g.answerIdx ? "on" : mine ? "bad" : null) : mine ? "on" : null);
+          const tone = choiceTone(g ? (ci === g.answerIdx ? "right" : mine ? "bad" : null) : mine ? "on" : null);
           return (
             <button
               key={ci}
@@ -86,7 +86,7 @@ function QuestionCard({
               <span className="flex-1 min-w-0">
                 <ChoiceView text={c} />
               </span>
-              {g && ci === g.answerIdx && <span className="text-[12px] font-bold text-blue shrink-0 mt-0.5">정답</span>}
+              {g && ci === g.answerIdx && <span className="text-[12px] font-bold text-green shrink-0 mt-0.5">정답</span>}
               {g && mine && ci !== g.answerIdx && (
                 <span className="text-[12px] font-bold shrink-0 mt-0.5" style={{ color: "var(--red)" }}>
                   내 답
@@ -103,7 +103,7 @@ function QuestionCard({
       {/* 채점 후 해설 */}
       {g && (
         <div className="flex flex-col gap-2">
-          <p className="text-[15px] font-bold" style={{ color: g.correct ? "var(--blue)" : "var(--red)" }}>
+          <p className="text-[15px] font-bold" style={{ color: g.correct ? "var(--green)" : "var(--red)" }}>
             {g.correct ? "정답이에요" : `틀렸어요 — 정답은 ${g.answerIdx + 1}번`}
           </p>
           {g.explanation && (

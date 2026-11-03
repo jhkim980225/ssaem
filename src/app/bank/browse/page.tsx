@@ -474,14 +474,14 @@ function BrowseInner() {
                   {isTheory && (
                     <div className="flex flex-col gap-2">
                       {n.choices!.map((c, i) => {
-                        const tone = choiceTone(show && n.answerIdx === i ? "on" : null);
+                        const tone = choiceTone(show && n.answerIdx === i ? "right" : null);
                         return (
                           <div key={i} style={tone.box} className={CHOICE_BOX}>
                             <span className={CHOICE_NUM} style={tone.num}>
                               {i + 1}
                             </span>
                             <span className="flex-1 min-w-0"><ChoiceView text={c} highlight={result.q} /></span>
-                            {show && n.answerIdx === i && <span className="text-blue text-[12px] font-bold shrink-0 mt-0.5">정답</span>}
+                            {show && n.answerIdx === i && <span className="text-green text-[12px] font-bold shrink-0 mt-0.5">정답</span>}
                           </div>
                         );
                       })}

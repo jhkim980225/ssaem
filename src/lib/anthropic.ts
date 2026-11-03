@@ -26,12 +26,17 @@ export async function generateText(
   return out;
 }
 
+// 스트림 종료 정보. 호출부가 넘긴 객체에 채운다 — yield 값을 문자열로 유지해야
+// generateText 등 기존 소비자가 그대로 동작한다.
+export type StreamMeta = { truncated?: boolean };
+
 // 답변 스트리밍. ANTHROPIC_API_KEY 우선, 없으면 GEMINI_API_KEY(무료 티어) 폴백.
 // 텍스트 델타를 yield하는 async generator.
 export async function* generateStream(
   system: string,
   messages: ChatMsg[],
-  maxTokens = 1200
+  maxTokens = 1200,
+  meta: StreamMeta = {}
 ): AsyncGenerator<string> {
   if (process.env.ANTHROPIC_API_KEY) {
     const stream = anthropic.messages.stream({
@@ -43,6 +48,8 @@ export async function* generateStream(
     for await (const event of stream) {
       if (event.type === "content_block_delta" && event.delta.type === "text_delta")
         yield event.delta.text;
+      else if (event.type === "message_delta" && event.delta.stop_reason === "max_tokens")
+        meta.truncated = true;
     }
     return;
   }
@@ -76,21 +83,38 @@ export async function* generateStream(
   const reader = r.body.getReader();
   const dec = new TextDecoder();
   let buf = "";
+  let got = false;
+  let finish: string | null = null;
   while (true) {
     const { done, value } = await reader.read();
-    if (done) break;
-    buf += dec.decode(value, { stream: true });
+    // 끝나면 개행을 붙여 마지막 줄까지 처리 (개행 없이 끝난 data 줄 유실 방지)
+    buf += done ? "\n" : dec.decode(value, { stream: true });
     const lines = buf.split("\n");
     buf = lines.pop() ?? ""; // 마지막 미완성 라인은 버퍼에 유지
     for (const line of lines) {
       const data = line.replace(/^data:\s*/, "").trim();
       if (!data || data === "[DONE]" || !line.startsWith("data:")) continue;
+      let ev;
       try {
-        const delta = JSON.parse(data).choices?.[0]?.delta?.content;
-        if (delta) yield delta;
+        ev = JSON.parse(data);
       } catch {
-        /* keep-alive 등 무시 */
+        continue; // keep-alive 등 무시
       }
+      // 200으로 시작한 뒤 스트림 안에서 에러를 보내는 경우가 있다 (쿼터·과부하).
+      // 무시하면 실패가 '빈 정상 응답'이 된다 — 던져서 호출부의 에러 처리로 보낸다.
+      const err = (Array.isArray(ev) ? ev[0] : ev)?.error;
+      if (err) throw new Error(`gemini stream ${err.code ?? ""}: ${String(err.message ?? err).slice(0, 300)}`);
+      const choice = ev.choices?.[0];
+      const delta = choice?.delta?.content;
+      if (delta) {
+        got = true;
+        yield delta;
+      }
+      if (choice?.finish_reason) finish = choice.finish_reason;
     }
+    if (done) break;
   }
+  if (finish === "length") meta.truncated = true;
+  // 텍스트 한 글자 없이 끝남 = 안전 필터 차단 등. 성공으로 넘기면 빈 말풍선이 남는다
+  if (!got) throw new Error(`gemini empty response (finish_reason=${finish ?? "none"})`);
 }

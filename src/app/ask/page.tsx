@@ -109,6 +109,16 @@ export default function AskPage() {
       .catch(() => setPopular({ questions: [], byTeacher: [] }));
   }, [chat?.teacherId, allowed, session]);
 
+  // 인사말 이름 — 학생 본인만 (미리보기 중인 강사 이름이 "○○님"으로 뜨면 학생 화면 확인이 안 된다)
+  const [myName, setMyName] = useState("");
+  useEffect(() => {
+    if (!session || role !== "student") return;
+    fetch("/api/profile", { headers: { Authorization: `Bearer ${session.access_token}` } })
+      .then((r) => r.json())
+      .then((d) => setMyName((d?.profile?.name ?? session.user.user_metadata?.name ?? "").toString().trim()))
+      .catch(() => {});
+  }, [session, role]);
+
   // 학생 이력만 로드 (강사·원장은 /teacher/history, /admin 사용)
   useEffect(() => {
     if (!session || role !== "student") return;
@@ -780,7 +790,7 @@ export default function AskPage() {
             /* 인사 카드 — 질문 입력 진입 + 예시 질문 */
             <div className="rise card px-5 pt-6 pb-5 lg:p-8">
               <div className="flex items-center justify-between gap-3 mb-1">
-                <p className="text-[14px] font-semibold text-sub">안녕하세요</p>
+                <p className="min-w-0 text-[14px] font-semibold text-sub truncate">{myName ? `${myName}님, 안녕하세요` : "안녕하세요"}</p>
                 <StudentAuth session={session} role={role} />
               </div>
               <h1 className="text-[23px] lg:text-[28px] font-bold leading-[1.4] tracking-tight mb-4">오늘은 뭐가 궁금해요?</h1>

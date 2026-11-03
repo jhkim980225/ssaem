@@ -22,14 +22,27 @@ const LAW_K = 2;
 // "감가상각·재고자산 평가"처럼 세법에도 같은 주제가 있는 경우고, 프롬프트에서
 // "무관하면 언급하지 말라"고 못박아 비용을 토큰만으로 묶는다.
 const LAW_MIN_SIM = 0.68;
+// 강사 자료 최소 유사도. 하한이 없으면 무관한 질문에도 top-k가 근거로 붙어 '출처'에 엉뚱한
+// 자료가 뜨고 모델이 거기에 끼워 맞춘다. 법령과 같은 방식(gemini-embedding-001)으로 실측:
+//   강사 픽스처 10과목(scripts/instructors.ts): 정답 청크 min 0.634 · 타과목 질문 top-1 med 0.499(max 0.619)
+//   회계 자료 팩(content-accounting.ts 38청크): 회계 질문 top-1 min 0.711 · 5위 min 0.560 · 무관 24개 top-1 max 0.551
+//   0.55 → 정답 29/29 통과, 회계 5위 9/9 유지, 무관 top-1 9/204 통과 / 0.58이면 회계 5위 2/9 탈락
+// 자료를 놓치는 쪽이 더 나쁘므로 재현율 쪽(0.55)을 택했다. 임베딩 모델을 바꾸면 분포가 달라진다 — 재실측.
+// 전부 걸러지면 빈 배열 → 프롬프트가 "참고 자료 없음" 경로를 탄다. lexical 폴백엔 유사도가 없어 적용 안 함.
+const OWN_MIN_SIM = 0.55;
+// 어느 강좌에도 없는 id — match_chunks에 넘기면 공용(course_id NULL) 자료만 돌아온다
+const NO_COURSE = "00000000-0000-0000-0000-000000000000";
 
 // 강사 자료(chunks)에서 질문 관련 청크 검색.
 // 임베딩 가능하면 벡터 유사도(match_chunks RPC), 아니면 lexical 랭킹 폴백.
+// allowedCourses: 학생이 수강 중인 그 강사의 강좌 id. 주면 courseId 미지정 검색이 "공용 + 이 강좌들"로
+// 좁혀진다 (null = 제한 없음, 강사·원장). 학생 노출 규칙 = enrollment 기준.
 export async function retrieve(
   teacherId: string,
   question: string,
   k = 5,
-  courseId?: string | null
+  courseId?: string | null,
+  allowedCourses?: string[] | null
 ): Promise<Hit[]> {
   const db = serviceClient();
   // 임베딩 호출 실패(예: Gemini 무료티어 일일 쿼터 429)는 키 부재와 똑같이 취급 →
@@ -40,20 +53,31 @@ export async function retrieve(
   });
 
   if (vec) {
+    // match_chunks(p_course)는 "공용 + 그 강좌"를 준다. 수강 강좌가 여럿이면 강좌별로 불러
+    // 합친다 — 전체를 받아 걸러내면 남의 반 청크가 top-k를 차지해 결과가 줄어든다.
+    const scopes: (string | null)[] = courseId
+      ? [courseId]
+      : allowedCourses
+        ? allowedCourses.length ? allowedCourses : [NO_COURSE]
+        : [null];
     // 말투 자료를 걸러내면 k개가 안 될 수 있으니 여유분을 더 받아온다
-    const [own, law] = await Promise.all([
-      db.rpc("match_chunks", {
-        p_teacher: teacherId,
-        p_query: vec,
-        p_k: k + STYLE_MARGIN,
-        p_course: courseId ?? null,
-      }),
+    const [law, ...owns] = await Promise.all([
       // 법령이 아직 안 깔린 환경(함수 없음)에서도 답변은 나가야 한다 — 실패는 무시
       db.rpc("match_reference_chunks", { p_query: vec, p_k: LAW_K }),
+      ...scopes.map((c) =>
+        db.rpc("match_chunks", { p_teacher: teacherId, p_query: vec, p_k: k + STYLE_MARGIN, p_course: c })
+      ),
     ]);
-    if (own.error) throw own.error;
+    const merged = new Map<string, Hit>();
+    for (const own of owns) {
+      if (own.error) throw own.error;
+      for (const h of (own.data ?? []) as Hit[]) merged.set(h.id, h); // 공용 청크는 강좌마다 중복
+    }
+    const hits = dropStyle([...merged.values()])
+      .sort((a, b) => (b.similarity ?? 0) - (a.similarity ?? 0))
+      .filter((h) => (h.similarity ?? 0) >= OWN_MIN_SIM)
+      .slice(0, k);
     if (law.error) console.error("reference chunks:", law.error.message);
-    const hits = dropStyle((own.data ?? []) as Hit[]).slice(0, k);
     const laws = ((law.data ?? []) as Hit[]).filter((h) => (h.similarity ?? 0) >= LAW_MIN_SIM);
     return [...hits, ...laws];
   }
@@ -68,6 +92,10 @@ export async function retrieve(
     .limit(500);
   if (courseId)
     q = q.or(`course_id.is.null,course_id.eq.${courseId}`, { referencedTable: "documents" });
+  else if (allowedCourses)
+    q = allowedCourses.length
+      ? q.or(`course_id.is.null,course_id.in.(${allowedCourses.join(",")})`, { referencedTable: "documents" })
+      : q.is("documents.course_id", null);
   const { data, error } = await q;
   if (error) throw error;
 

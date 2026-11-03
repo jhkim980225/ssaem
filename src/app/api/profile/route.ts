@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { serviceClient } from "@/lib/supabase";
-import { teacherFromRequest } from "@/lib/auth";
+import { requireUser, teacherFromRequest } from "@/lib/auth";
 import { resolveAcademy } from "@/lib/academy";
 
 // 내 프로필 조회
@@ -70,5 +70,23 @@ export async function POST(req: Request) {
     .upsert({ id: uid, subject, tone_note: toneNote, is_public: isPublic });
   if (terr) return NextResponse.json({ error: terr.message }, { status: 500 });
 
+  return NextResponse.json({ ok: true });
+}
+
+// 이름만 변경 (학생 — 내 정보 수정). 강사는 POST(과목·말투 포함)를 쓴다.
+// role은 건드리지 않는다 — POST처럼 upsert하면 역할이 바뀔 수 있어 update만.
+export async function PATCH(req: Request) {
+  const g = await requireUser(req);
+  if ("res" in g) return g.res;
+
+  const body = await req.json().catch(() => null);
+  const name = (body?.name ?? "").toString().trim();
+  if (!name) return NextResponse.json({ error: "이름을 입력해 주세요." }, { status: 400 });
+  if (name.length > 30) return NextResponse.json({ error: "이름은 30자 이하로 해 주세요." }, { status: 400 });
+
+  const db = serviceClient();
+  const { data, error } = await db.from("profiles").update({ name }).eq("id", g.uid).select("id");
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (!data?.length) return NextResponse.json({ error: "프로필이 없어요." }, { status: 404 });
   return NextResponse.json({ ok: true });
 }

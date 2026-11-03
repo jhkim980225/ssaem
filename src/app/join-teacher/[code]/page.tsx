@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { toEmail } from "@/lib/account";
 import { StateScreen, StateIcon, BIG_BTN, BIG_BTN_GRAY } from "@/components/RoleGuard";
+import AgreeTerms from "@/components/AgreeTerms";
 
 // 끊어진 링크 아이콘 (초대 링크 오류)
 const BROKEN_LINK = [
@@ -20,29 +21,36 @@ export default function JoinTeacherPage({ params }: { params: Promise<{ code: st
 
   const [academy, setAcademy] = useState<string | null>(null);
   const [err, setErr] = useState("");
+  const [expired, setExpired] = useState(false);
   const [name, setName] = useState("");
   const [subject, setSubject] = useState("");
   const [email, setEmail] = useState("");
   const [pw, setPw] = useState("");
   const [msg, setMsg] = useState("");
   const [busy, setBusy] = useState(false);
+  const [agree, setAgree] = useState(false);
 
   useEffect(() => {
     fetch(`/api/join-teacher?code=${encodeURIComponent(code)}`)
       .then((r) => r.json())
-      .then((d) => (d.academy !== undefined ? setAcademy(d.academy) : setErr(d.error ?? "확인 실패")))
+      .then((d) => {
+        if (d.academy !== undefined) return setAcademy(d.academy);
+        setExpired(!!d.expired);
+        setErr(d.error ?? "확인 실패");
+      })
       .catch(() => setErr("확인 실패"));
   }, [code]);
 
   async function submit() {
     if (busy) return;
+    if (!agree) return setMsg("이용약관·개인정보처리방침에 동의해 주세요");
     setMsg("");
     setBusy(true);
     try {
       const r = await fetch("/api/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ role: "teacher", teacherInviteCode: code, email, password: pw }),
+        body: JSON.stringify({ role: "teacher", teacherInviteCode: code, email, password: pw, agree }),
       });
       const d = await r.json();
       if (!r.ok) {
@@ -77,7 +85,7 @@ export default function JoinTeacherPage({ params }: { params: Promise<{ code: st
     return (
       <StateScreen
         icon={<StateIcon paths={BROKEN_LINK} />}
-        title="초대 링크를 확인할 수 없어요"
+        title={expired ? "초대 링크가 만료됐어요" : "초대 링크를 확인할 수 없어요"}
         actions={
           <>
             <Link href="/login?role=teacher" className={BIG_BTN}>
@@ -90,8 +98,12 @@ export default function JoinTeacherPage({ params }: { params: Promise<{ code: st
         }
       >
         {err}
-        <br />
-        원장님께 새 초대 링크를 받아 주세요.
+        {!expired && (
+          <>
+            <br />
+            원장님께 새 초대 링크를 받아 주세요.
+          </>
+        )}
       </StateScreen>
     );
 
@@ -146,6 +158,9 @@ export default function JoinTeacherPage({ params }: { params: Promise<{ code: st
 
           <div className="flex-1 min-h-8" />
 
+          <div className="mb-4">
+            <AgreeTerms checked={agree} onChange={setAgree} />
+          </div>
           {/* msg는 실패에만 세팅된다 — 성공 톤(파랑)으로 보이면 안 됨 */}
           {msg && (
             <p role="alert" className="mb-3 rounded-[12px] px-4 py-3 text-[14px] font-bold" style={{ background: "var(--red-weak)", color: "var(--red)" }}>
@@ -154,7 +169,7 @@ export default function JoinTeacherPage({ params }: { params: Promise<{ code: st
           )}
           <button
             onClick={submit}
-            disabled={busy || !name || !email || pw.length < 8}
+            disabled={busy || !agree || !name || !email || pw.length < 8}
             className="btn btn-primary w-full h-[50px] text-[17px]"
           >
             {busy ? "가입 중…" : "강사로 합류하기"}

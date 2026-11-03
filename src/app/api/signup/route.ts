@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { serviceClient } from "@/lib/supabase";
 import { resolveAcademy } from "@/lib/academy";
 import { rateLimit, clientIp } from "@/lib/ratelimit";
-import { verifyInviteCode, resolveStudentInvite } from "@/lib/invite";
+import { verifyInviteCode, resolveStudentInvite, inviteExpired, expiredInviteRes } from "@/lib/invite";
 import { toEmail, isValidId, enrollStudentToTeacher } from "@/lib/account";
 
 // 가입. email_confirm: true로 메일 인증 생략.
@@ -46,6 +46,11 @@ export async function POST(req: Request) {
   if (!rateLimit(`signup:${invited ? "inv:" : ""}${clientIp(req)}`, limit, 3_600_000))
     return NextResponse.json({ error: "가입 시도가 너무 잦아요. 잠시 후 다시" }, { status: 429 });
 
+  // 약관 동의는 서버에서도 강제 — 화면 체크박스만으론 API 직접 호출을 못 막는다.
+  // 동의 기록 컬럼은 아직 없다(스키마 무변경) — 검증만.
+  if (body?.agree !== true)
+    return NextResponse.json({ error: "이용약관·개인정보처리방침에 동의해 주세요" }, { status: 400 });
+
   if (!email || !password)
     return NextResponse.json({ error: "이메일과 비밀번호를 입력하세요" }, { status: 400 });
   if (!usePhonePw && password.length < 8)
@@ -63,6 +68,7 @@ export async function POST(req: Request) {
   if (role === "teacher") {
     if (teacherInviteCode) {
       const adminId = verifyInviteCode(teacherInviteCode, "t");
+      if (!adminId && inviteExpired(teacherInviteCode)) return expiredInviteRes("원장님");
       if (!adminId)
         return NextResponse.json({ error: "유효하지 않은 초대 코드예요" }, { status: 403 });
       const { data: adm } = await db
@@ -91,6 +97,7 @@ export async function POST(req: Request) {
   if (role === "student" && studentInviteCode) {
     // 강사 코드(s)·강좌 ROOM 코드(c) 둘 다 수용 — 학원 소속은 어느 쪽이든 그 강사의 학원
     const inv = await resolveStudentInvite(db, studentInviteCode);
+    if (!inv && inviteExpired(studentInviteCode)) return expiredInviteRes();
     if (!inv)
       return NextResponse.json({ error: "선생님 초대코드가 올바르지 않아요" }, { status: 403 });
     invitedEnroll = { teacherId: inv.teacherId, courseId: inv.courseId };

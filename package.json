@@ -1,6 +1,6 @@
 {
   "name": "sstest",
-  "version": "0.61.0",
+  "version": "0.62.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -16,6 +16,7 @@
     "@supabase/supabase-js": "^2.110.7",
     "@types/pg": "^8.23.1",
     "@types/qrcode": "^1.5.6",
+    "fflate": "^0.8.2",
     "next": "16.4.4",
     "pg": "^8.23.0",
     "qrcode": "^1.5.4",

@@ -6,6 +6,7 @@ import { supabase } from "@/lib/supabase";
 import { toEmail, isValidId } from "@/lib/account";
 import { homeFor, roleFitsTab, type Role as RealRole } from "@/lib/role";
 import { useAuth, ensureRole } from "@/lib/auth-store";
+import AgreeTerms from "@/components/AgreeTerms";
 
 type Role = "teacher" | "student";
 
@@ -37,6 +38,7 @@ function LoginInner() {
   const [phone, setPhone] = useState("");
   const [name, setName] = useState("");
   const [invite, setInvite] = useState("");
+  const [agree, setAgree] = useState(false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
 
@@ -77,6 +79,7 @@ function LoginInner() {
         if (pw.length < 8) return setErr("비밀번호는 8자 이상이어야 해요.");
         if (pw !== pw2) return setErr("두 비밀번호가 서로 달라요.");
       }
+      if (!agree) return setErr("이용약관·개인정보처리방침에 동의해 주세요.");
     }
     setBusy(true);
     // 네트워크 throw 시 '처리 중…'으로 영구 잠기던 것 방지 — finally에서 busy 해제
@@ -89,6 +92,7 @@ function LoginInner() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           role,
+          agree,
           email: id.trim(),
           // 학생 휴대폰 가입은 password를 보내지 않는다 — 서버가 뒷 4자리로 만든다
           ...(phoneSignup ? { phone: phone.trim() } : { password: pw }),
@@ -320,6 +324,11 @@ function LoginInner() {
 
       <div className="flex-1 min-h-8" />
 
+      {mode === "signup" && (
+        <div className="mb-4">
+          <AgreeTerms checked={agree} onChange={setAgree} />
+        </div>
+      )}
       {err && (
         <p
           role="alert"
@@ -329,7 +338,7 @@ function LoginInner() {
           {err}
         </p>
       )}
-      <button onClick={submit} disabled={busy} className="btn btn-primary w-full h-[50px] text-[17px]">
+      <button onClick={submit} disabled={busy || (mode === "signup" && !agree)} className="btn btn-primary w-full h-[50px] text-[17px]">
         {busy ? "처리 중…" : mode === "login" ? "로그인" : "가입하고 시작하기"}
       </button>
 
