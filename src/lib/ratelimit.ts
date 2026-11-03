@@ -24,9 +24,13 @@ export function rateLimit(key: string, limit: number, windowMs: number): boolean
 
 // 클라이언트 IP. x-forwarded-for의 "첫" 항목은 클라가 위조 가능(헤더에 직접 넣으면 앞에 붙음).
 // Vercel은 신뢰 가능한 x-vercel-forwarded-for / x-real-ip를 프록시에서 덮어써 준다 — 그걸 우선.
+// Cloudflare는 cf-connecting-ip를 엣지에서 덮어쓴다 — 단 Vercel에선 클라가 넣은 값이 그대로 오니
+// 플랫폼별로 하나만 믿는다 (Vercel 빌드엔 VERCEL=1이 있다).
 // 폴백으로 XFF를 쓸 땐 프록시가 마지막에 append하므로 "마지막" 항목을 쓴다.
 export function clientIp(req: Request): string {
-  const trusted = req.headers.get("x-vercel-forwarded-for") || req.headers.get("x-real-ip");
+  const trusted = process.env.VERCEL
+    ? req.headers.get("x-vercel-forwarded-for") || req.headers.get("x-real-ip")
+    : req.headers.get("cf-connecting-ip");
   if (trusted) return trusted.split(",").pop()!.trim();
   const xff = req.headers.get("x-forwarded-for");
   if (xff) return xff.split(",").pop()!.trim();
