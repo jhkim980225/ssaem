@@ -7,7 +7,6 @@ import { toEmail, isValidId } from "@/lib/account";
 import { avatarEmoji } from "@/lib/avatar";
 import { useGate } from "@/components/RoleGuard";
 import InviteBox from "@/components/InviteBox";
-import AgreeTerms from "@/components/AgreeTerms";
 
 type AdminData = {
   admin: { name: string };
@@ -48,7 +47,7 @@ const ago = (iso: string | null) => {
 };
 
 export default function AdminPage() {
-  // 원장 가입(=학원 개설) 폼이 이 페이지에만 있어서 비로그인 화면을 직접 넘긴다
+  // 원장 로그인 폼이 이 페이지에만 있어서 비로그인 화면을 직접 넘긴다
   const { session, gate } = useGate("admin", {
     loginRender: (
       <main className="flex-1 w-full mx-auto px-5 py-8 max-w-lg">
@@ -66,13 +65,10 @@ export default function AdminPage() {
 }
 
 function AuthForm() {
-  const [mode, setMode] = useState<"signup" | "login">("login"); // 기본 로그인, 가입은 하단 링크
-  const [academyName, setAcademyName] = useState("");
-  const [name, setName] = useState("");
+  // 마스터회계 전용 배포라 학원 개설(원장 가입) 화면은 뺐다 — 원장 계정은 이미 있다.
+  // 서버 /api/signup의 role=admin 경로(INVITE_CODE 필요)는 검사 스크립트가 쓰므로 그대로 둔다.
   const [email, setEmail] = useState("");
   const [pw, setPw] = useState("");
-  const [inviteCode, setInviteCode] = useState("");
-  const [agree, setAgree] = useState(false);
   const [msg, setMsg] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -83,28 +79,12 @@ function AuthForm() {
       setMsg("이메일이 아니라 아이디 형식(영문·숫자·._- 2~30자)으로 입력해 주세요.");
       return;
     }
-    if (mode === "signup" && !agree) {
-      setMsg("이용약관·개인정보처리방침에 동의해 주세요.");
-      return;
-    }
     setBusy(true);
     setMsg("");
     try {
-    if (mode === "signup") {
-      const r = await fetch("/api/signup", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ role: "admin", academyName, name, email, password: pw, inviteCode, agree }),
-      });
-      const d = await r.json();
-      if (!r.ok) {
-        setMsg(d.error || "가입 실패");
-        return;
-      }
-    }
-    // 가입은 아이디를 내부 이메일로 매핑해 저장하므로 로그인도 같은 매핑을 거쳐야 한다
-    const { error } = await supabase.auth.signInWithPassword({ email: toEmail(email), password: pw });
-    if (error) setMsg("아이디나 비밀번호가 맞지 않아요.");
+      // 가입은 아이디를 내부 이메일로 매핑해 저장하므로 로그인도 같은 매핑을 거쳐야 한다
+      const { error } = await supabase.auth.signInWithPassword({ email: toEmail(email), password: pw });
+      if (error) setMsg("아이디나 비밀번호가 맞지 않아요.");
     } finally {
       setBusy(false);
     }
@@ -118,77 +98,39 @@ function AuthForm() {
         <span className="text-[15px] font-bold">학원장</span>
       </div>
       <h1 className="rise d1 mt-7 text-[26px] leading-[1.35] font-bold tracking-[-0.5px]">
-        학원을 개설하고
-        <br />
-        강사를 초대해요
+        학원장 로그인
       </h1>
-      <p className="rise d2 mt-1.5 mb-5 text-sub text-[15px]">
-        {mode === "signup" ? "개설 코드는 서비스 담당자에게 받아요." : "학원장 계정으로 로그인해요."}
-      </p>
+      <p className="rise d2 mt-1.5 mb-5 text-sub text-[15px]">학원장 계정으로 로그인해요.</p>
 
-      {/* 로그인 / 학원 개설 전환 */}
-      <div role="tablist" aria-label="모드" className="grid grid-cols-2 gap-1 p-1 rounded-[10px] mb-5" style={{ background: "var(--fill)" }}>
-        {(
-          [
-            ["login", "로그인"],
-            ["signup", "학원 개설"],
-          ] as const
-        ).map(([m, t]) => (
-          <button
-            key={m}
-            role="tab"
-            aria-selected={mode === m}
-            onClick={() => setMode(m)}
-            className={`h-10 rounded-[7px] text-[15px] ${mode === m ? "font-bold bg-surface" : "font-semibold text-sub"}`}
-          >
-            {t}
-          </button>
-        ))}
-      </div>
-
-      <div className="flex flex-col gap-3.5">
-        {mode === "signup" && (
-          <>
-            <label className={label}>
-              학원 이름
-              <input className="field" placeholder="예: 마스터 전산회계 학원" value={academyName} onChange={(e) => setAcademyName(e.target.value)} />
-            </label>
-            <label className={label}>
-              원장 이름
-              <input className="field" value={name} onChange={(e) => setName(e.target.value)} />
-            </label>
-            {/* 서버가 role=admin 가입에 INVITE_CODE를 요구한다 — 없으면 403 */}
-            <label className={label}>
-              학원 개설 코드
-              <input className="field" value={inviteCode} onChange={(e) => setInviteCode(e.target.value)} />
-            </label>
-          </>
-        )}
+      <form
+        className="flex flex-col gap-3.5"
+        onSubmit={(e) => {
+          e.preventDefault();
+          submit();
+        }}
+      >
         <label className={label}>
           아이디
-          <input className="field" placeholder="영문·숫자 2~30자" value={email} onChange={(e) => setEmail(e.target.value)} />
+          <input className="field" placeholder="영문·숫자 2~30자" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} />
         </label>
         <label className={label}>
           비밀번호
-          <input className="field" type="password" placeholder="8자 이상" value={pw} onChange={(e) => setPw(e.target.value)} />
+          <input className="field" type="password" autoComplete="current-password" value={pw} onChange={(e) => setPw(e.target.value)} />
         </label>
-        {mode === "signup" && <AgreeTerms checked={agree} onChange={setAgree} />}
-      </div>
 
-      {/* msg는 실패에만 세팅된다 — 성공 톤(파랑)으로 보이면 안 됨 */}
-      {msg && (
-        <p className="mt-4 rounded-[12px] px-4 py-3 text-[14px] font-semibold" style={{ background: "var(--red-weak)", color: "var(--red)" }}>
-          {msg}
-        </p>
-      )}
-      <button onClick={submit} disabled={busy || (mode === "signup" && !agree)} className="btn btn-primary h-[50px] mt-6 text-[17px] disabled:opacity-60">
-        {busy ? "처리 중…" : mode === "signup" ? "학원 개설하기" : "로그인"}
-      </button>
-      {mode !== "signup" && (
-        <Link href="/reset" className="mt-4 text-sub text-[14px] text-center">
-          비밀번호를 잊으셨나요?
-        </Link>
-      )}
+        {/* msg는 실패에만 세팅된다 — 성공 톤(파랑)으로 보이면 안 됨 */}
+        {msg && (
+          <p className="mt-0.5 rounded-[12px] px-4 py-3 text-[14px] font-semibold" style={{ background: "var(--red-weak)", color: "var(--red)" }}>
+            {msg}
+          </p>
+        )}
+        <button type="submit" disabled={busy} className="btn btn-primary h-[50px] mt-2.5 text-[17px] disabled:opacity-60">
+          {busy ? "처리 중…" : "로그인"}
+        </button>
+      </form>
+      <Link href="/reset" className="mt-4 text-sub text-[14px] text-center">
+        비밀번호를 잊으셨나요?
+      </Link>
     </div>
   );
 }
