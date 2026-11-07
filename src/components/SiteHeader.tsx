@@ -17,7 +17,15 @@ function navFor(role: Role | undefined, signedIn: boolean) {
   if (role === "teacher" || role === null)
     return [{ href: "/teacher", label: "강사 공간" }, { href: "/ask", label: "질문하기" }, bank, browse];
   if (role === "student")
-    return [{ href: "/ask", label: "질문하기" }, { href: "/quiz", label: "문제풀이" }, bank, browse, { href: "/my", label: "마이" }];
+    return [
+      { href: "/ask", label: "질문하기" },
+      { href: "/quiz", label: "문제풀이" },
+      bank,
+      browse,
+      // PC실 수업용 — PC 헤더에만 있다 (폰 하단 탭바는 5칸 고정)
+      { href: "/live", label: "실시간 수업" },
+      { href: "/my", label: "마이" },
+    ];
   if (role === "dev") return [{ href: "/dev", label: "개발자" }];
   return []; // 역할 조회 중 — 확정되면 채운다
 }

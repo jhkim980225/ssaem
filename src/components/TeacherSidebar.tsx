@@ -91,6 +91,7 @@ export default function TeacherSidebar() {
     })),
   ];
   const pages = [
+    { href: "/teacher/live", label: "실시간 수업" },
     { href: "/teacher/board", label: "자료 게시판" },
     { href: "/teacher/insights", label: "인사이트" },
     { href: "/teacher/history", label: "질문 이력" },
