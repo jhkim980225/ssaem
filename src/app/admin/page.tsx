@@ -1,12 +1,14 @@
 "use client";
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
 import { toEmail, isValidId } from "@/lib/account";
 import { avatarEmoji } from "@/lib/avatar";
 import { useGate } from "@/components/RoleGuard";
 import InviteBox from "@/components/InviteBox";
+import AdminSidebar, { type AdminView, type AdminNavItem } from "@/components/AdminSidebar";
 
 type AdminData = {
   admin: { name: string };
@@ -57,12 +59,16 @@ export default function AdminPage() {
   });
   if (gate) return gate;
 
+  // 메뉴(?v=)를 useSearchParams로 읽어서 Suspense 필수
   return (
-    <main className="flex-1 w-full mx-auto px-4 lg:px-6 py-5 lg:py-8 max-w-lg lg:max-w-[1280px]">
+    <Suspense fallback={null}>
       <Dashboard session={session!} />
-    </main>
+    </Suspense>
   );
 }
+
+const VIEWS: AdminView[] = ["overview", "students", "teachers", "low-rated", "reviews", "assessments", "invite"];
+const MAIN = "flex-1 min-w-0 w-full max-w-lg lg:max-w-[1180px] mx-auto px-4 sm:px-5 lg:px-8 py-6 lg:py-8 flex flex-col gap-3 lg:gap-4";
 
 function AuthForm() {
   // 마스터회계 전용 배포라 학원 개설(원장 가입) 화면은 뺐다 — 원장 계정은 이미 있다.
@@ -141,6 +147,9 @@ type AdminReviews = {
 };
 
 function Dashboard({ session }: { session: Session }) {
+  const params = useSearchParams();
+  const v = params.get("v") as AdminView | null;
+  const view: AdminView = v && VIEWS.includes(v) ? v : "overview";
   const [data, setData] = useState<AdminData | null>(null);
   // 수강평 — 원장에게만 작성자 실명이 함께 온다 (강사 화면은 익명)
   const [rev, setRev] = useState<AdminReviews | null>(null);
@@ -276,21 +285,23 @@ function Dashboard({ session }: { session: Session }) {
 
   if (err)
     return (
-      <div className="card p-8 text-center max-w-sm mx-auto mt-10">
-        <p className="font-bold mb-1">{err}</p>
-        <p className="text-sub text-[13px] mb-4">이 화면은 학원장 계정 전용이에요.</p>
-        <button className="btn btn-gray py-2.5 px-5 text-[14px]" onClick={() => supabase.auth.signOut()}>
-          로그아웃
-        </button>
-      </div>
+      <main className={MAIN}>
+        <div className="card p-8 text-center max-w-sm mx-auto mt-10">
+          <p className="font-bold mb-1">{err}</p>
+          <p className="text-sub text-[13px] mb-4">이 화면은 학원장 계정 전용이에요.</p>
+          <button className="btn btn-gray py-2.5 px-5 text-[14px]" onClick={() => supabase.auth.signOut()}>
+            로그아웃
+          </button>
+        </div>
+      </main>
     );
 
   if (!data)
     return (
-      <div className="flex flex-col gap-3">
+      <main className={MAIN}>
         <div className="skel h-20 !rounded-[16px]" />
         <div className="skel h-40 !rounded-[16px]" />
-      </div>
+      </main>
     );
 
   const label = PERIOD_LABEL[data.period.days] ?? `${data.period.days}일`;
@@ -308,31 +319,33 @@ function Dashboard({ session }: { session: Session }) {
   const statVal = "mt-1 lg:mt-1.5 text-[24px] lg:text-[28px] font-bold tabular-nums leading-tight";
   const statSub = "mt-1 text-[12px] lg:text-[13px] text-sub leading-snug";
 
-  // 폰 전용 메뉴 — 아래 카드로 바로 내려가는 목차
-  const menu: { href: string; title: string; sub: string; warn?: boolean }[] = [
-    {
-      href: "#students",
-      title: "학생 참여",
-      sub: idle.length ? `${idle.length}명은 아직 안 써봤어요` : "전원 사용 중",
-      warn: idle.length > 0,
-    },
-    ...(data.lowRated.length ? [{ href: "#low-rated", title: "확인이 필요한 답변", sub: `${data.lowRated.length}건` }] : []),
-    {
-      href: "#teachers",
-      title: "소속 강사",
-      sub: `${data.teachers.length}명${hidden ? ` · ${hidden}명 비공개` : ""}`,
-    },
-    ...(rev && rev.reviews.length
-      ? [{ href: "#reviews", title: "수강평", sub: `${rev.reviews.length}건 · 평균 ★ ${revAvg.toFixed(1)}` }]
-      : []),
-    ...(data.assessments.length
-      ? [{ href: "#assessments", title: "평가 결과", sub: `${data.assessments.length}건 · CSV 내려받기` }]
-      : []),
-    { href: "#invite", title: "강사 초대", sub: "QR·링크로 강사를 초대해요" },
+  // 사이드바 메뉴 — 예전엔 한 화면에 카드를 전부 쌓고 폰에서만 목차를 달았다.
+  // 강사 화면과 같은 좌측 메뉴로 나눠 한 번에 한 가지만 보여준다.
+  const nav: AdminNavItem[] = [
+    { view: "overview", label: "대시보드" },
+    { view: "students", label: "학생 관리", count: `${data.stats.activeStudents}/${data.students.length}`, warn: idle.length > 0 },
+    { view: "teachers", label: "소속 강사", count: data.teachers.length },
+    { view: "low-rated", label: "확인이 필요한 답변", count: data.lowRated.length, warn: data.lowRated.length > 0 },
+    { view: "reviews", label: "수강평", count: rev?.reviews.length ?? 0 },
+    { view: "assessments", label: "평가 결과", count: data.assessments.length },
+    { view: "invite", label: "강사 초대" },
   ];
+  // 기간 선택이 숫자를 바꾸는 화면만 기간 탭을 단다 (수강평·평가·초대는 기간과 무관)
+  const periodViews: AdminView[] = ["overview", "students", "teachers", "low-rated"];
+  const shortcuts: { view: AdminView; title: string; sub: string; warn?: boolean }[] = [
+    { view: "students", title: "학생 참여", sub: idle.length ? `${idle.length}명은 아직 안 써봤어요` : "전원 사용 중", warn: idle.length > 0 },
+    { view: "low-rated", title: "확인이 필요한 답변", sub: data.lowRated.length ? `${data.lowRated.length}건` : "없어요", warn: data.lowRated.length > 0 },
+    { view: "teachers", title: "소속 강사", sub: `${data.teachers.length}명${hidden ? ` · ${hidden}명 비공개` : ""}` },
+    { view: "reviews", title: "수강평", sub: rev?.reviews.length ? `${rev.reviews.length}건 · 평균 ★ ${revAvg.toFixed(1)}` : "아직 없어요" },
+    { view: "assessments", title: "평가 결과", sub: data.assessments.length ? `${data.assessments.length}건 · CSV 내려받기` : "아직 없어요" },
+    { view: "invite", title: "강사 초대", sub: "QR·링크로 강사를 초대해요" },
+  ];
+  const empty = (msg: string) => <p className="text-sub text-[14px] py-6 text-center">{msg}</p>;
 
   return (
-    <div className="flex flex-col gap-3 lg:gap-4">
+    <div className="flex-1 w-full max-w-[1700px] mx-auto lg:flex lg:items-start">
+    <AdminSidebar academy={data.academy.name} admin={data.admin.name} items={nav} current={view} />
+    <main className={MAIN}>
       {/* 제목 + 기간 선택 — 아래 숫자는 전부 이 기간 기준 (누적 답변만 예외) */}
       <div className="rise flex flex-col lg:flex-row lg:items-end lg:justify-between gap-3">
         <div className="flex items-start justify-between gap-3 min-w-0">
@@ -386,13 +399,8 @@ function Dashboard({ session }: { session: Session }) {
               학생 초대 URL: /a/{data.academy.slug} · {data.admin.name} 원장
             </p>
           </div>
-          <button
-            className="lg:hidden shrink-0 h-9 px-2 text-sub text-[13px] font-semibold"
-            onClick={() => supabase.auth.signOut()}
-          >
-            로그아웃
-          </button>
         </div>
+        {periodViews.includes(view) && (
         <div className="flex items-center gap-2">
           <div
             role="tablist"
@@ -414,15 +422,12 @@ function Dashboard({ session }: { session: Session }) {
               </button>
             ))}
           </div>
-          <button
-            className="hidden lg:block shrink-0 h-9 px-3 text-sub text-[14px] font-semibold"
-            onClick={() => supabase.auth.signOut()}
-          >
-            로그아웃
-          </button>
         </div>
+        )}
       </div>
 
+      {view === "overview" && (
+        <>
       {/* 이번 기간 요약 — 재계약 대화의 근거가 되는 숫자들 */}
       <section aria-label={`최근 ${label} 요약`} className="rise d1 grid grid-cols-2 lg:grid-cols-4 gap-2 lg:gap-3">
         <div className={statBox}>
@@ -517,13 +522,13 @@ function Dashboard({ session }: { session: Session }) {
         </section>
       )}
 
-      {/* 폰: 메뉴 리스트 (데스크톱은 아래 카드 그리드가 한눈에 보여서 생략) */}
-      <nav aria-label="대시보드 메뉴" className="rise d2 lg:hidden card px-5 py-1">
-        {menu.map((m, i) => (
-          <a
-            key={m.href}
-            href={m.href}
-            className={`flex items-center gap-3 py-3.5 ${i ? "border-t border-line" : ""}`}
+      {/* 바로 가기 — 손이 가야 할 곳(안 쓰는 학생·아쉬운 답변)을 요약과 함께 */}
+      <nav aria-label="바로 가기" className="rise d2 card px-5 py-1 lg:grid lg:grid-cols-2 lg:gap-x-8">
+        {shortcuts.map((m, i) => (
+          <Link
+            key={m.view}
+            href={`/admin?v=${m.view}`}
+            className={`flex items-center gap-3 py-3.5 ${i ? "border-t border-line" : ""} ${i === 1 ? "lg:border-t-0" : ""}`}
           >
             <span className="flex-1 min-w-0">
               <b className="block text-[16px]">{m.title}</b>
@@ -534,12 +539,14 @@ function Dashboard({ session }: { session: Session }) {
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="text-sub shrink-0">
               <path d="M9 6l6 6-6 6" />
             </svg>
-          </a>
+          </Link>
         ))}
       </nav>
+        </>
+      )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 lg:gap-4 items-start">
         {/* 학생 참여 — "학생 N명"만으론 몇 명이 실제로 쓰는지 알 수 없다. 안 쓰는 학생이 해지 신호다. */}
+        {view === "students" && (
         <section id="students" className="rise d2 card p-5 lg:p-6 scroll-mt-20 min-w-0">
           <h2 className={`${h2} mb-2`}>
             학생 {data.students.length}명 중 {data.stats.activeStudents}명 사용
@@ -602,13 +609,19 @@ function Dashboard({ session }: { session: Session }) {
             ))
           )}
         </section>
+        )}
 
         {/* 강사 목록 */}
+        {view === "teachers" && (
         <section id="teachers" className="rise d2 card p-5 lg:p-6 scroll-mt-20 min-w-0">
           <h2 className={`${h2} mb-2`}>소속 강사 {data.teachers.length}명</h2>
           {data.teachers.length === 0 ? (
             <p className="text-sub text-[14px] py-4 text-center">
-              아직 강사가 없어요. 아래 초대 링크를 공유해 보세요.
+              아직 강사가 없어요.{" "}
+              <Link href="/admin?v=invite" className="text-blue font-semibold">
+                강사 초대
+              </Link>
+              에서 링크를 공유해 보세요.
             </p>
           ) : (
             data.teachers.map((t) => (
@@ -649,9 +662,10 @@ function Dashboard({ session }: { session: Session }) {
             ))
           )}
         </section>
+        )}
 
         {/* 아쉬움 받은 답변 — 지금까지 숫자만 보여서 원장이 품질을 확인할 수 없었다 */}
-        {data.lowRated.length > 0 && (
+        {view === "low-rated" && (
           <section id="low-rated" className="rise d3 card p-5 lg:p-6 scroll-mt-20 min-w-0">
             <h2 className={h2}>
               확인이 필요한 답변 <span style={{ color: "var(--red)" }}>{data.lowRated.length}</span>
@@ -659,6 +673,7 @@ function Dashboard({ session }: { session: Session }) {
             <p className="text-sub text-[13px] mt-1 mb-2">
               학생이 아쉬워요를 준 답변이에요. 관련 자료를 보강하면 좋아져요.
             </p>
+            {data.lowRated.length === 0 && empty("이 기간에 아쉬워요를 받은 답변이 없어요.")}
             {data.lowRated.map((l, i) => (
               <details key={i} className="group border-t border-line py-3.5">
                 <summary className="flex items-start gap-3 cursor-pointer select-none list-none [&::-webkit-details-marker]:hidden">
@@ -686,15 +701,16 @@ function Dashboard({ session }: { session: Session }) {
         )}
 
         {/* 수강평 (학생 → 강사). 원장은 작성자 실명까지 본다 */}
-        {rev && rev.reviews.length > 0 && (
+        {view === "reviews" && (
           <section id="reviews" className="rise d3 card p-5 lg:p-6 scroll-mt-20 min-w-0">
-            <h2 className={h2}>수강평 {rev.reviews.length}건</h2>
+            <h2 className={h2}>수강평 {rev?.reviews.length ?? 0}건</h2>
             <p className="text-sub text-[13px] mt-1">
               학생이 선생님에게 남긴 평가예요. 선생님 화면에는 이름 없이 보여요.
             </p>
 
+            {!rev?.reviews.length && empty(rev ? "아직 수강평이 없어요." : "불러오는 중…")}
             <div className="flex flex-wrap gap-1.5 mt-3 mb-2">
-              {rev.byTeacher.map((t) => (
+              {rev?.byTeacher.map((t) => (
                 <span
                   key={t.teacherId}
                   className="inline-flex items-center h-8 px-3 rounded-[8px] text-[13px] font-bold tabular-nums"
@@ -706,7 +722,7 @@ function Dashboard({ session }: { session: Session }) {
               ))}
             </div>
 
-            {rev.reviews.slice(0, 20).map((r) => (
+            {rev?.reviews.slice(0, 20).map((r) => (
               <div key={r.id} className="border-t border-line py-3.5">
                 {r.comment && <p className="text-[15px] leading-relaxed mb-1">{r.comment}</p>}
                 <p className="text-[13px] text-sub">
@@ -722,7 +738,7 @@ function Dashboard({ session }: { session: Session }) {
         )}
 
         {/* 평가 결과 — 원장 화면엔 CSV 버튼이 없어 API로만 받을 수 있었다 (QZ-09) */}
-        {data.assessments.length > 0 && (
+        {view === "assessments" && (
           <section id="assessments" className="rise d3 card p-5 lg:p-6 scroll-mt-20 min-w-0">
             <h2 className={h2}>평가 결과 {data.assessments.length}건</h2>
             <p className="text-sub text-[13px] mt-1 mb-2">
@@ -733,6 +749,7 @@ function Dashboard({ session }: { session: Session }) {
                 {csvMsg}
               </p>
             )}
+            {data.assessments.length === 0 && empty("아직 올라온 평가가 없어요.")}
             {data.assessments.map((a) => (
               <div key={a.id} className="flex items-center gap-3 py-3.5 border-t border-line">
                 <div className="min-w-0 flex-1">
@@ -752,9 +769,9 @@ function Dashboard({ session }: { session: Session }) {
             ))}
           </section>
         )}
-      </div>
 
       {/* 강사 초대 */}
+      {view === "invite" && (
       <section id="invite" className="rise d4 card p-5 lg:p-6 scroll-mt-20 flex flex-col gap-3">
         <div>
           <h2 className={h2}>강사 초대</h2>
@@ -774,6 +791,7 @@ function Dashboard({ session }: { session: Session }) {
           학생 화면으로 보기 →
         </Link>
       </section>
+      )}
 
       {/* 학생 제명 확인 — 화면에서 되돌릴 방법이 없어 한 번 더 묻는다 */}
       {expel && (
@@ -817,6 +835,7 @@ function Dashboard({ session }: { session: Session }) {
           </div>
         </div>
       )}
+    </main>
     </div>
   );
 }
