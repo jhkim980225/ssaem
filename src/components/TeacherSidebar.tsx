@@ -78,9 +78,9 @@ export default function TeacherSidebar() {
   }
 
   const room = pathname === "/teacher" ? params.get("room") : undefined;
+  // 강사 첫 화면. 예전 "공용 자료"(?room=none) 링크로 들어와도 대시보드로 본다
+  const dash = { key: "dash", href: "/teacher", label: "대시보드", count: undefined, active: room === null || room === "none" };
   const rooms: { key: string; href: string; label: string; count?: number | string; active: boolean }[] = [
-    { key: "all", href: "/teacher", label: "전체 자료", active: room === null },
-    { key: "none", href: "/teacher?room=none", label: "공용 자료", active: room === "none" },
     ...courses.map((c) => ({
       key: c.id,
       href: `/teacher?room=${c.id}`,
@@ -125,6 +125,15 @@ export default function TeacherSidebar() {
             <span className="block text-[15px] font-bold truncate">{profile?.name || "프로필 설정"}</span>
             <span className="block text-[13px] text-sub truncate">{profile?.subject || "개인 설정 →"}</span>
           </span>
+        </Link>
+
+        <Link
+          href={dash.href}
+          aria-current={dash.active ? "page" : undefined}
+          className={itemCls(dash.active)}
+          style={itemStyle(dash.active)}
+        >
+          {dash.label}
         </Link>
 
         <nav aria-label="강좌 ROOM" className="flex flex-col gap-0.5">
@@ -203,7 +212,7 @@ export default function TeacherSidebar() {
         style={{ background: "var(--bg)" }}
       >
         <div className="flex gap-1.5 px-4 py-2.5 w-max">
-          {[...rooms, ...pages.map((p) => ({ key: p.href, href: p.href, label: p.label, count: undefined, active: pathname === p.href }))].map((r) => (
+          {[dash, ...rooms, ...pages.map((p) => ({ key: p.href, href: p.href, label: p.label, count: undefined, active: pathname === p.href }))].map((r) => (
             <Link
               key={r.key}
               href={r.href}

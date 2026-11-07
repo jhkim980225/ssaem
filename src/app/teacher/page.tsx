@@ -46,6 +46,17 @@ type Assessment = {
 };
 
 const PAGE = 20; // 자료 목록 한 번에 보여줄 개수
+const QUIET_DAYS = 7; // 이 기간 넘게 접속이 없으면 대시보드에서 챙겨볼 학생으로 띄운다
+
+// 대시보드 요약 — 인사이트(/api/insights)·학생 리포트(/api/students) 응답을 그대로 받는다
+type Insights = {
+  days: number;
+  totals: { questions: number; answers: number; up: number; down: number };
+  daily: { date: string; count: number }[];
+  lowRated: { question: string; answer: string; rating: number; created_at: string }[];
+  weak: { question: string; created_at: string; reason: string }[];
+};
+type StudentRow = { id: string; name: string; questions: number; down: number; lastVisit: string };
 
 type DocEvent = {
   id: string;
@@ -97,8 +108,10 @@ function Dashboard({ session }: { session: Session }) {
   const uid = session.user.id;
   const router = useRouter();
 
-  // 사이드바에서 고른 강좌 ROOM. null=전체, "none"=공용, 그 외=강좌 id
-  const room = useSearchParams().get("room");
+  // 사이드바에서 고른 강좌 ROOM. null=대시보드, 그 외=강좌 id.
+  // "공용 자료" 화면(?room=none)은 없앴다 — 예전 링크로 들어오면 대시보드로 본다
+  const rawRoom = useSearchParams().get("room");
+  const room = rawRoom === "none" ? null : rawRoom;
 
   const [name, setName] = useState("");
   // null = /api/profile 응답 전. false로 두면 이미 저장된 강사에게도 "먼저 저장하세요"가 잠깐 뜬다
@@ -129,7 +142,7 @@ function Dashboard({ session }: { session: Session }) {
 
   const [courses, setCourses] = useState<Course[]>([]);
   const [studentTotal, setStudentTotal] = useState<number | null>(null); // 전 강좌 고유 수강생 수 (null = 집계 전·실패)
-  const [courseSel, setCourseSel] = useState(""); // 업로드 대상 강좌. "" = 공용
+  const [courseSel, setCourseSel] = useState(""); // 업로드 대상 강좌. "" = 강좌 지정 안 함(모든 강좌 공통)
   // 목록 전용 상태. 자료가 수십 건이면 전부 그리는 것만으로 화면이 수천 px가 된다.
   const [docQuery, setDocQuery] = useState("");
   const [docLimit, setDocLimit] = useState(PAGE);
@@ -191,6 +204,23 @@ function Dashboard({ session }: { session: Session }) {
       setReviews(await r.json());
     } catch {
       /* 부가 기능이라 조용히 */
+    }
+  }, [token]);
+
+  // 대시보드 요약. 둘 다 부가 정보라 실패해도 화면 나머지는 그대로 쓴다
+  const [insights, setInsights] = useState<Insights | null>(null);
+  const [students, setStudents] = useState<StudentRow[] | null>(null);
+  const [studentsAt, setStudentsAt] = useState(0); // 학생 현황을 받은 시각 — "N일 넘게 안 들어온 학생" 기준점
+  const loadSummary = useCallback(async () => {
+    const headers = { Authorization: `Bearer ${token}` };
+    const [ir, sr] = await Promise.all([
+      fetch("/api/insights", { headers }).catch(() => null),
+      fetch("/api/students", { headers }).catch(() => null),
+    ]);
+    if (ir?.ok) setInsights(await ir.json().catch(() => null));
+    if (sr?.ok) {
+      setStudents((await sr.json().catch(() => null))?.students ?? []);
+      setStudentsAt(Date.now());
     }
   }, [token]);
 
@@ -303,7 +333,7 @@ function Dashboard({ session }: { session: Session }) {
   }
 
   async function removeCourse(id: string) {
-    if (!confirm("강좌를 삭제할까요? 담겨 있던 자료는 공용으로 바뀌어요.")) return;
+    if (!confirm("강좌를 삭제할까요? 담겨 있던 자료는 모든 강좌 공통으로 바뀌어요.")) return;
     const r = await fetch(`/api/courses?id=${id}`, {
       method: "DELETE",
       headers: { Authorization: `Bearer ${token}` },
@@ -338,7 +368,8 @@ function Dashboard({ session }: { session: Session }) {
     loadDocs();
     loadAssessments();
     loadReviews();
-  }, [savedProfile, loadDocs, loadAssessments, loadReviews]);
+    loadSummary();
+  }, [savedProfile, loadDocs, loadAssessments, loadReviews, loadSummary]);
 
   // 사이드바에서 강좌를 만들거나 지우면 여기 목록도 따라와야 한다
   useEffect(() => {
@@ -351,14 +382,14 @@ function Dashboard({ session }: { session: Session }) {
   // ROOM에 들어가면 업로드 대상도 그 강좌로, 목록 상태는 초기화
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- URL(room) 변화에 파생 상태를 맞추는 동기화
-    setCourseSel(room && room !== "none" ? room : "");
+    setCourseSel(room ?? "");
     setDocQuery("");
     setDocLimit(PAGE);
     setRenaming(false);
     setLessonDate(null);
   }, [room]);
 
-  const roomCourse = room && room !== "none" ? courses.find((c) => c.id === room) ?? null : null;
+  const roomCourse = room ? courses.find((c) => c.id === room) ?? null : null;
   const inRoom = room !== null;
 
   // ROOM 초대 코드 로드 — 강좌마다 코드가 다르다
@@ -391,7 +422,7 @@ function Dashboard({ session }: { session: Session }) {
 
   // 검색·ROOM 필터를 적용한 목록. 원본 docs는 총계(개수·청크 수) 표시에 그대로 쓴다.
   const shownDocs = (docs ?? []).filter((d) => {
-    if (room === "none" ? d.course_id !== null : room && d.course_id !== room) return false;
+    if (room && d.course_id !== room) return false;
     if (roomCourse && lessonDate && d.lesson_date !== lessonDate) return false;
     const q = docQuery.trim().toLowerCase();
     if (!q) return true;
@@ -548,13 +579,26 @@ function Dashboard({ session }: { session: Session }) {
   const SMALL = "btn h-9 px-3 text-[13px] shrink-0";
   const previewHref = `/ask?preview=1&teacher=${uid}`;
 
+  // 대시보드 요약 파생값
+  const dailyMax = Math.max(1, ...(insights?.daily.map((d) => d.count) ?? [1]));
+  const weekQuestions = (insights?.daily ?? []).slice(-7).reduce((n, d) => n + d.count, 0);
+  const checks = [
+    ...(insights?.lowRated ?? []).slice(0, 3).map((r) => ({ low: true, question: r.question })),
+    ...(insights?.weak ?? []).slice(0, 3).map((w) => ({ low: false, question: w.question })),
+  ];
+  const topAskers = (students ?? []).filter((s) => s.questions > 0).slice(0, 5); // 서버가 질문 수 순으로 정렬해 준다
+  const quietSince = studentsAt - QUIET_DAYS * 86_400_000;
+  const quiet = (students ?? [])
+    .filter((s) => !s.lastVisit || new Date(s.lastVisit).getTime() < quietSince)
+    .sort((a, b) => (a.lastVisit || "").localeCompare(b.lastVisit || ""));
+
   return (
     <div className="flex flex-col gap-4">
       <div className="rise flex justify-between items-end gap-3 flex-wrap">
         <div className="min-w-0">
           {inRoom && (
             <Link href="/teacher" className="text-sub text-[14px] font-semibold">
-              ← 전체 자료
+              ← 대시보드
             </Link>
           )}
           {roomCourse && renaming ? (
@@ -580,17 +624,15 @@ function Dashboard({ session }: { session: Session }) {
             </div>
           ) : (
             <h1 className={`text-[24px] lg:text-[28px] font-bold break-words ${inRoom ? "mt-1" : ""}`}>
-              {room === "none" ? "공용 자료" : roomCourse ? roomCourse.title : inRoom ? "강좌" : "강사 대시보드"}
+              {roomCourse ? roomCourse.title : inRoom ? "강좌" : "강사 대시보드"}
             </h1>
           )}
           <p className="text-sub text-[14px] lg:text-[15px] mt-1">
-            {room === "none"
-              ? "어느 강좌에도 속하지 않는 자료 — 모든 강좌 검색에서 함께 쓰여요."
-              : inRoom
-                ? `이 강좌 ROOM의 자료만 보여요. 여기서 올리면 이 강좌에 담겨요.${
-                    roomCourse ? ` · 수강생 ${roomCourse.students}명` : ""
-                  }`
-                : "올린 자료로 학생 질문에 답해요. 강좌를 고르면 그 반만 볼 수 있어요."}
+            {inRoom
+              ? `이 강좌 ROOM의 자료만 보여요. 여기서 올리면 이 강좌에 담겨요.${
+                  roomCourse ? ` · 수강생 ${roomCourse.students}명` : ""
+                }`
+              : "최근 2주 학생 질문과 챙겨볼 것을 모았어요. 강좌를 고르면 그 반만 볼 수 있어요."}
           </p>
         </div>
         {roomCourse && !renaming && (
@@ -620,13 +662,36 @@ function Dashboard({ session }: { session: Session }) {
         )}
       </div>
 
-      {/* 요약 — 이미 불러온 자료·강좌·수강평으로만 만든다 (전체 대시보드에서만) */}
+      {/* 요약 — 최근 질문·아쉬운 답변(인사이트) + 강좌·수강평 (대시보드에서만) */}
       {!inRoom && savedProfile && docs !== null && (
-        <div className="rise d1 grid grid-cols-2 lg:grid-cols-3 gap-2 lg:gap-3">
-          <div className="card !rounded-[14px] p-4 lg:px-5 lg:py-[18px]">
-            <p className="text-sub text-[13px] lg:text-[14px]">등록된 자료</p>
-            <p className="text-[24px] lg:text-[26px] font-bold tabular-nums mt-1">{docs.length}</p>
-          </div>
+        <div className="rise d1 grid grid-cols-2 lg:grid-cols-4 gap-2 lg:gap-3">
+          <Link href="/teacher/insights" className="card !rounded-[14px] p-4 lg:px-5 lg:py-[18px] hover:border-[var(--border-strong)]">
+            <p className="text-sub text-[13px] lg:text-[14px]">학생 질문 · {insights?.days ?? 14}일</p>
+            <p className="text-[24px] lg:text-[26px] font-bold tabular-nums mt-1">
+              {insights ? insights.totals.questions : "-"}
+              {insights && (
+                <span className="text-sub text-[14px] lg:text-[15px] font-semibold">
+                  {" "}
+                  · 최근 7일 {weekQuestions}
+                </span>
+              )}
+            </p>
+          </Link>
+          <Link href="/teacher/insights" className="card !rounded-[14px] p-4 lg:px-5 lg:py-[18px] hover:border-[var(--border-strong)]">
+            <p className="text-sub text-[13px] lg:text-[14px]">아쉬운 답변</p>
+            <p
+              className="text-[24px] lg:text-[26px] font-bold tabular-nums mt-1"
+              style={insights && insights.totals.down > 0 ? { color: "var(--red)" } : undefined}
+            >
+              {insights ? insights.totals.down : "-"}
+              {insights && (
+                <span className="text-sub text-[14px] lg:text-[15px] font-semibold">
+                  {" "}
+                  · 자료 부족 {insights.weak.length}
+                </span>
+              )}
+            </p>
+          </Link>
           <div className="card !rounded-[14px] p-4 lg:px-5 lg:py-[18px]">
             <p className="text-sub text-[13px] lg:text-[14px]">강좌</p>
             <p className="text-[24px] lg:text-[26px] font-bold tabular-nums mt-1">
@@ -639,7 +704,7 @@ function Dashboard({ session }: { session: Session }) {
               )}
             </p>
           </div>
-          <div className="card !rounded-[14px] p-4 lg:px-5 lg:py-[18px] col-span-2 lg:col-span-1">
+          <div className="card !rounded-[14px] p-4 lg:px-5 lg:py-[18px]">
             <p className="text-sub text-[13px] lg:text-[14px]">수강평</p>
             <p className="text-[24px] lg:text-[26px] font-bold tabular-nums mt-1">
               {reviews && reviews.count > 0 ? reviews.avg?.toFixed(1) ?? "-" : "-"}
@@ -661,6 +726,143 @@ function Dashboard({ session }: { session: Session }) {
         }
       >
       <div className={`flex flex-col gap-4 min-w-0 ${inRoom ? "lg:contents" : ""}`}>
+      {/* 학생 질문 추이 — 인사이트와 같은 막대. 가장 많은 날만 진하게 */}
+      {!inRoom && savedProfile && insights && (
+        <section className="rise d1 card p-5 lg:p-6">
+          <div className="flex items-baseline justify-between gap-2 mb-4">
+            <h2 className={H2}>
+              학생 질문 <span className="text-sub text-[13px] font-normal">· 최근 {insights.days}일</span>
+            </h2>
+            <Link href="/teacher/insights" className="text-blue text-[14px] font-bold shrink-0 hover:underline">
+              인사이트 →
+            </Link>
+          </div>
+          {insights.totals.questions === 0 ? (
+            <p className="text-sub text-[14px] py-4 text-center">최근 {insights.days}일 동안 들어온 질문이 없어요.</p>
+          ) : (
+            <>
+              <div className="flex items-end gap-1 lg:gap-1.5 h-24" role="img" aria-label={`최근 ${insights.days}일 일별 질문 수 막대 그래프`}>
+                {insights.daily.map((d) => (
+                  <div key={d.date} className="group relative flex-1 h-full flex flex-col justify-end items-center">
+                    <span className="pointer-events-none absolute -top-6 hidden group-hover:block text-[11px] whitespace-nowrap rounded-md px-1.5 py-0.5 border border-line card z-10">
+                      {d.date.slice(5).replace("-", "/")} · {d.count}건
+                    </span>
+                    <div
+                      className="w-full rounded-t-[5px] rounded-b-[2px]"
+                      style={{
+                        background: "var(--blue)",
+                        opacity: d.count === dailyMax ? 1 : 0.22,
+                        height: `${(d.count / dailyMax) * 100}%`,
+                        minHeight: d.count > 0 ? 3 : 0,
+                      }}
+                    />
+                  </div>
+                ))}
+              </div>
+              <div className="flex justify-between mt-2 text-sub text-[12px]">
+                <span>{insights.daily[0]?.date.slice(5).replace("-", "/")}</span>
+                <span>가장 많은 날 {dailyMax}건</span>
+                <span>{insights.daily[insights.daily.length - 1]?.date.slice(5).replace("-", "/")}</span>
+              </div>
+            </>
+          )}
+        </section>
+      )}
+
+      {/* 챙겨볼 것 — 아쉬운 답변·자료 부족 질문 | 학생 현황. 자세한 건 각 화면으로 */}
+      {!inRoom && savedProfile && (insights || students) && (
+        <div className="flex flex-col gap-4 lg:grid lg:grid-cols-2 lg:items-start">
+          {insights && (
+            <section className="rise d1 card p-5 lg:p-6 flex flex-col min-w-0">
+              <div className="flex items-baseline justify-between gap-2 mb-3">
+                <h2 className={H2}>확인이 필요해요</h2>
+                <Link href="/teacher/insights" className="text-blue text-[14px] font-bold shrink-0 hover:underline">
+                  전체 →
+                </Link>
+              </div>
+              {checks.length === 0 ? (
+                <p className="text-sub text-[14px] py-4 text-center border-t border-line">
+                  아쉬운 답변이나 자료가 부족했던 질문이 없어요.
+                </p>
+              ) : (
+                checks.map((c, i) => (
+                  <div key={i} className="py-3 border-t border-line flex items-start gap-2.5 min-w-0">
+                    <span
+                      className={`${TAG} shrink-0`}
+                      style={c.low ? { background: "var(--red-weak)", color: "var(--red)" } : tagGray}
+                    >
+                      {c.low ? "아쉬움" : "자료 부족"}
+                    </span>
+                    <p className="text-[14px] lg:text-[15px] min-w-0 break-words">{c.question || "(질문 없음)"}</p>
+                  </div>
+                ))
+              )}
+            </section>
+          )}
+          {students && (
+            <section className="rise d1 card p-5 lg:p-6 flex flex-col min-w-0">
+              <div className="flex items-baseline justify-between gap-2 mb-3">
+                <h2 className={H2}>학생 현황</h2>
+                <Link href="/teacher/students" className="text-blue text-[14px] font-bold shrink-0 hover:underline">
+                  학생 리포트 →
+                </Link>
+              </div>
+              {students.length === 0 ? (
+                <p className="text-sub text-[14px] py-4 text-center border-t border-line">
+                  아직 등록된 학생이 없어요. 강좌 ROOM의 초대 코드로 학생을 등록해 보세요.
+                </p>
+              ) : (
+                <>
+                  <div className="py-3 border-t border-line">
+                    <p className="text-sub text-[13px] mb-2">질문을 많이 한 학생</p>
+                    {topAskers.length === 0 ? (
+                      <p className="text-[14px] text-sub">최근 질문한 학생이 없어요.</p>
+                    ) : (
+                      <div className="flex flex-wrap gap-1.5">
+                        {topAskers.map((s) => (
+                          <span key={s.id} className="inline-flex items-center h-8 px-3 rounded-[8px] text-[14px]" style={{ background: "var(--fill)" }}>
+                            {s.name} <b className="text-blue tabular-nums ml-1.5">{s.questions}</b>
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <div className="py-3 border-t border-line">
+                    <p className="text-sub text-[13px] mb-2">
+                      {QUIET_DAYS}일 넘게 안 들어온 학생{" "}
+                      <b className="tabular-nums" style={quiet.length > 0 ? { color: "var(--red)" } : undefined}>
+                        {quiet.length}명
+                      </b>
+                    </p>
+                    {quiet.length === 0 ? (
+                      <p className="text-[14px] text-sub">모두 최근 {QUIET_DAYS}일 안에 들어왔어요.</p>
+                    ) : (
+                      <div className="flex flex-wrap gap-1.5">
+                        {quiet.slice(0, 12).map((s) => (
+                          <span
+                            key={s.id}
+                            className="inline-flex items-center h-8 px-3 rounded-[8px] text-[14px]"
+                            style={{ background: "var(--fill)" }}
+                          >
+                            {s.name}
+                            <span className="text-sub text-[12px] ml-1.5">
+                              {s.lastVisit
+                                ? new Date(s.lastVisit).toLocaleDateString("ko-KR", { month: "numeric", day: "numeric" })
+                                : "기록 없음"}
+                            </span>
+                          </span>
+                        ))}
+                        {quiet.length > 12 && <span className="text-sub text-[13px] self-center">외 {quiet.length - 12}명</span>}
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
+            </section>
+          )}
+        </div>
+      )}
+
       {/* ROOM 수강생 명단 + ROOM 초대 — 이 코드로 가입한 학생은 이 강좌에 바로 등록된다. 학생은 여러 ROOM에 등록 가능 */}
       {roomCourse && savedProfile && (
         <section className="rise d1 card p-5 lg:p-6 flex flex-col gap-3">
@@ -827,7 +1029,7 @@ function Dashboard({ session }: { session: Session }) {
             value={courseSel}
             onChange={(e) => setCourseSel(e.target.value)}
           >
-            <option value="">공용 · 모든 강좌에서 함께 써요</option>
+            <option value="">강좌 지정 안 함 · 모든 강좌에서 함께 써요</option>
             {courses.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.title}
@@ -954,7 +1156,7 @@ function Dashboard({ session }: { session: Session }) {
                   {d.kind === "style" ? "말투" : "문제"}
                 </span>
                 {/* ROOM 안에선 어느 강좌인지 자명 — 전체 목록에서만 표시 */}
-                {!inRoom && <span className={TAG} style={tagGray}>{d.course ?? "공용"}</span>}
+                {!inRoom && <span className={TAG} style={tagGray}>{d.course ?? "모든 강좌"}</span>}
                 {d.lesson_date && (
                   /* 클릭 → 수업 상세 페이지 (학생이 보는 것과 같은 화면) */
                   <Link href={`/lesson/${d.id}`} className={`${TAG} hover:underline`} style={{ ...tagGray, color: "var(--blue)" }}>
