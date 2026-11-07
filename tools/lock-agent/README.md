@@ -15,7 +15,10 @@ PC실 실시간 수업(`/teacher/live`, `/live`)에서 **학생 PC를 진짜로 
 | `watch` | 그대로 — 학생 탭이 강사 화면을 꽉 채움. 위쪽에 안내 띠 | 막음 |
 | `unlock` | 원래대로 | 풀림 |
 
-- `GET /status`, `POST /beat`, `POST /cmd {"action","text"}` — 응답 `{"ok":true,"v":"1.0","mode":"…"}`
+- `GET /status`, `POST /beat`, `POST /cmd {"action","text"}` — 응답 `{"ok":true,"v":"1.1","mode":"…"}`
+- **감독 (1.1)**: `GET /activity` → 맨 앞 창 `{"app":"KakaoTalk","title":"…"}`, `GET /shot?w=480&q=60` → 화면 JPEG(모니터 전부).
+  학생 수업 탭이 4초마다 받아 **강사 PC로 직접**(WebRTC 데이터 채널) 보낸다 — 서버를 안 거치고 저장도 안 한다.
+  이 둘은 Origin 없는 요청(`<img src>` 등)을 거절한다
 - 브라우저 요청은 **Origin이 등록된 쌤 주소일 때만** 따른다(403). 기본: 배포 주소 + `http://localhost:3000`.
   다른 도메인을 쓰면 exe 옆 `ssaem-lock.ini`에 `origin=https://…` 줄 추가.
 - **안전장치**: 학생 탭의 `/beat`(5초마다)가 90초 끊기면 스스로 풀린다 — 네트워크·브라우저가 죽어 영영 잠기는 일 방지.

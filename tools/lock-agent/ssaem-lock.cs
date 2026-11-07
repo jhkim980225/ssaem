@@ -4,6 +4,9 @@
 //   lock   = 화면을 가리고 키보드·마우스를 막는다
 //   watch  = 화면은 그대로 두고(선생님 화면을 보게) 키보드·마우스만 막는다
 //   unlock = 푼다
+// 그리고 수업 중 감독용으로 (1.1)
+//   GET /activity = 지금 맨 앞 창의 프로그램 이름·창 제목 (카카오톡·유튜브 등 딴짓 확인)
+//   GET /shot     = 화면 사진 JPEG (강사 화면의 학생 미리보기)
 // 브라우저는 서버에서 강사 명령인지 검증한 뒤에만 여기로 넘긴다. 이 프로그램은 요청의
 // Origin이 등록된 쌤 주소인지만 본다 (다른 사이트가 이 PC를 잠그지 못하게).
 //
@@ -30,7 +33,7 @@ using Microsoft.Win32;
 static class Program
 {
     const int Port = 47800;
-    const string Version = "1.0";
+    const string Version = "1.1";
     const int BeatTimeoutSec = 90;
 
     static readonly HashSet<string> Origins = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
@@ -295,6 +298,26 @@ static class Program
                     return;
                 }
 
+                string query = "";
+                int qi = path.IndexOf('?');
+                if (qi >= 0) { query = path.Substring(qi + 1); path = path.Substring(0, qi); }
+
+                // 화면·창 제목은 쌤 수업 화면(등록된 Origin)에만 준다.
+                // <img src=…>처럼 Origin 없이 오는 요청은 다른 사이트일 수 있어 거절.
+                if (method == "GET" && (path == "/activity" || path == "/shot"))
+                {
+                    if (origin == null)
+                    {
+                        Respond(s, 403, null, "{\"ok\":false}");
+                        return;
+                    }
+                    if (path == "/activity")
+                        Respond(s, 200, origin, Activity());
+                    else
+                        RespondBytes(s, 200, origin, Shot(QueryInt(query, "w", 480, 160, 1920), QueryInt(query, "q", 60, 20, 90)), "image/jpeg");
+                    return;
+                }
+
                 if (method == "POST" && path == "/cmd")
                 {
                     var action = Field(body, "action");
@@ -370,7 +393,79 @@ static class Program
         return Regex.Unescape(m.Groups[1].Value);
     }
 
+    // ───────── 감독: 맨 앞 창 · 화면 사진 ─────────
+
+    static string Activity()
+    {
+        var h = GetForegroundWindow();
+        var title = new StringBuilder(512);
+        GetWindowText(h, title, title.Capacity);
+        int pid;
+        GetWindowThreadProcessId(h, out pid);
+        string app = "";
+        try { if (pid != 0) app = Process.GetProcessById(pid).ProcessName; } catch { }
+        return "{\"ok\":true,\"app\":\"" + Esc(app) + "\",\"title\":\"" + Esc(title.ToString()) + "\"}";
+    }
+
+    static byte[] Shot(int w, int q)
+    {
+        var vs = SystemInformation.VirtualScreen; // 모니터 여러 대면 전부
+        using (var full = new Bitmap(vs.Width, vs.Height))
+        {
+            using (var g = Graphics.FromImage(full))
+                g.CopyFromScreen(vs.Left, vs.Top, 0, 0, vs.Size);
+            int h = Math.Max(1, (int)((long)vs.Height * w / vs.Width));
+            using (var small = new Bitmap(w, h))
+            {
+                using (var g = Graphics.FromImage(small))
+                {
+                    g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBilinear;
+                    g.DrawImage(full, 0, 0, w, h);
+                }
+                System.Drawing.Imaging.ImageCodecInfo jpeg = null;
+                foreach (var c in System.Drawing.Imaging.ImageCodecInfo.GetImageEncoders())
+                    if (c.MimeType == "image/jpeg") jpeg = c;
+                var ps = new System.Drawing.Imaging.EncoderParameters(1);
+                ps.Param[0] = new System.Drawing.Imaging.EncoderParameter(System.Drawing.Imaging.Encoder.Quality, (long)q);
+                using (var ms = new MemoryStream())
+                {
+                    small.Save(ms, jpeg, ps);
+                    return ms.ToArray();
+                }
+            }
+        }
+    }
+
+    static int QueryInt(string query, string name, int def, int min, int max)
+    {
+        var m = Regex.Match("&" + query, "&" + name + "=(\\d+)");
+        int v;
+        if (!m.Success || !int.TryParse(m.Groups[1].Value, out v)) return def;
+        return Math.Max(min, Math.Min(max, v));
+    }
+
+    static string Esc(string v)
+    {
+        var sb = new StringBuilder();
+        foreach (var ch in v)
+        {
+            if (ch == '"' || ch == '\\') sb.Append('\\').Append(ch);
+            else if (ch < 0x20) sb.Append("\\u").Append(((int)ch).ToString("x4"));
+            else sb.Append(ch);
+        }
+        return sb.ToString();
+    }
+
+    [DllImport("user32.dll")] static extern IntPtr GetForegroundWindow();
+    [DllImport("user32.dll")] static extern uint GetWindowThreadProcessId(IntPtr h, out int pid);
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern int GetWindowText(IntPtr h, StringBuilder text, int max);
+
     static void Respond(NetworkStream s, int code, string origin, string json)
+    {
+        RespondBytes(s, code, origin, json == null ? null : Encoding.UTF8.GetBytes(json), "application/json");
+    }
+
+    static void RespondBytes(NetworkStream s, int code, string origin, byte[] body, string type)
     {
         var sb = new StringBuilder();
         sb.Append("HTTP/1.1 ").Append(code).Append(code == 200 ? " OK" : code == 204 ? " No Content" : " Error").Append("\r\n");
@@ -382,8 +477,8 @@ static class Program
             sb.Append("Access-Control-Allow-Private-Network: true\r\n");
             sb.Append("Vary: Origin\r\n");
         }
-        var bytes = json == null ? new byte[0] : Encoding.UTF8.GetBytes(json);
-        if (json != null) sb.Append("Content-Type: application/json\r\n");
+        var bytes = body ?? new byte[0];
+        if (body != null) sb.Append("Content-Type: ").Append(type).Append("\r\n");
         sb.Append("Cache-Control: no-store\r\nConnection: close\r\nContent-Length: ").Append(bytes.Length).Append("\r\n\r\n");
         var h = Encoding.ASCII.GetBytes(sb.ToString());
         s.Write(h, 0, h.Length);

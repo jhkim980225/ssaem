@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useGate } from "@/components/RoleGuard";
-import { TeacherLive, newSid, type AgentMode, type Meta } from "@/lib/live";
+import { TeacherLive, appLabel, isOffTask, newSid, type AgentMode, type Meta, type Watch } from "@/lib/live";
 import { supabaseTransport } from "@/lib/live-supabase";
 
 type Room = { teacher: string; name: string; channel: string };
@@ -26,7 +26,12 @@ export default function TeacherLivePage() {
     students: Meta[];
     sharing: boolean;
     conns: Record<string, RTCPeerConnectionState | "none">;
-  }>({ students: [], sharing: false, conns: {} });
+    watch: Record<string, Watch>;
+    /** 이번 수업에 들어왔다가 나간 학생 (수업 탭을 닫으면 감독도 끊긴다 — 그것도 신호) */
+    left: { uid: string; name: string }[];
+  }>({ students: [], sharing: false, conns: {}, watch: {}, left: [] });
+  // 크게 보는 학생 sid
+  const [zoom, setZoom] = useState<string | null>(null);
   const [lockText, setLockText] = useState("");
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
@@ -38,6 +43,7 @@ export default function TeacherLivePage() {
   const liveRef = useRef<TeacherLive | null>(null);
   const previewRef = useRef<HTMLVideoElement | null>(null);
   const resent = useRef<Record<string, number>>({});
+  const seen = useRef<Map<string, string>>(new Map()); // uid → 이름
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- 브라우저에서만 아는 값(현재 주소)을 한 번 읽는 것
@@ -60,10 +66,14 @@ export default function TeacherLivePage() {
     const sid = newSid();
     const t = supabaseTransport(room.channel, sid, (s) => setLink(s));
     const live: TeacherLive = new TeacherLive(t, { sid, uid: me.id, name: me.name || "선생님" }, () => {
+      for (const s of live.students) seen.current.set(s.uid, s.name);
+      const here = new Set(live.students.map((s) => s.uid));
       setView({
         students: [...live.students],
         sharing: Boolean(live.stream),
         conns: Object.fromEntries(live.students.map((s) => [s.sid, live.stateOf(s.sid)])),
+        watch: Object.fromEntries(live.watch),
+        left: [...seen.current].filter(([uid]) => !here.has(uid)).map(([uid, name]) => ({ uid, name })),
       });
       reconcileRef.current(live.students);
     });
@@ -150,10 +160,21 @@ export default function TeacherLivePage() {
 
   const students = view.students;
 
+  // 크게 보기: 열려 있는 동안 2.5초마다 큰 사진을 새로 받는다
+  useEffect(() => {
+    if (!zoom) return;
+    liveRef.current?.requestBig(zoom);
+    const id = setInterval(() => liveRef.current?.requestBig(zoom), 2500);
+    return () => clearInterval(id);
+  }, [zoom]);
+  const zoomed = zoom ? students.find((s) => s.sid === zoom) : undefined;
+  const zw = zoom ? view.watch[zoom] : undefined;
+
   if (gate) return gate;
 
   const away = students.filter((s) => s.away).length;
   const noAgent = students.filter((s) => !s.agent).length;
+  const offTask = students.filter((s) => isOffTask(view.watch[s.sid]?.activity)).length;
   const originKnown = !origin || AGENT_ORIGINS.includes(origin);
 
   return (
@@ -186,7 +207,8 @@ export default function TeacherLivePage() {
                     : link === "error"
                       ? "수업방에 연결하지 못했어요. 새로고침해 주세요."
                       : "수업방 여는 중…"}
-                  {away > 0 && ` · 다른 창 ${away}명`}
+                  {away > 0 && ` · 수업 탭 떠남 ${away}명`}
+                  {offTask > 0 && <b style={{ color: "var(--red)" }}> · 딴짓 의심 {offTask}명</b>}
                 </p>
               </div>
               {view.sharing ? (
@@ -257,8 +279,30 @@ export default function TeacherLivePage() {
                 .map((s) => {
                   const conn = view.conns[s.sid] ?? "none";
                   const mode = s.mode ?? "none";
+                  const w = view.watch[s.sid];
+                  const off = isOffTask(w?.activity);
                   return (
-                    <article key={s.sid} className="card p-4 flex flex-col gap-2 min-w-0">
+                    <article
+                      key={s.sid}
+                      className="card p-4 flex flex-col gap-2 min-w-0"
+                      style={off ? { boxShadow: "inset 0 0 0 2px var(--red)" } : undefined}
+                    >
+                      <button
+                        onClick={() => setZoom(s.sid)}
+                        disabled={!w?.shot}
+                        className="w-full aspect-video rounded-[8px] overflow-hidden grid place-items-center text-[12px] text-white/60"
+                        style={{ background: "#0f1722" }}
+                        aria-label={`${s.name} 화면 크게 보기`}
+                      >
+                        {w?.shot ? (
+                          // eslint-disable-next-line @next/next/no-img-element -- 학생 PC가 보낸 사진(blob URL)
+                          <img src={w.shot} alt="" className="w-full h-full object-contain" />
+                        ) : s.agent ? (
+                          "화면 받는 중…"
+                        ) : (
+                          "잠금 프로그램이 없어 화면을 볼 수 없어요"
+                        )}
+                      </button>
                       <div className="flex items-center justify-between gap-2">
                         <p className="text-[15px] font-bold truncate">{s.name}</p>
                         {mode !== "none" && <span className="chip chip-on !text-[12px]">{MODE_LABEL[mode]}</span>}
@@ -273,11 +317,21 @@ export default function TeacherLivePage() {
                                 ? "연결 실패 · 다시 거는 중"
                                 : "연결 중"}
                         </span>
-                        {s.away && <span style={{ color: "var(--red)" }}>다른 창</span>}
+                        {s.away && <span style={{ color: "var(--red)" }}>수업 탭 떠남</span>}
                         <span style={s.agent ? undefined : { color: "var(--red)" }}>
                           {s.agent ? "잠금 프로그램 ✓" : "잠금 프로그램 없음"}
                         </span>
                       </p>
+                      {w?.activity?.app != null && (
+                        <p
+                          className="text-[13px] truncate"
+                          style={off ? { color: "var(--red)", fontWeight: 700 } : { color: "var(--text-2)" }}
+                          title={w.activity.title}
+                        >
+                          지금: {appLabel(w.activity.app)}
+                          {w.activity.title && ` · ${w.activity.title}`}
+                        </p>
+                      )}
                       <div className="flex gap-1.5">
                         <button onClick={() => setOne(s.uid, "lock")} className="btn btn-gray px-3 h-9 !text-[13px]">
                           잠금
@@ -293,6 +347,13 @@ export default function TeacherLivePage() {
                   );
                 })}
             </div>
+          )}
+
+          {view.left.length > 0 && (
+            <p className="text-[13px] text-sub">
+              나간 학생: <span style={{ color: "var(--red)" }}>{view.left.map((l) => l.name).join(", ")}</span> — 수업
+              화면을 닫으면 여기로 와요.
+            </p>
           )}
 
           <section className="card p-5 flex flex-col gap-2 text-[14px]">
@@ -322,11 +383,47 @@ export default function TeacherLivePage() {
               </p>
             )}
             <p className="text-sub text-[13px]">
+              학생 화면 미리보기와 “지금 쓰는 프로그램”도 이 프로그램이 보내요(4초마다, 학원 PC끼리 직접 — 서버에 저장
+              안 함). 카카오톡·유튜브·게임 방송 같은 건 빨간 테두리로 표시돼요. 학생 화면에는 “선생님이 볼 수 있어요”
+              안내가 늘 떠 있어요.
+            </p>
+            <p className="text-sub text-[13px]">
               안전장치: 학생 수업 화면과 90초 넘게 연락이 끊기면 잠금이 저절로 풀려요. Ctrl+Alt+Del은 윈도우가 막지
               못하게 해 둬서 막을 수 없어요.
             </p>
           </section>
         </>
+      )}
+
+      {zoom && (
+        <div
+          className="fixed inset-0 z-[100] flex flex-col p-4 lg:p-8 gap-3"
+          style={{ background: "rgba(10,15,25,.92)" }}
+          onClick={() => setZoom(null)}
+        >
+          <div className="flex items-center justify-between gap-3 text-white">
+            <p className="text-[17px] font-bold truncate">
+              {zoomed?.name ?? "나간 학생"}
+              {zw?.activity?.app != null && (
+                <span className="font-normal text-white/70">
+                  {" "}
+                  · {appLabel(zw.activity.app)} {zw.activity.title}
+                </span>
+              )}
+            </p>
+            <button className="btn btn-gray px-4 h-10 shrink-0" onClick={() => setZoom(null)}>
+              닫기
+            </button>
+          </div>
+          <div className="flex-1 min-h-0 grid place-items-center">
+            {zw?.big || zw?.shot ? (
+              // eslint-disable-next-line @next/next/no-img-element -- 학생 PC가 보낸 사진(blob URL)
+              <img src={zw.big ?? zw.shot} alt="" className="max-w-full max-h-full object-contain rounded-[8px]" />
+            ) : (
+              <p className="text-white/70">화면을 받는 중이에요…</p>
+            )}
+          </div>
+        </div>
       )}
     </main>
   );

@@ -1,7 +1,16 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useGate } from "@/components/RoleGuard";
-import { StudentLive, agentBeat, agentCommand, newSid, type AgentMode, type SignedCmd } from "@/lib/live";
+import {
+  StudentLive,
+  agentActivity,
+  agentBeat,
+  agentCommand,
+  agentShot,
+  newSid,
+  type AgentMode,
+  type SignedCmd,
+} from "@/lib/live";
 import { supabaseTransport } from "@/lib/live-supabase";
 
 type Room = { teacher: string; name: string; channel: string };
@@ -118,6 +127,12 @@ export default function LivePage() {
       () => setView({ stream: live.stream, online: live.teacherOnline, sharing: live.teacherSharing }),
       (s) => void onCmdRef.current(s)
     );
+    // 선생님이 내 화면을 크게 보려 할 때 — 큰 사진 한 장 (너무 크면 줄여서)
+    live.onWant = async () => {
+      let shot = await agentShot(1280, 60);
+      if (shot && shot.byteLength > 250_000) shot = await agentShot(960, 50);
+      if (shot) live.sendShot("big", shot);
+    };
     liveRef.current = live;
     return () => {
       live.close();
@@ -161,6 +176,28 @@ export default function LivePage() {
     };
     void beat();
     const id = setInterval(beat, 5000);
+    return () => {
+      alive = false;
+      clearInterval(id);
+    };
+  }, [room]);
+
+  // 수업 감독: 4초마다 지금 맨 앞 프로그램 + 화면 미리보기를 선생님 PC로 (PC끼리 직접, 서버 안 거침).
+  // 잠금 프로그램이 없으면 프로그램 이름을 알 수 없다고만 알린다.
+  useEffect(() => {
+    if (!room) return;
+    let alive = true;
+    const send = async () => {
+      const live = liveRef.current;
+      if (!live?.monitoring) return;
+      const act = await agentActivity();
+      if (!alive) return;
+      live.sendActivity(act ?? { app: null, title: "" });
+      if (!act) return;
+      const shot = await agentShot(480, 55);
+      if (alive && shot) live.sendShot("thumb", shot);
+    };
+    const id = setInterval(send, 4000);
     return () => {
       alive = false;
       clearInterval(id);
@@ -336,6 +373,12 @@ export default function LivePage() {
               잠금 프로그램 {agent === null ? "확인 중" : agent ? "연결됨" : "없음"}
               {cmdErr && <span style={{ color: "var(--red)" }}> · {cmdErr}</span>}
             </p>
+            {/* 감독 고지 — 화면을 보내는 동안 늘 보이게 */}
+            {agent && (
+              <p className="text-[12px] rounded-[8px] px-3 py-2" style={{ background: "var(--fill)", color: "var(--sub-2)" }}>
+                수업 중에는 선생님이 이 PC의 화면과 지금 쓰는 프로그램을 볼 수 있어요.
+              </p>
+            )}
           </aside>
         </div>
       )}
