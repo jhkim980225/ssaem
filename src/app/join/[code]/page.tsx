@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
-import { toEmail } from "@/lib/account";
+import { toEmail, authPassword } from "@/lib/account";
 import { avatarEmoji } from "@/lib/avatar";
 import { StateScreen, StateIcon, BIG_BTN, BIG_BTN_GRAY } from "@/components/RoleGuard";
 import AgreeTerms from "@/components/AgreeTerms";
@@ -100,7 +100,7 @@ export default function JoinPage({ params }: { params: Promise<{ code: string }>
     // 가입은 아이디를 내부 이메일로 매핑해 저장하므로 로그인도 같은 매핑을 거쳐야 한다.
     // 가입 직후엔 서버가 만든 초기 비밀번호(휴대폰 뒷 4자리)로 들어간다.
     const loginPw = mode === "signup" ? phone.replace(/[^0-9]/g, "").slice(-4) : pw;
-    const { data, error } = await supabase.auth.signInWithPassword({ email: toEmail(email), password: loginPw });
+    const { data, error } = await supabase.auth.signInWithPassword({ email: toEmail(email), password: authPassword(loginPw) });
     if (error || !data.session) {
       setMsg(error?.message ?? "로그인 실패");
       return;

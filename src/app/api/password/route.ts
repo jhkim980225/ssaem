@@ -3,6 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import { serviceClient } from "@/lib/supabase";
 import { requireUser } from "@/lib/auth";
 import { rateLimit } from "@/lib/ratelimit";
+import { authPassword } from "@/lib/account";
 
 // 본인 비밀번호 변경.
 //
@@ -51,7 +52,7 @@ export async function POST(req: Request) {
       auth: { persistSession: false },
     });
     const { error: verr } = email
-      ? await anon.auth.signInWithPassword({ email, password: current })
+      ? await anon.auth.signInWithPassword({ email, password: authPassword(current) })
       : { error: new Error("no email") };
     if (verr) return NextResponse.json({ error: "현재 비밀번호가 맞지 않아요." }, { status: 400 });
     // 확인용으로 생긴 세션만 닫는다 (global이면 지금 쓰는 기기도 로그아웃된다)

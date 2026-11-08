@@ -3,7 +3,7 @@ import { serviceClient } from "@/lib/supabase";
 import { resolveAcademy } from "@/lib/academy";
 import { rateLimit, clientIp } from "@/lib/ratelimit";
 import { verifyInviteCode, resolveStudentInvite, inviteExpired, expiredInviteRes } from "@/lib/invite";
-import { toEmail, isValidId, enrollStudentToTeacher } from "@/lib/account";
+import { toEmail, isValidId, enrollStudentToTeacher, authPassword } from "@/lib/account";
 
 // 가입. email_confirm: true로 메일 인증 생략.
 // - admin(원장): 학원 이름으로 새 학원 개설 + admin 프로필 즉시 생성
@@ -122,7 +122,7 @@ export async function POST(req: Request) {
 
   const { data, error } = await db.auth.admin.createUser({
     email,
-    password,
+    password: authPassword(password),
     email_confirm: true,
     // 프로필 저장 시 소속 결정용 (초대 학원 id 우선, 없으면 slug)
     user_metadata: invitedAcademyId

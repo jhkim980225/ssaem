@@ -10,6 +10,14 @@ export function toEmail(idOrEmail: string): string {
   return v.includes("@") ? v : `${v}@${ID_DOMAIN}`;
 }
 
+// 학생 휴대폰 가입 비밀번호(뒷 4자리) → Auth에 실제로 저장하는 값.
+// Supabase는 6자 미만 비밀번호를 거절해서, 4자리를 그대로 넣으면 학생 가입이 전부 실패했다.
+// 저장은 늘린 값으로 하고 학생은 계속 4자리만 친다. 숫자 4자리 비밀번호는 다른 경로로는
+// 만들 수 없으므로(가입·변경 최소 8자) 다른 계정의 비밀번호와 겹치지 않는다.
+export function authPassword(pw: string): string {
+  return /^\d{4}$/.test(pw) ? `ssaem-${pw}` : pw;
+}
+
 // 아이디 형식: 영문/숫자/._- 2~30자
 export function isValidId(v: string): boolean {
   return /^[a-z0-9._-]{2,30}$/i.test(v.trim());

@@ -3,7 +3,7 @@ import { Suspense, useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
-import { toEmail, isValidId } from "@/lib/account";
+import { toEmail, isValidId, authPassword } from "@/lib/account";
 import { homeFor, roleFitsTab, type Role as RealRole } from "@/lib/role";
 import { useAuth, ensureRole } from "@/lib/auth-store";
 import AgreeTerms from "@/components/AgreeTerms";
@@ -119,7 +119,7 @@ function LoginInner() {
     const loginPw = phoneSignup ? phone.replace(/[^0-9]/g, "").slice(-4) : pw;
     const { data: signed, error } = await supabase.auth.signInWithPassword({
       email: toEmail(id),
-      password: loginPw,
+      password: authPassword(loginPw),
     });
     if (error) {
       setBusy(false);
