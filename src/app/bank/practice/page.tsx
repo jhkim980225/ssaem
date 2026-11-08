@@ -112,6 +112,12 @@ function PracticeInner() {
     if (!triedRef.current.has(item.q.id)) {
       triedRef.current.add(item.q.id);
       setScore((s) => ({ right: s.right + (res.ok ? 1 : 0), tried: s.tried + 1 }));
+      // 첫 채점만 기록 — 강사 인사이트 "문제 풀이"·오답노트에 남는다. 실패해도 연습엔 영향 없음
+      fetch("/api/bank/attempt", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ questionId: item.q.id, correct: res.ok }),
+      }).catch(() => {});
     }
   }
 

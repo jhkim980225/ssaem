@@ -2,19 +2,20 @@ import { NextResponse } from "next/server";
 import { serviceClient } from "@/lib/supabase";
 import { requireRole } from "@/lib/auth";
 import { fetchAll } from "../admin/_lib/fetch-all";
+import { periodOf, datesOf, kstDate } from "@/lib/period";
 
-const DAYS = 14;
 const PREVIEW = 80;
 
 // 강사 인사이트: 질문 추이 · 평가 · 자료 공백(근거 약한 답변).
-// ponytail: 14일 메시지 JS 집계 — 학원 규모에선 충분, 느려지면 SQL 집계 RPC로.
+// 기간: ?from=&to= (한국 날짜) 또는 ?days= — 없으면 14일 (대시보드).
+// ponytail: 기간 메시지 JS 집계 — 학원 규모에선 충분, 느려지면 SQL 집계 RPC로.
 export async function GET(req: Request) {
   const gate = await requireRole(req, "teacher");
   if ("res" in gate) return gate.res;
   const uid = gate.uid;
 
   const db = serviceClient();
-  const since = new Date(Date.now() - DAYS * 86_400_000).toISOString();
+  const period = periodOf(req);
   // .limit(1000)은 PostgREST 캡과 같아서 바쁜 강사는 14일 중 앞쪽 1000건만 집계됐다 — 끝까지 읽는다.
   // id는 2차 정렬키 — created_at 동률이면 페이지 경계에서 행이 중복·누락된다
   const { data, error } = await fetchAll((from, to) =>
@@ -24,7 +25,8 @@ export async function GET(req: Request) {
         "id, conversation_id, role, content, created_at, conversations!inner(teacher_id), message_feedback(rating), message_citations(similarity)"
       )
       .eq("conversations.teacher_id", uid)
-      .gte("created_at", since)
+      .gte("created_at", period.sinceIso)
+      .lt("created_at", period.untilIso)
       .order("created_at", { ascending: true })
       .order("id", { ascending: true })
       .range(from, to)
@@ -46,18 +48,14 @@ export async function GET(req: Request) {
     return Array.isArray(f) ? f[0]?.rating ?? null : f?.rating ?? null;
   };
 
-  // 일별 질문 수 (오늘 포함 최근 DAYS일, 빈 날은 0)
-  const daily: { date: string; count: number }[] = [];
+  // 일별 질문 수 (기간 전체, 한국 날짜 기준, 빈 날은 0)
   const byDate = new Map<string, number>();
   for (const m of rows)
     if (m.role === "user") {
-      const d = m.created_at.slice(0, 10);
+      const d = kstDate(m.created_at);
       byDate.set(d, (byDate.get(d) ?? 0) + 1);
     }
-  for (let i = DAYS - 1; i >= 0; i--) {
-    const d = new Date(Date.now() - i * 86_400_000).toISOString().slice(0, 10);
-    daily.push({ date: d, count: byDate.get(d) ?? 0 });
-  }
+  const daily = datesOf(period).map((date) => ({ date, count: byDate.get(date) ?? 0 }));
 
   // 답변별 직전 질문 매칭 (대화 내 시간순)
   const lastUserByConv = new Map<string, string>();
@@ -99,7 +97,9 @@ export async function GET(req: Request) {
   }
 
   return NextResponse.json({
-    days: DAYS,
+    days: period.days,
+    from: period.from,
+    to: period.to,
     totals: {
       questions: rows.filter((m) => m.role === "user").length,
       answers,
