@@ -10,6 +10,9 @@
 // 브라우저는 서버에서 강사 명령인지 검증한 뒤에만 여기로 넘긴다. 이 프로그램은 요청의
 // Origin이 등록된 쌤 주소인지만 본다 (다른 사이트가 이 PC를 잠그지 못하게).
 //
+// 자동 업데이트 (1.3): 켤 때와 1시간마다 배포 주소의 ssaem-lock.json(버전·SHA-256)을 보고,
+// 새 버전이면 받아서 해시를 맞춰 본 뒤 자기 자신과 바꿔 끼우고 다시 켠다. 잠긴 동안엔 안 한다.
+//
 // 안전장치: 수업 화면의 살아 있음 신호(/beat)가 90초 끊기면 스스로 푼다
 // (네트워크가 죽거나 브라우저가 꺼져 영영 잠기는 일을 막는다).
 // 한계: Ctrl+Alt+Del은 윈도우가 막지 못하게 해 둬서 여기서도 못 막는다.
@@ -24,6 +27,7 @@ using System.IO;
 using System.Net;
 using System.Net.Sockets;
 using System.Runtime.InteropServices;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
@@ -33,12 +37,14 @@ using Microsoft.Win32;
 static class Program
 {
     const int Port = 47800;
-    const string Version = "1.2";
+    const string Version = "1.3";
     const int BeatTimeoutSec = 90;
+    const string Home = "https://ssaem-mychat-s-projects.vercel.app";
+    const int UpdateEveryMin = 60;
 
     static readonly HashSet<string> Origins = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
     {
-        "https://ssaem-mychat-s-projects.vercel.app",
+        Home,
         "http://localhost:3000",
     };
 
@@ -50,16 +56,24 @@ static class Program
     static IntPtr before = IntPtr.Zero; // 잠그기 직전 맨 앞 창
     static DateTime lastBeat = DateTime.UtcNow;
     static readonly List<Form> covers = new List<Form>();
+    static bool restart; // 업데이트로 바꿔 끼웠으면 끝날 때 새 exe를 띄운다
 
     [STAThread]
-    static void Main()
+    static void Main(string[] args)
     {
         bool fresh;
         using (var mutex = new Mutex(true, "ssaem-lock-agent", out fresh))
         {
+            // 업데이트 직후엔 이전 프로세스가 끝나기를 잠깐 기다린다
+            if (!fresh && args.Length > 0 && args[0] == "--updated")
+            {
+                try { fresh = mutex.WaitOne(15000); }
+                catch (AbandonedMutexException) { fresh = true; }
+            }
             if (!fresh) return; // 이미 실행 중
 
             SetProcessDPIAware();
+            try { File.Delete(Application.ExecutablePath + ".old"); } catch { }
             LoadOrigins();
             RegisterAutostart();
 
@@ -77,9 +91,72 @@ static class Program
             var server = new Thread(Serve) { IsBackground = true };
             server.Start();
 
+            var updater = new Thread(UpdateLoop) { IsBackground = true };
+            updater.Start();
+
             Application.Run();
             tray.Visible = false;
+            tray.Dispose();
+            if (restart) mutex.ReleaseMutex();
         }
+        if (restart)
+        {
+            try { Process.Start(Application.ExecutablePath, "--updated"); } catch { }
+        }
+    }
+
+    // ───────── 자동 업데이트 ─────────
+
+    static void UpdateLoop()
+    {
+        Thread.Sleep(20000); // 로그인 직후 네트워크가 잡힐 때까지
+        while (true)
+        {
+            try { CheckUpdate(); } catch { }
+            Thread.Sleep(UpdateEveryMin * 60 * 1000);
+        }
+    }
+
+    static void CheckUpdate()
+    {
+        if (mode != "none") return; // 잠긴 학생 PC를 업데이트로 풀어 버리지 않게
+        ServicePointManager.SecurityProtocol = (SecurityProtocolType)3072; // TLS 1.2 (.NET 4 기본값은 TLS 1.0이라 Vercel이 거절)
+        string json;
+        using (var wc = new WebClient())
+        {
+            wc.Encoding = Encoding.UTF8;
+            json = wc.DownloadString(Home + "/downloads/ssaem-lock.json?t=" + DateTime.UtcNow.Ticks);
+        }
+        var v = Field(json, "v");
+        var hash = Field(json, "sha256").ToLowerInvariant();
+        System.Version next;
+        if (!System.Version.TryParse(v, out next) || next <= new System.Version(Version) || hash.Length != 64) return;
+
+        byte[] exe;
+        using (var wc = new WebClient())
+            exe = wc.DownloadData(Home + "/downloads/ssaem-lock.exe?v=" + v);
+        string got;
+        using (var sha = SHA256.Create())
+            got = BitConverter.ToString(sha.ComputeHash(exe)).Replace("-", "").ToLowerInvariant();
+        if (got != hash) return; // 덜 받았거나 배포가 반쯤 바뀐 중 — 다음에 다시
+
+        // 실행 중인 exe는 덮어쓸 수 없지만 이름은 바꿀 수 있다 → 옛 것은 .old로 비키고 새 것을 그 자리에
+        var path = Application.ExecutablePath;
+        File.WriteAllBytes(path + ".new", exe);
+        File.Delete(path + ".old");
+        File.Move(path, path + ".old");
+        try { File.Move(path + ".new", path); }
+        catch
+        {
+            File.Move(path + ".old", path); // 되돌리기
+            throw;
+        }
+        ui.BeginInvoke((MethodInvoker)delegate
+        {
+            if (mode != "none") return; // 받는 사이 잠겼으면 다음 실행 때 새 버전으로
+            restart = true;
+            Application.Exit();
+        });
     }
 
     // ───────── 설정 ─────────
@@ -299,16 +376,25 @@ static class Program
 
     static void Serve()
     {
-        TcpListener listener;
-        try
+        TcpListener listener = null;
+        // 업데이트로 다시 켜질 땐 이전 프로세스가 포트를 놓을 때까지 조금 걸린다
+        for (int i = 0; listener == null; i++)
         {
-            listener = new TcpListener(IPAddress.Loopback, Port);
-            listener.Start();
-        }
-        catch
-        {
-            ui.BeginInvoke((MethodInvoker)delegate { tray.Text = "쌤 수업 잠금 - 포트 사용 중"; });
-            return;
+            try
+            {
+                listener = new TcpListener(IPAddress.Loopback, Port);
+                listener.Start();
+            }
+            catch
+            {
+                listener = null;
+                if (i >= 20)
+                {
+                    ui.BeginInvoke((MethodInvoker)delegate { tray.Text = "쌤 수업 잠금 - 포트 사용 중"; });
+                    return;
+                }
+                Thread.Sleep(500);
+            }
         }
         while (true)
         {

@@ -492,7 +492,7 @@ export const agentBeat = () => agentFetch("/beat", {});
 // win = 이 탭 제목 — 보기 모드에서 잠금 프로그램이 이 창을 찾아 맨 앞으로 올린다 (1.2)
 export const agentCommand = (action: "lock" | "watch" | "unlock", text?: string) =>
   agentFetch("/cmd", { action, text: text ?? "", win: document.title });
-export const AGENT_LATEST = "1.2";
+export const AGENT_LATEST = "1.3";
 
 /** 지금 맨 앞 창의 프로그램 이름·창 제목. 잠금 프로그램이 없거나 1.0이면 null */
 export async function agentActivity(): Promise<{ app: string; title: string } | null> {

@@ -26,6 +26,11 @@ PC실 실시간 수업(`/teacher/live`, `/live`)에서 **학생 PC를 진짜로 
   다른 도메인을 쓰면 exe 옆 `ssaem-lock.ini`에 `origin=https://…` 줄 추가.
 - **안전장치**: 학생 탭의 `/beat`(5초마다)가 90초 끊기면 스스로 풀린다 — 네트워크·브라우저가 죽어 영영 잠기는 일 방지.
 - 첫 실행 때 `HKCU\…\Run`에 등록 → 다음 로그인부터 자동 실행. 트레이에 방패 아이콘. 종료 메뉴는 일부러 없음.
+- **자동 업데이트 (1.3)**: 켜고 20초 뒤, 그 뒤로 1시간마다 `/downloads/ssaem-lock.json`(`{"v","sha256"}`)을 본다.
+  버전이 더 높으면 exe를 받아 **SHA-256이 맞을 때만** 바꿔 끼운다 — 실행 중인 exe는 덮어쓸 수 없지만 이름은
+  바꿀 수 있어서 `ssaem-lock.exe.old`로 비키고 새 것을 같은 자리에 둔 뒤 `--updated`로 다시 켠다(새 프로세스가
+  이전 것이 뮤텍스·포트를 놓을 때까지 기다림). 잠긴 동안엔 하지 않는다. 자동 실행 등록 경로가 그대로라 다음
+  로그인에도 새 버전이 뜬다. exe가 있는 폴더에 쓰기 권한이 없으면(Program Files 등) 조용히 건너뛴다
 
 ## 한계
 
@@ -39,9 +44,14 @@ PC실 실시간 수업(`/teacher/live`, `/live`)에서 **학생 PC를 진짜로 
 ## 빌드
 
 `build.bat` — 윈도우 기본 .NET Framework 4 컴파일러(`csc.exe`, C# 5 문법)만 쓴다. 설치할 것 없음.
-결과물: `public/downloads/ssaem-lock.exe` (강사 화면의 내려받기 링크).
+결과물: `public/downloads/ssaem-lock.exe` (강사 화면의 내려받기 링크) + `ssaem-lock.json`(`manifest.ps1`이
+소스의 `Version`과 exe 해시로 만든다). **배포하면 학생 PC들이 1시간 안에 알아서 받으니**, 고칠 때마다
+`Version`을 올리고 `AGENT_LATEST`(`src/lib/live.ts`)도 같이 올린다. 둘 다 커밋할 것 — json만 빠지면 아무도 안 받는다.
 
 ## 검증
 
-스마트 앱 컨트롤이 켜진 개발 PC에선 exe가 막혀서, 같은 소스를 PowerShell `Add-Type`으로 메모리에서 띄워 확인했다:
+자동 업데이트(1.3): `Version`을 1.2로, `Home`을 로컬 http 서버로 바꾼 사본을 띄워 1.2 → 1.3 교체·재실행·`.old` 정리,
+해시가 틀린 json이면 그대로 1.2에 남는 것을 확인. .NET Framework `WebClient` + TLS 1.2로 배포 주소에서 받기 확인.
+
+예전에 스마트 앱 컨트롤이 켜진 개발 PC에선 exe가 막혀서, 같은 소스를 PowerShell `Add-Type`으로 메모리에서 띄워 확인했다:
 상태 조회 · 잘못된 Origin 403 · 사전 요청(Private-Network 헤더) · lock(한글 문구·따옴표) · watch 안내 띠 · unlock 화면 캡처.

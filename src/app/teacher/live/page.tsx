@@ -307,7 +307,7 @@ export default function TeacherLivePage() {
                   const mode = s.mode ?? "none";
                   const w = view.watch[s.sid];
                   const off = isOffTask(w?.activity);
-                  // 1.1 이하는 잠금 해제 때 포커스를 안 돌려준다 (웹에서 메우긴 하지만 새로 받는 게 낫다)
+                  // 1.3부터는 스스로 업데이트한다. 그 아래 버전만 한 번 손으로 새로 받으면 된다
                   const oldAgent = s.agent && Number(s.agentV) < Number(AGENT_LATEST);
                   return (
                     <article
@@ -397,7 +397,7 @@ export default function TeacherLivePage() {
               </li>
               <li>
                 두 번 눌러 실행 (“Windows의 PC 보호” 창이 뜨면 <b>추가 정보 → 실행</b>). 오른쪽 아래 방패 아이콘이
-                뜨면 끝 — 다음부터는 로그인할 때 저절로 켜져요.
+                뜨면 끝 — 다음부터는 로그인할 때 저절로 켜지고, 새 버전도 알아서 받아요.
               </li>
               <li>학생 화면 아래에 “잠금 프로그램 연결됨”이 뜨는지 확인. 브라우저가 “로컬 네트워크 접근”을 물으면 허용.</li>
             </ol>
