@@ -70,6 +70,9 @@ export default function StudentProtection() {
         pointerEvents: "none",
         backgroundImage: `url("data:image/svg+xml,${svg}")`,
         backgroundRepeat: "repeat",
+        // 인쇄(유형별 출력)에도 워터마크가 찍히게 — 기본은 배경 이미지를 인쇄하지 않는다
+        WebkitPrintColorAdjust: "exact",
+        printColorAdjust: "exact",
       }}
     />
   );

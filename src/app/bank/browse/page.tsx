@@ -413,6 +413,30 @@ function BrowseInner() {
                 })}
               </div>
             )}
+            {/* 유형(이론은 영역)별 일괄 출력 — 검색어 없이 고른 급수·유형의 문제 전부 */}
+            {subject && (
+              <Link
+                href={`/bank/print?${new URLSearchParams(
+                  kind === "practice"
+                    ? { subject, kind, ...(ptype ? { category: ptype } : {}) }
+                    : { subject, kind, ...(area ? { area } : {}) }
+                )}`}
+                className="chip shrink-0 self-start min-h-9 inline-flex items-center gap-1.5 !text-[14px] font-semibold"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M6 9V3h12v6M6 18H4a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1h16a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1h-2M6 14h12v7H6z" />
+                </svg>
+                {subject} {kind === "practice" ? ptype || "실무 전체" : area ? areaLabel(area) : "이론 전체"}{" "}
+                {kind === "practice"
+                  ? ptype
+                    ? typeCount(subject, ptype)
+                    : PRACTICE_TYPES.reduce((n, c) => n + typeCount(subject, c), 0)
+                  : area
+                    ? areaCount(subject, area)
+                    : areaBadges.reduce((n, [a]) => n + areaCount(subject, a), 0)}
+                문제 출력
+              </Link>
+            )}
           </>
         )}
       </div>
