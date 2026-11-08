@@ -23,6 +23,8 @@ export type Meta = {
   away?: boolean;
   /** 학생: 이 PC에 잠금 프로그램이 돌고 있는지 */
   agent?: boolean;
+  /** 학생: 잠금 프로그램 없이 브라우저 화면 공유로 미리보기를 보내는 중인지 */
+  browserShare?: boolean;
   /** 학생: 지금 걸린 모드 */
   mode?: AgentMode;
   /** 강사: 화면 공유 중인지 */
@@ -508,6 +510,36 @@ export async function agentShot(w: number, q = 60): Promise<ArrayBuffer | null> 
   } catch {
     return null;
   }
+}
+
+// ───────────────────────── 브라우저 화면 공유 (잠금 프로그램 없는 PC) ─────────────────────────
+//
+// 잠금 프로그램이 없으면 학생 수업 탭이 getDisplayMedia로 화면을 잡아 같은 감독 연결(sendShot)로 보낸다.
+// PC실에선 바로가기(ssaem-live.bat)가 Edge를 --auto-select-desktop-capture-source로 띄워 고르는 창 없이
+// 바로 "전체 화면"이 잡힌다. 이 플래그는 영문 소스 이름("Entire screen")만 받아서(ASCII 전용) --lang=en-US를 같이 준다.
+
+/** 전체 화면 공유 시작. 고르는 창에서 취소하면 예외 */
+export function startScreenShare(): Promise<MediaStream> {
+  // TS 기본 타입에 없는 크롬 옵션(selfBrowserSurface 등)이 있어 옵션만 좁게 캐스팅
+  const opts = {
+    video: { displaySurface: "monitor", frameRate: 2 },
+    audio: false,
+    selfBrowserSurface: "exclude",
+    surfaceSwitching: "exclude",
+    monitorTypeSurfaces: "include",
+  } as DisplayMediaStreamOptions;
+  return navigator.mediaDevices.getDisplayMedia(opts);
+}
+
+/** 공유 중인 화면에서 한 장 (JPEG). w = 가로 픽셀, q = 0~100 (agentShot과 같은 단위) */
+export async function videoShot(v: HTMLVideoElement | null, w: number, q = 60): Promise<ArrayBuffer | null> {
+  if (!v?.videoWidth) return null;
+  const c = document.createElement("canvas");
+  c.width = Math.min(w, v.videoWidth);
+  c.height = Math.round((v.videoHeight * c.width) / v.videoWidth);
+  c.getContext("2d")!.drawImage(v, 0, 0, c.width, c.height);
+  const b = await new Promise<Blob | null>((r) => c.toBlob(r, "image/jpeg", q / 100));
+  return b ? await b.arrayBuffer() : null;
 }
 
 // 수업 중 딴짓으로 볼 프로그램·창 제목. 프로그램 이름이나 창 제목에 들어 있으면 강사 화면에서 빨갛게.

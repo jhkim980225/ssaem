@@ -11,6 +11,32 @@ type Action = "lock" | "watch" | "unlock";
 // 잠금 프로그램에 기본으로 들어 있는 주소. 다른 주소(학원 도메인)로 접속 중이면 ini 안내를 띄운다.
 const AGENT_ORIGINS = ["https://ssaem-mychat-s-projects.vercel.app", "http://localhost:3000"];
 
+// 학생 PC 바로가기 (설치 없이 화면 보기). Edge를 전용 프로필로 따로 띄워야 플래그가 먹는다 — 이미 켜진
+// Edge 창에 붙으면 플래그가 무시된다. 플래그 값은 ASCII만 받아서 화면 이름이 영어가 되게 --lang=en-US.
+// 화면이 둘 이상이면 소스 이름이 "Screen 1"·"Screen 2"로 바뀐다 → 개수를 세서 첫 화면을 고른다.
+// 전부 ASCII라 코드페이지(chcp) 걱정이 없다. 줄바꿈은 CRLF.
+function liveBat(origin: string) {
+  return String.raw`@echo off
+rem ssaem live class - opens a dedicated Edge window that shares this PC's screen with the teacher
+setlocal
+set "URL=${origin}/live"
+set "EDGE=%ProgramFiles(x86)%\Microsoft\Edge\Application\msedge.exe"
+if not exist "%EDGE%" set "EDGE=%ProgramFiles%\Microsoft\Edge\Application\msedge.exe"
+if not exist "%EDGE%" set "EDGE=%ProgramFiles%\Google\Chrome\Application\chrome.exe"
+set "SRC=Entire screen"
+for /f %%n in ('powershell -NoProfile -Command "Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.Screen]::AllScreens.Count"') do if not "%%n"=="1" set "SRC=Screen 1"
+start "" "%EDGE%" --user-data-dir="C:\ssaem\edge" --no-first-run --no-default-browser-check --lang=en-US "--auto-select-desktop-capture-source=%SRC%" --app=%URL%
+`.replace(/\n/g, "\r\n");
+}
+
+function downloadBat(origin: string) {
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([liveBat(origin)], { type: "application/octet-stream" }));
+  a.download = "ssaem-live.bat";
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 10_000);
+}
+
 const MODE_LABEL: Record<AgentMode, string> = { none: "", lock: "잠김", watch: "화면 보기" };
 const toMode = (a: Action): AgentMode => (a === "unlock" ? "none" : a);
 
@@ -281,6 +307,8 @@ export default function TeacherLivePage() {
                   const mode = s.mode ?? "none";
                   const w = view.watch[s.sid];
                   const off = isOffTask(w?.activity);
+                  // 학생이 공유를 끄면 마지막 사진이 남아 있어도 "꺼짐"으로 보여야 한다
+                  const shot = s.agent || s.browserShare ? w?.shot : undefined;
                   return (
                     <article
                       key={s.sid}
@@ -289,18 +317,24 @@ export default function TeacherLivePage() {
                     >
                       <button
                         onClick={() => setZoom(s.sid)}
-                        disabled={!w?.shot}
+                        disabled={!shot}
                         className="w-full aspect-video rounded-[8px] overflow-hidden grid place-items-center text-[12px] text-white/60"
                         style={{ background: "#0f1722" }}
                         aria-label={`${s.name} 화면 크게 보기`}
                       >
-                        {w?.shot ? (
+                        {shot ? (
                           // eslint-disable-next-line @next/next/no-img-element -- 학생 PC가 보낸 사진(blob URL)
-                          <img src={w.shot} alt="" className="w-full h-full object-contain" />
-                        ) : s.agent ? (
+                          <img src={shot} alt="" className="w-full h-full object-contain" />
+                        ) : s.agent || s.browserShare ? (
                           "화면 받는 중…"
                         ) : (
-                          "잠금 프로그램이 없어 화면을 볼 수 없어요"
+                          <span className="px-4 text-center leading-relaxed">
+                            화면 공유가 꺼져 있어요
+                            <br />
+                            <span className="text-[11px] text-white/45">
+                              학생이 쌤 수업 바로가기로 열거나 [내 화면 보여주기]를 누르면 보여요
+                            </span>
+                          </span>
                         )}
                       </button>
                       <div className="flex items-center justify-between gap-2">
@@ -318,8 +352,8 @@ export default function TeacherLivePage() {
                                 : "연결 중"}
                         </span>
                         {s.away && <span style={{ color: "var(--red)" }}>수업 탭 떠남</span>}
-                        <span style={s.agent ? undefined : { color: "var(--red)" }}>
-                          {s.agent ? "잠금 프로그램 ✓" : "잠금 프로그램 없음"}
+                        <span style={s.agent || s.browserShare ? undefined : { color: "var(--red)" }}>
+                          {s.agent ? "잠금 프로그램 ✓" : s.browserShare ? "브라우저 공유" : "잠금 프로그램 없음"}
                         </span>
                       </p>
                       {w?.activity?.app != null && (
@@ -390,6 +424,41 @@ export default function TeacherLivePage() {
             <p className="text-sub text-[13px]">
               안전장치: 학생 수업 화면과 90초 넘게 연락이 끊기면 잠금이 저절로 풀려요. Ctrl+Alt+Del은 윈도우가 막지
               못하게 해 둬서 막을 수 없어요.
+            </p>
+          </section>
+
+          <section className="card p-5 flex flex-col gap-2 text-[14px]">
+            <p className="text-[16px] font-bold">설치 없이 — 바로가기로 화면 보기</p>
+            <p className="text-sub">
+              프로그램을 깔 수 없는 PC라면, 바로가기로 수업을 열기만 해도 학생 화면 미리보기가 보여요. 바로가기는 지금
+              주소({origin || "…"})로 만들어져요.
+            </p>
+            <ol className="list-decimal pl-5 flex flex-col gap-1 text-text-2">
+              <li>
+                학생 PC에서{" "}
+                <button
+                  onClick={() => downloadBat(origin)}
+                  disabled={!origin}
+                  className="font-bold underline"
+                  style={{ color: "var(--blue)" }}
+                >
+                  ssaem-live.bat 내려받기
+                </button>{" "}
+                → <b>C:\ssaem</b> 폴더로 옮기기 (브라우저가 “위험할 수 있는 파일”이라 하면 <b>유지</b>)
+              </li>
+              <li>
+                파일을 오른쪽 클릭 → <b>보내기 → 바탕 화면에 바로 가기 만들기</b>. 바로 가기 이름은 “쌤 수업”처럼
+                바꿔도 돼요.
+              </li>
+              <li>
+                처음 한 번은 바로 가기로 연 창에서 학생이 로그인 — 다음부터는 로그인이 유지돼요. 수업 때는 바로 가기만
+                열면 끝.
+              </li>
+            </ol>
+            <p className="text-sub text-[13px]">
+              한계: 꼭 바로 가기로 열어야 해요(그냥 브라우저로 열면 공유할 화면을 고르는 창이 떠요). 학생이 화면
+              아래 [Stop sharing]을 누르면 끊기고, 여기 카드에 “화면 공유가 꺼져 있어요”로 떠요. PC 잠금과 지금 쓰는
+              프로그램(딴짓) 확인은 잠금 프로그램이 있어야 돼요.
             </p>
           </section>
         </>
