@@ -90,17 +90,17 @@ export default function TeacherSidebar() {
       active: room === c.id,
     })),
   ];
-  const pages = [
+  const menu = [
     { href: "/teacher/live", label: "실시간 수업" },
     { href: "/teacher/board", label: "자료 게시판" },
     { href: "/teacher/insights", label: "인사이트" },
     { href: "/teacher/history", label: "질문 이력" },
     { href: "/teacher/students", label: "학생 리포트" },
     { href: "/teacher/settings", label: "개인 설정" },
-  ];
+  ].map((p) => ({ key: p.href, href: p.href, label: p.label, count: undefined, active: pathname === p.href }));
 
   const itemCls = (active: boolean) =>
-    `block rounded-[8px] px-3 py-2.5 text-[15px] text-left transition-colors ${
+    `block rounded-[8px] px-3 py-2 text-[15px] text-left transition-colors ${
       active ? "font-bold" : "hover:bg-[var(--fill-2)]"
     }`;
   const itemStyle = (active: boolean) =>
@@ -127,17 +127,21 @@ export default function TeacherSidebar() {
           </span>
         </Link>
 
-        <Link
-          href={dash.href}
-          aria-current={dash.active ? "page" : undefined}
-          className={itemCls(dash.active)}
-          style={itemStyle(dash.active)}
-        >
-          {dash.label}
-        </Link>
+        {/* 대시보드 · 메뉴 · 강좌를 띄우지 않고 한 목록으로 */}
+        <nav aria-label="메뉴" className="flex flex-col gap-0.5">
+          {[dash, ...menu].map((m) => (
+            <Link
+              key={m.key}
+              href={m.href}
+              aria-current={m.active ? "page" : undefined}
+              className={itemCls(m.active)}
+              style={itemStyle(m.active)}
+            >
+              {m.label}
+            </Link>
+          ))}
 
-        <nav aria-label="강좌 ROOM" className="flex flex-col gap-0.5">
-          <p className="text-sub text-[12px] font-bold px-2 mb-1.5">강좌 ROOM</p>
+          <p className="text-sub text-[12px] font-bold px-3 pt-3 pb-1">강좌 ROOM</p>
           {rooms.map((r) => (
             <Link
               key={r.key}
@@ -181,21 +185,7 @@ export default function TeacherSidebar() {
               + 새 강좌 만들기
             </button>
           )}
-        </nav>
 
-        <nav aria-label="메뉴" className="flex flex-col gap-0.5">
-          <p className="text-sub text-[12px] font-bold px-2 mb-1.5">메뉴</p>
-          {pages.map((p) => (
-            <Link
-              key={p.href}
-              href={p.href}
-              aria-current={pathname === p.href ? "page" : undefined}
-              className={itemCls(pathname === p.href)}
-              style={itemStyle(pathname === p.href)}
-            >
-              {p.label}
-            </Link>
-          ))}
           <button
             onClick={() => supabase.auth.signOut()}
             className="rounded-[8px] px-3 py-2.5 text-[15px] text-left text-sub hover:bg-[var(--fill-2)] transition-colors mt-2"
@@ -212,7 +202,7 @@ export default function TeacherSidebar() {
         style={{ background: "var(--bg)" }}
       >
         <div className="flex gap-1.5 px-4 py-2.5 w-max">
-          {[dash, ...rooms, ...pages.map((p) => ({ key: p.href, href: p.href, label: p.label, count: undefined, active: pathname === p.href }))].map((r) => (
+          {[dash, ...menu, ...rooms].map((r) => (
             <Link
               key={r.key}
               href={r.href}
