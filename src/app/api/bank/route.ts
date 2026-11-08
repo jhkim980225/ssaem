@@ -73,6 +73,7 @@ export async function GET(req: Request) {
     explanation: string | null;
     area: string;
     type_tag: string;
+    source: string | null;
     images?: string[] | null;
   };
 
@@ -125,7 +126,7 @@ export async function GET(req: Request) {
   const { data: rowData, error } = await db
     .from("bank_questions")
     // answer_idx는 isTheory 판별에만 쓰고 응답엔 넣지 않는다 (이론 정답 미노출 유지)
-    .select("id, stem, category, choices, answer_idx, answer_text, explanation, area, type_tag, images")
+    .select("id, stem, category, choices, answer_idx, answer_text, explanation, area, type_tag, source, images")
     .in("id", pickedIds);
   if (error) return NextResponse.json({ error: "불러오지 못했어요." }, { status: 500 });
   // .in()은 순서를 보장하지 않으니 셔플 순서대로 재정렬
@@ -157,6 +158,7 @@ export async function GET(req: Request) {
           explanation: r.explanation,
           area: r.area,
           typeTag: r.type_tag,
+          source: r.source, // 회차 (실무 연습 화면이 문제 옆에 보여준다)
           images: r.images ?? null,
         };
   });

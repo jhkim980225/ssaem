@@ -352,14 +352,14 @@ export default function BankPage() {
 
   return (
     <main className={`flex-1 w-full ${width} mx-auto px-4 lg:px-6 py-6 lg:py-8 flex flex-col gap-3 lg:gap-4`}>
-      {/* 필터 화면 — 제목 + 바로가기 5칸 (풀이 중엔 상단 바가 대신한다) */}
+      {/* 필터 화면 — 제목 + 바로가기 6칸 (풀이 중엔 상단 바가 대신한다) */}
       {!qs && !cbtQs && (
         <>
           <div className="rise px-1 pt-2 flex flex-col gap-1">
             <h1 className="text-[24px] lg:text-[28px] font-bold">기출문제</h1>
             <p className="text-sub text-[14px]">전산회계·세무·컴활 기출 {tree ? countFor({}).toLocaleString() : "…"}문항</p>
           </div>
-          <nav aria-label="바로가기" className="rise d1 grid grid-cols-5 gap-1.5 sm:gap-2">
+          <nav aria-label="바로가기" className="rise d1 grid grid-cols-6 gap-1.5 sm:gap-2">
             {SHORTCUTS.map(([href, label, tone, icon]) => (
               <Link
                 key={href}
@@ -944,7 +944,7 @@ export default function BankPage() {
   );
 }
 
-// 바로가기 5칸 — [주소, 이름, 색, 아이콘]. 실무 검색은 같은 검색 화면을 실무 탭(?kind=practice)으로 연다
+// 바로가기 6칸 — [주소, 이름, 색, 아이콘]. 실무 연습은 분개를 KcLep처럼 직접 입력·자동 채점하는 화면. 실무 검색은 같은 검색 화면을 실무 탭(?kind=practice)으로 연다
 // (분개 문제는 이론 탭에서 안 나와 따로 진입이 없으면 못 찾는다)
 const SHORTCUTS: [string, string, "blue" | "red", React.ReactNode][] = [
   ["/my/records", "내 기록", "blue", <path key="i" d="M4 19V9M10 19V5M16 19v-7M22 19H2" />],
@@ -965,6 +965,15 @@ const SHORTCUTS: [string, string, "blue" | "red", React.ReactNode][] = [
     <>
       <rect x="4" y="3" width="16" height="18" rx="2" />
       <path d="M12 3v18M4 9h16" />
+    </>,
+  ],
+  [
+    "/bank/practice",
+    "실무 연습",
+    "blue",
+    <>
+      <rect x="3" y="4" width="18" height="16" rx="2" />
+      <path d="M7 9h4M7 13h10M7 17h6M15 9h2" />
     </>,
   ],
   [
