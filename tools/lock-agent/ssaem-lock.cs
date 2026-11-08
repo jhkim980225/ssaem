@@ -2,8 +2,8 @@
 //
 // 하는 일: 127.0.0.1:47800 에서 쌤 수업 화면(브라우저)의 명령을 받아
 //   lock   = 화면을 가리고 키보드·마우스를 막는다
-//   watch  = 화면은 그대로 두고(선생님 화면을 보게) 키보드·마우스만 막는다
-//   unlock = 푼다
+//   watch  = 화면은 그대로 두고(선생님 화면을 보게) 키보드·마우스만 막는다. 수업 탭 창을 맨 앞으로 (1.2)
+//   unlock = 푼다. 잠금 화면이 포커스를 뺏어 갔으니 잠그기 전 맨 앞 창으로 돌려준다 (1.2)
 // 그리고 수업 중 감독용으로 (1.1)
 //   GET /activity = 지금 맨 앞 창의 프로그램 이름·창 제목 (카카오톡·유튜브 등 딴짓 확인)
 //   GET /shot     = 화면 사진 JPEG (강사 화면의 학생 미리보기)
@@ -33,7 +33,7 @@ using Microsoft.Win32;
 static class Program
 {
     const int Port = 47800;
-    const string Version = "1.1";
+    const string Version = "1.2";
     const int BeatTimeoutSec = 90;
 
     static readonly HashSet<string> Origins = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
@@ -46,6 +46,8 @@ static class Program
     static NotifyIcon tray;
     static string mode = "none";
     static string message = "";
+    static string win = ""; // 수업 탭 창 제목 (브라우저가 document.title을 보낸다)
+    static IntPtr before = IntPtr.Zero; // 잠그기 직전 맨 앞 창
     static DateTime lastBeat = DateTime.UtcNow;
     static readonly List<Form> covers = new List<Form>();
 
@@ -113,10 +115,13 @@ static class Program
 
     // ───────── 잠금 상태 (UI 스레드에서만 바꾼다) ─────────
 
-    static void Apply(string next, string text)
+    static void Apply(string next, string text, string title)
     {
         message = text;
+        if (title != "") win = title;
         if (next == mode && next != "lock") return;
+        var prev = mode;
+        if (prev == "none") before = GetForegroundWindow();
         mode = next;
         ClearCovers();
         if (mode == "lock")
@@ -126,14 +131,64 @@ static class Program
         foreach (var f in covers) f.Show();
         Hooks(mode != "none");
         tray.Text = mode == "lock" ? "쌤 수업 잠금 - 잠김" : mode == "watch" ? "쌤 수업 잠금 - 화면 보기" : "쌤 수업 잠금 - 대기 중";
+        // 보기: 선생님 화면은 수업 탭이 띄운다 — 그 창이 맨 앞이어야 보인다 (못 찾으면 잠그기 전 창).
+        // 잠금 → 해제: 잠금 화면이 1초마다 포커스를 뺏었다. 안 돌려주면 브라우저가 포커스 없이 남아
+        // 강사 화면에 "수업 탭 떠남"이 계속 뜬다.
+        if (mode == "watch")
+        {
+            var w = FindByTitle(win);
+            Front(w != IntPtr.Zero ? w : before);
+        }
+        else if (mode == "none" && prev == "lock") Front(before);
     }
+
+    // 다른 프로그램이 맨 앞일 땐 SetForegroundWindow가 막힌다 — 맨 앞 창의 입력 큐에 잠깐 붙어서 넘긴다
+    static void Front(IntPtr h)
+    {
+        if (h == IntPtr.Zero || !IsWindow(h)) return;
+        if (IsIconic(h)) ShowWindow(h, 9 /*SW_RESTORE*/);
+        int pid;
+        uint fg = GetWindowThreadProcessId(GetForegroundWindow(), out pid), me = GetCurrentThreadId();
+        bool attached = fg != 0 && fg != me && AttachThreadInput(me, fg, true);
+        BringWindowToTop(h);
+        SetForegroundWindow(h);
+        if (attached) AttachThreadInput(me, fg, false);
+    }
+
+    // 제목이 title로 시작하는 보이는 창 중 맨 위 것 (브라우저 창 제목 = "탭 제목 - … - Microsoft Edge")
+    static IntPtr FindByTitle(string title)
+    {
+        if (string.IsNullOrEmpty(title)) return IntPtr.Zero;
+        var found = IntPtr.Zero;
+        EnumWindows(delegate(IntPtr h, IntPtr l)
+        {
+            if (!IsWindowVisible(h)) return true;
+            var sb = new StringBuilder(512);
+            GetWindowText(h, sb, sb.Capacity);
+            if (!sb.ToString().StartsWith(title, StringComparison.Ordinal)) return true;
+            found = h;
+            return false;
+        }, IntPtr.Zero);
+        return found;
+    }
+
+    delegate bool EnumProc(IntPtr h, IntPtr l);
+    [DllImport("user32.dll")] static extern bool EnumWindows(EnumProc fn, IntPtr l);
+    [DllImport("user32.dll")] static extern bool IsWindowVisible(IntPtr h);
+    [DllImport("user32.dll")] static extern bool IsWindow(IntPtr h);
+    [DllImport("user32.dll")] static extern bool IsIconic(IntPtr h);
+    [DllImport("user32.dll")] static extern bool ShowWindow(IntPtr h, int cmd);
+    [DllImport("user32.dll")] static extern bool BringWindowToTop(IntPtr h);
+    [DllImport("user32.dll")] static extern bool SetForegroundWindow(IntPtr h);
+    [DllImport("user32.dll")] static extern bool AttachThreadInput(uint a, uint b, bool attach);
+    [DllImport("kernel32.dll")] static extern uint GetCurrentThreadId();
 
     static void Tick()
     {
         if (mode == "none") return;
         if ((DateTime.UtcNow - lastBeat).TotalSeconds > BeatTimeoutSec)
         {
-            Apply("none", "");
+            Apply("none", "", "");
             return;
         }
         // 다른 창이 위로 올라오지 못하게 계속 맨 위로
@@ -322,11 +377,12 @@ static class Program
                 {
                     var action = Field(body, "action");
                     var text = Field(body, "text");
+                    var title = Field(body, "win");
                     if (action == "lock" || action == "watch" || action == "unlock")
                     {
                         var next = action == "unlock" ? "none" : action;
                         lastBeat = DateTime.UtcNow;
-                        ui.Invoke((MethodInvoker)delegate { Apply(next, text); });
+                        ui.Invoke((MethodInvoker)delegate { Apply(next, text, title); });
                     }
                 }
                 else if (method == "POST" && path == "/beat")

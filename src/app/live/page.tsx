@@ -8,8 +8,6 @@ import {
   agentCommand,
   agentShot,
   newSid,
-  startScreenShare,
-  videoShot,
   type AgentMode,
   type SignedCmd,
 } from "@/lib/live";
@@ -54,17 +52,12 @@ export default function LivePage() {
   const [recording, setRecording] = useState(false);
   const [memo, setMemo] = useState("");
   const [cmdErr, setCmdErr] = useState("");
-  // 잠금 프로그램 없는 PC의 브라우저 화면 공유: off = 꺼짐, on = 보내는 중, pick = 전체 화면이 아닌 걸 골랐음
-  const [scr, setScr] = useState<"off" | "on" | "pick">("off");
 
   const liveRef = useRef<StudentLive | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const stageRef = useRef<HTMLDivElement | null>(null);
   const recRef = useRef<MediaRecorder | null>(null);
   const lastCmd = useRef("");
-  // 공유 중인 화면 (사진 찍을 땐 화면에 안 붙인 video에서 캔버스로)
-  const screenRef = useRef<{ stream: MediaStream; video: HTMLVideoElement } | null>(null);
-  const autoTried = useRef(false);
   const token = session?.access_token;
 
   // 입장 정보 (수강 중인 선생님 방)
@@ -111,7 +104,7 @@ export default function LivePage() {
       setLockText(s.cmd.text ?? "");
       const st = await agentCommand(s.cmd.action, s.cmd.text);
       setAgent(Boolean(st));
-      liveRef.current?.update({ mode: next, agent: Boolean(st) });
+      liveRef.current?.update({ mode: next, agent: Boolean(st), agentV: st?.v });
     },
     [me, token, room]
   );
@@ -130,24 +123,14 @@ export default function LivePage() {
     const t = supabaseTransport(room.channel, sid, (s) => setLink(s));
     const live: StudentLive = new StudentLive(
       t,
-      {
-        sid,
-        uid: me.id,
-        name: me.name || "학생",
-        viewing: false,
-        away: document.hidden,
-        mode: "none",
-        browserShare: Boolean(screenRef.current),
-      },
+      { sid, uid: me.id, name: me.name || "학생", viewing: false, away: document.hidden, mode: "none" },
       () => setView({ stream: live.stream, online: live.teacherOnline, sharing: live.teacherSharing }),
       (s) => void onCmdRef.current(s)
     );
     // 선생님이 내 화면을 크게 보려 할 때 — 큰 사진 한 장 (너무 크면 줄여서)
     live.onWant = async () => {
-      const v = screenRef.current?.video ?? null;
-      const take = (w: number, q: number) => (v ? videoShot(v, w, q) : agentShot(w, q));
-      let shot = await take(1280, 60);
-      if (shot && shot.byteLength > 250_000) shot = await take(960, 50);
+      let shot = await agentShot(1280, 60);
+      if (shot && shot.byteLength > 250_000) shot = await agentShot(960, 50);
       if (shot) live.sendShot("big", shot);
     };
     liveRef.current = live;
@@ -168,18 +151,42 @@ export default function LivePage() {
     if (recRef.current && recRef.current.stream !== stream) recRef.current.stop();
   }, [stream, mode]);
 
-  // 다른 창으로 나갔는지 — 강사 화면 학생 목록에 "다른 창"으로 뜬다
+  // 다른 창으로 나갔는지 — 강사 화면 학생 목록에 "수업 탭 떠남"으로 뜬다.
+  // 잠금 프로그램의 잠금 창은 1초마다 포커스를 뺏고(Activate) 브라우저를 덮는다 → blur/hidden.
+  // 풀린 뒤 윈도우가 포커스를 브라우저에 돌려주지 않으면 focus 이벤트가 영영 안 와 "떠남"이 남았다.
+  // 그래서 잠겨 있는 동안은 떠남을 보고하지 않고, 풀린 뒤엔 포커스를 다시 얻을 때까지 탭이 보이는지만 본다
+  // (다른 창을 띄우면 브라우저가 가려져 hidden이 된다). update는 바뀔 때만 Presence를 보낸다.
+  const modeRef = useRef<AgentMode>("none");
+  const afterLock = useRef(false);
+  const reportRef = useRef<() => void>(() => {});
   useEffect(() => {
-    const report = () => liveRef.current?.update({ away: document.hidden || !document.hasFocus() });
+    const report = () => {
+      const focused = document.hasFocus();
+      if (focused) afterLock.current = false;
+      const away = modeRef.current !== "none" ? false : document.hidden || (!focused && !afterLock.current);
+      liveRef.current?.update({ away });
+    };
     window.addEventListener("blur", report);
     window.addEventListener("focus", report);
     document.addEventListener("visibilitychange", report);
+    const id = setInterval(report, 2000); // 놓친 focus 이벤트를 스스로 메운다
+    reportRef.current = report;
     return () => {
       window.removeEventListener("blur", report);
       window.removeEventListener("focus", report);
       document.removeEventListener("visibilitychange", report);
+      clearInterval(id);
     };
   }, []);
+  useEffect(() => {
+    const was = modeRef.current;
+    modeRef.current = mode;
+    if (was !== "none" && mode === "none") {
+      afterLock.current = true;
+      window.focus();
+    }
+    reportRef.current();
+  }, [mode]);
 
   // 잠금 프로그램 살아 있음 신호 (끊기면 프로그램이 90초 뒤 스스로 풀린다)
   useEffect(() => {
@@ -189,7 +196,7 @@ export default function LivePage() {
       const st = await agentBeat();
       if (!alive) return;
       setAgent(Boolean(st));
-      liveRef.current?.update({ agent: Boolean(st) });
+      liveRef.current?.update({ agent: Boolean(st), agentV: st?.v });
     };
     void beat();
     const id = setInterval(beat, 5000);
@@ -210,8 +217,8 @@ export default function LivePage() {
       const act = await agentActivity();
       if (!alive) return;
       live.sendActivity(act ?? { app: null, title: "" });
-      // 잠금 프로그램이 있으면 그쪽 사진, 없으면 브라우저 공유 화면
-      const shot = act ? await agentShot(480, 55) : await videoShot(screenRef.current?.video ?? null, 480, 55);
+      if (!act) return;
+      const shot = await agentShot(480, 55);
       if (alive && shot) live.sendShot("thumb", shot);
     };
     const id = setInterval(send, 4000);
@@ -220,59 +227,6 @@ export default function LivePage() {
       clearInterval(id);
     };
   }, [room]);
-
-  const stopScreen = useCallback(() => {
-    const cur = screenRef.current;
-    if (!cur) return;
-    screenRef.current = null;
-    for (const tr of cur.stream.getTracks()) tr.stop();
-    cur.video.srcObject = null;
-    setScr("off");
-    liveRef.current?.update({ browserShare: false });
-  }, []);
-
-  // 잠금 프로그램이 없을 때 화면 미리보기를 브라우저 공유로 보낸다. 바로가기로 연 Edge면 고르는 창 없이 바로 잡힌다.
-  const startScreen = useCallback(async () => {
-    if (screenRef.current) return;
-    let stream: MediaStream;
-    try {
-      stream = await startScreenShare();
-    } catch {
-      setScr("off"); // 고르는 창에서 취소 — 버튼으로 다시
-      return;
-    }
-    const tr = stream.getVideoTracks()[0];
-    const surface = tr?.getSettings().displaySurface;
-    if (!tr || (surface && surface !== "monitor")) {
-      for (const t of stream.getTracks()) t.stop();
-      setScr("pick");
-      return;
-    }
-    const video = document.createElement("video");
-    video.muted = true;
-    video.srcObject = stream;
-    await video.play().catch(() => {});
-    screenRef.current = { stream, video };
-    // 학생이 브라우저의 [공유 중지]를 누르면 — 선생님 화면에 "꺼짐"으로 뜨고 버튼이 다시 보인다
-    tr.addEventListener("ended", () => {
-      if (screenRef.current?.stream === stream) stopScreen();
-    });
-    setScr("on");
-    liveRef.current?.update({ browserShare: true });
-  }, [stopScreen]);
-
-  // 첫 잠금 프로그램 확인이 "없음"이면 한 번 자동으로 공유를 건다. 잠금 프로그램이 생기면 그쪽이 우선.
-  useEffect(() => {
-    if (!room || agent === null) return;
-    if (agent) stopScreen();
-    else if (!autoTried.current) {
-      autoTried.current = true;
-      void startScreen();
-    }
-  }, [room, agent, startScreen, stopScreen]);
-
-  // 수업 화면을 떠나면 공유도 끈다
-  useEffect(() => () => stopScreen(), [stopScreen]);
 
   // 메모는 선생님 방별로 이 PC에 저장
   useEffect(() => {
@@ -374,24 +328,6 @@ export default function LivePage() {
         </div>
       )}
 
-      {room && agent === false && scr !== "on" && (
-        <div className="card p-4 flex flex-wrap items-center justify-between gap-3">
-          <div className="flex flex-col gap-0.5">
-            <p className="text-[15px] font-bold">
-              {scr === "pick" ? "전체 화면을 골라 주세요" : "선생님께 내 화면을 보여 주세요"}
-            </p>
-            <p className="text-sub text-[13px]">
-              {scr === "pick"
-                ? "창이나 탭 말고 [전체 화면]을 고른 뒤 [공유]를 눌러요."
-                : "수업 중에 선생님이 내 PC 화면을 볼 수 있게 해요. 공유할 화면은 [전체 화면]으로 골라요."}
-            </p>
-          </div>
-          <button onClick={() => void startScreen()} className="btn btn-primary px-5 h-11">
-            {scr === "pick" ? "다시 고르기" : "선생님께 내 화면 보여주기"}
-          </button>
-        </div>
-      )}
-
       {room && (
         <div className="grid gap-4 lg:grid-cols-[1fr_340px] lg:items-start">
           <section className="flex flex-col gap-3 min-w-0">
@@ -459,13 +395,12 @@ export default function LivePage() {
             />
             <p className="text-[12px] text-sub">
               잠금 프로그램 {agent === null ? "확인 중" : agent ? "연결됨" : "없음"}
-              {scr === "on" && " · 내 화면 보내는 중"}
               {cmdErr && <span style={{ color: "var(--red)" }}> · {cmdErr}</span>}
             </p>
             {/* 감독 고지 — 화면을 보내는 동안 늘 보이게 */}
-            {(agent || scr === "on") && (
+            {agent && (
               <p className="text-[12px] rounded-[8px] px-3 py-2" style={{ background: "var(--fill)", color: "var(--sub-2)" }}>
-                수업 중에는 선생님이 이 PC의 화면{agent && "과 지금 쓰는 프로그램"}을 볼 수 있어요.
+                수업 중에는 선생님이 이 PC의 화면과 지금 쓰는 프로그램을 볼 수 있어요.
               </p>
             )}
           </aside>
@@ -488,7 +423,7 @@ export default function LivePage() {
   );
 }
 
-// 보기 모드 — 선생님 화면을 꽉 채워 보여준다 (키보드·마우스는 잠금 프로그램이 막는다)
+// 잠금(보기 모드) — 선생님 화면만 꽉 채워 보여준다 (키보드·마우스는 잠금 프로그램이 막는다)
 function WatchOverlay({ stream }: { stream: MediaStream | null }) {
   const ref = useRef<HTMLVideoElement | null>(null);
   useEffect(() => {
@@ -497,7 +432,7 @@ function WatchOverlay({ stream }: { stream: MediaStream | null }) {
   return (
     <div className="fixed inset-0 z-[100] grid place-items-center" style={{ background: "#0f1722" }}>
       <video ref={ref} autoPlay playsInline muted className="w-full h-full object-contain" />
-      {!stream && <p className="absolute text-white/80 text-[16px]">선생님 화면을 기다리는 중이에요…</p>}
+      {!stream && <p className="absolute text-white/80 text-[16px]">선생님 화면을 불러오는 중…</p>}
     </div>
   );
 }

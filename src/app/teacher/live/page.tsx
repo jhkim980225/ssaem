@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useGate } from "@/components/RoleGuard";
-import { TeacherLive, appLabel, isOffTask, newSid, type AgentMode, type Meta, type Watch } from "@/lib/live";
+import { AGENT_LATEST, TeacherLive, appLabel, isOffTask, newSid, type AgentMode, type Meta, type Watch } from "@/lib/live";
 import { supabaseTransport } from "@/lib/live-supabase";
 
 type Room = { teacher: string; name: string; channel: string };
@@ -11,33 +11,8 @@ type Action = "lock" | "watch" | "unlock";
 // 잠금 프로그램에 기본으로 들어 있는 주소. 다른 주소(학원 도메인)로 접속 중이면 ini 안내를 띄운다.
 const AGENT_ORIGINS = ["https://ssaem-mychat-s-projects.vercel.app", "http://localhost:3000"];
 
-// 학생 PC 바로가기 (설치 없이 화면 보기). Edge를 전용 프로필로 따로 띄워야 플래그가 먹는다 — 이미 켜진
-// Edge 창에 붙으면 플래그가 무시된다. 플래그 값은 ASCII만 받아서 화면 이름이 영어가 되게 --lang=en-US.
-// 화면이 둘 이상이면 소스 이름이 "Screen 1"·"Screen 2"로 바뀐다 → 개수를 세서 첫 화면을 고른다.
-// 전부 ASCII라 코드페이지(chcp) 걱정이 없다. 줄바꿈은 CRLF.
-function liveBat(origin: string) {
-  return String.raw`@echo off
-rem ssaem live class - opens a dedicated Edge window that shares this PC's screen with the teacher
-setlocal
-set "URL=${origin}/live"
-set "EDGE=%ProgramFiles(x86)%\Microsoft\Edge\Application\msedge.exe"
-if not exist "%EDGE%" set "EDGE=%ProgramFiles%\Microsoft\Edge\Application\msedge.exe"
-if not exist "%EDGE%" set "EDGE=%ProgramFiles%\Google\Chrome\Application\chrome.exe"
-set "SRC=Entire screen"
-for /f %%n in ('powershell -NoProfile -Command "Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.Screen]::AllScreens.Count"') do if not "%%n"=="1" set "SRC=Screen 1"
-start "" "%EDGE%" --user-data-dir="C:\ssaem\edge" --no-first-run --no-default-browser-check --lang=en-US "--auto-select-desktop-capture-source=%SRC%" --app=%URL%
-`.replace(/\n/g, "\r\n");
-}
-
-function downloadBat(origin: string) {
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(new Blob([liveBat(origin)], { type: "application/octet-stream" }));
-  a.download = "ssaem-live.bat";
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(a.href), 10_000);
-}
-
-const MODE_LABEL: Record<AgentMode, string> = { none: "", lock: "잠김", watch: "화면 보기" };
+// 잠금 = 학생 PC에 내 화면만 보이게(watch). lock(잠금 문구)은 이제 안 보내지만 옛 학생 탭 대비 이름은 같게.
+const MODE_LABEL: Record<AgentMode, string> = { none: "", lock: "잠김", watch: "잠김" };
 const toMode = (a: Action): AgentMode => (a === "unlock" ? "none" : a);
 
 // 강사 — 실시간 수업 (PC실). 내 화면을 학생 PC에 띄우고, 학생 PC를 잠그거나 보기 모드로 묶는다.
@@ -58,8 +33,8 @@ export default function TeacherLivePage() {
   }>({ students: [], sharing: false, conns: {}, watch: {}, left: [] });
   // 크게 보는 학생 sid
   const [zoom, setZoom] = useState<string | null>(null);
-  const [lockText, setLockText] = useState("");
   const [err, setErr] = useState("");
+  const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
   // 내가 건 모드: 전체 + 학생별 예외. 늦게 들어온 학생에게도 같은 모드를 다시 건다.
   const [allMode, setAllMode] = useState<AgentMode>("none");
@@ -70,6 +45,7 @@ export default function TeacherLivePage() {
   const previewRef = useRef<HTMLVideoElement | null>(null);
   const resent = useRef<Record<string, number>>({});
   const seen = useRef<Map<string, string>>(new Map()); // uid → 이름
+  const wasSharing = useRef(false);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- 브라우저에서만 아는 값(현재 주소)을 한 번 읽는 것
@@ -101,6 +77,18 @@ export default function TeacherLivePage() {
         watch: Object.fromEntries(live.watch),
         left: [...seen.current].filter(([uid]) => !here.has(uid)).map(([uid, name]) => ({ uid, name })),
       });
+      // 공유를 끄면(브라우저의 [공유 중지] 포함) 잠긴 학생은 검은 화면에 손발만 묶인다 — 잠금도 같이 푼다.
+      // 실제 unlock은 아래 reconcile이 보낸다. 방금 보낸 학생에게도 바로 보내야 하니 재전송 대기를 비운다 — 전환 때 한 번만.
+      const sharing = Boolean(live.stream);
+      if (sharing !== wasSharing.current) {
+        wasSharing.current = sharing;
+        resent.current = {};
+        if (!sharing) {
+          setAllMode("none");
+          setPerStudent({});
+          if (live.students.some((s) => (s.mode ?? "none") !== "none")) setNote("화면 공유를 끄면 잠금도 풀려요.");
+        }
+      }
       reconcileRef.current(live.students);
     });
     liveRef.current = live;
@@ -121,8 +109,10 @@ export default function TeacherLivePage() {
     reconcileRef.current = (list) => {
       const now = Date.now();
       const groups: Record<Action, string[]> = { lock: [], watch: [], unlock: [] };
+      const sharing = Boolean(liveRef.current?.stream);
       for (const s of list) {
-        const want = perStudent[s.uid] ?? allMode;
+        const set = perStudent[s.uid] ?? allMode;
+        const want: AgentMode = set === "none" || !sharing ? "none" : "watch";
         if ((s.mode ?? "none") === want) continue;
         if (now - (resent.current[s.uid] ?? 0) < 8000) continue; // 적용 중일 수 있으니 잠깐 기다린다
         resent.current[s.uid] = now;
@@ -135,6 +125,7 @@ export default function TeacherLivePage() {
 
   async function share() {
     setErr("");
+    setNote("");
     try {
       const stream = await navigator.mediaDevices.getDisplayMedia({
         video: { frameRate: { ideal: 15, max: 15 } },
@@ -142,8 +133,10 @@ export default function TeacherLivePage() {
       });
       liveRef.current?.share(stream);
       if (previewRef.current) previewRef.current.srcObject = stream;
+      return true;
     } catch {
       setErr("화면 공유를 시작하지 못했어요. 공유할 화면을 고른 뒤 [공유]를 눌러 주세요.");
+      return false;
     }
   }
 
@@ -158,7 +151,7 @@ export default function TeacherLivePage() {
     const r = await fetch("/api/live/command", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ action, targets, text: action === "lock" ? lockText.trim() : undefined }),
+      body: JSON.stringify({ action, targets }),
     });
     const d = await r.json().catch(() => null);
     if (!r.ok || !d?.cmd) {
@@ -175,13 +168,28 @@ export default function TeacherLivePage() {
     if (await send(action, "all")) {
       setAllMode(toMode(action));
       setPerStudent({});
-      resent.current = {};
+      // 방금 "all"로 보냈다 — 적용 전 Presence 변화로 reconcile이 같은 명령을 또 보내지 않게 지금 보낸 걸로 친다
+      const now = Date.now();
+      resent.current = Object.fromEntries(view.students.map((s) => [s.uid, now]));
     }
     setBusy(false);
   }
 
   async function setOne(uid: string, action: Action) {
-    if (await send(action, [uid])) setPerStudent((p) => ({ ...p, [uid]: toMode(action) }));
+    if (!(await send(action, [uid]))) return;
+    resent.current[uid] = Date.now(); // setAll과 같은 이유 — 적용 전에 reconcile이 또 보내지 않게
+    setPerStudent((p) => ({ ...p, [uid]: toMode(action) }));
+  }
+
+  // 잠금 = 학생 PC에 내 화면만. 공유 중이 아니면 공유부터 건다 — 이 클릭이 사용자 동작이라 고르는 창을 띄울 수 있다.
+  async function lock(uid?: string) {
+    if (!liveRef.current?.stream && !(await share())) {
+      setErr("화면 공유를 시작해야 잠글 수 있어요.");
+      return;
+    }
+    setNote("");
+    if (uid) await setOne(uid, "watch");
+    else await setAll("watch");
   }
 
   const students = view.students;
@@ -265,26 +273,18 @@ export default function TeacherLivePage() {
                   <span className="chip chip-on !text-[12px] align-middle">전체 {MODE_LABEL[allMode]}</span>
                 )}
               </p>
-              <button disabled={busy} onClick={() => setAll("watch")} className="btn btn-gray px-4 h-10">
-                모두 화면 보기
-              </button>
-              <button disabled={busy} onClick={() => setAll("lock")} className="btn btn-gray px-4 h-10">
+              <button disabled={busy} onClick={() => lock()} className="btn btn-gray px-4 h-10">
                 모두 잠금
               </button>
               <button disabled={busy} onClick={() => setAll("unlock")} className="btn btn-primary px-4 h-10">
                 모두 해제
               </button>
             </div>
-            <input
-              className="field"
-              placeholder="잠금 화면 문구 (비우면 “선생님이 화면을 잠갔어요”)"
-              maxLength={100}
-              value={lockText}
-              onChange={(e) => setLockText(e.target.value)}
-            />
             <p className="text-sub text-[13px]">
-              화면 보기 = 내 화면을 학생 PC에 꽉 채우고 키보드·마우스를 막아요. 잠금 = 화면을 가리고 막아요.
+              잠금 = 학생 PC에 내 화면만 보이고 키보드·마우스는 막혀요. 공유 중이 아니면 화면 공유부터 시작하고, 공유를
+              끄면 잠금도 풀려요.
             </p>
+            {note && <p className="text-[13px] font-bold">{note}</p>}
             {err && (
               <p className="text-[13px] font-bold" style={{ color: "var(--red)" }}>
                 {err}
@@ -307,8 +307,8 @@ export default function TeacherLivePage() {
                   const mode = s.mode ?? "none";
                   const w = view.watch[s.sid];
                   const off = isOffTask(w?.activity);
-                  // 학생이 공유를 끄면 마지막 사진이 남아 있어도 "꺼짐"으로 보여야 한다
-                  const shot = s.agent || s.browserShare ? w?.shot : undefined;
+                  // 1.1 이하는 잠금 해제 때 포커스를 안 돌려준다 (웹에서 메우긴 하지만 새로 받는 게 낫다)
+                  const oldAgent = s.agent && Number(s.agentV) < Number(AGENT_LATEST);
                   return (
                     <article
                       key={s.sid}
@@ -317,24 +317,18 @@ export default function TeacherLivePage() {
                     >
                       <button
                         onClick={() => setZoom(s.sid)}
-                        disabled={!shot}
+                        disabled={!w?.shot}
                         className="w-full aspect-video rounded-[8px] overflow-hidden grid place-items-center text-[12px] text-white/60"
                         style={{ background: "#0f1722" }}
                         aria-label={`${s.name} 화면 크게 보기`}
                       >
-                        {shot ? (
+                        {w?.shot ? (
                           // eslint-disable-next-line @next/next/no-img-element -- 학생 PC가 보낸 사진(blob URL)
-                          <img src={shot} alt="" className="w-full h-full object-contain" />
-                        ) : s.agent || s.browserShare ? (
+                          <img src={w.shot} alt="" className="w-full h-full object-contain" />
+                        ) : s.agent ? (
                           "화면 받는 중…"
                         ) : (
-                          <span className="px-4 text-center leading-relaxed">
-                            화면 공유가 꺼져 있어요
-                            <br />
-                            <span className="text-[11px] text-white/45">
-                              학생이 쌤 수업 바로가기로 열거나 [내 화면 보여주기]를 누르면 보여요
-                            </span>
-                          </span>
+                          "잠금 프로그램을 깔면 화면이 보여요 (아래 안내)"
                         )}
                       </button>
                       <div className="flex items-center justify-between gap-2">
@@ -352,8 +346,8 @@ export default function TeacherLivePage() {
                                 : "연결 중"}
                         </span>
                         {s.away && <span style={{ color: "var(--red)" }}>수업 탭 떠남</span>}
-                        <span style={s.agent || s.browserShare ? undefined : { color: "var(--red)" }}>
-                          {s.agent ? "잠금 프로그램 ✓" : s.browserShare ? "브라우저 공유" : "잠금 프로그램 없음"}
+                        <span style={s.agent && !oldAgent ? undefined : { color: "var(--red)" }}>
+                          {!s.agent ? "잠금 프로그램 없음" : oldAgent ? "잠금 프로그램 새로 받기" : "잠금 프로그램 ✓"}
                         </span>
                       </p>
                       {w?.activity?.app != null && (
@@ -367,11 +361,8 @@ export default function TeacherLivePage() {
                         </p>
                       )}
                       <div className="flex gap-1.5">
-                        <button onClick={() => setOne(s.uid, "lock")} className="btn btn-gray px-3 h-9 !text-[13px]">
+                        <button onClick={() => lock(s.uid)} className="btn btn-gray px-3 h-9 !text-[13px]">
                           잠금
-                        </button>
-                        <button onClick={() => setOne(s.uid, "watch")} className="btn btn-gray px-3 h-9 !text-[13px]">
-                          화면 보기
                         </button>
                         <button onClick={() => setOne(s.uid, "unlock")} className="btn btn-ghost px-3 h-9 !text-[13px]">
                           해제
@@ -424,41 +415,6 @@ export default function TeacherLivePage() {
             <p className="text-sub text-[13px]">
               안전장치: 학생 수업 화면과 90초 넘게 연락이 끊기면 잠금이 저절로 풀려요. Ctrl+Alt+Del은 윈도우가 막지
               못하게 해 둬서 막을 수 없어요.
-            </p>
-          </section>
-
-          <section className="card p-5 flex flex-col gap-2 text-[14px]">
-            <p className="text-[16px] font-bold">설치 없이 — 바로가기로 화면 보기</p>
-            <p className="text-sub">
-              프로그램을 깔 수 없는 PC라면, 바로가기로 수업을 열기만 해도 학생 화면 미리보기가 보여요. 바로가기는 지금
-              주소({origin || "…"})로 만들어져요.
-            </p>
-            <ol className="list-decimal pl-5 flex flex-col gap-1 text-text-2">
-              <li>
-                학생 PC에서{" "}
-                <button
-                  onClick={() => downloadBat(origin)}
-                  disabled={!origin}
-                  className="font-bold underline"
-                  style={{ color: "var(--blue)" }}
-                >
-                  ssaem-live.bat 내려받기
-                </button>{" "}
-                → <b>C:\ssaem</b> 폴더로 옮기기 (브라우저가 “위험할 수 있는 파일”이라 하면 <b>유지</b>)
-              </li>
-              <li>
-                파일을 오른쪽 클릭 → <b>보내기 → 바탕 화면에 바로 가기 만들기</b>. 바로 가기 이름은 “쌤 수업”처럼
-                바꿔도 돼요.
-              </li>
-              <li>
-                처음 한 번은 바로 가기로 연 창에서 학생이 로그인 — 다음부터는 로그인이 유지돼요. 수업 때는 바로 가기만
-                열면 끝.
-              </li>
-            </ol>
-            <p className="text-sub text-[13px]">
-              한계: 꼭 바로 가기로 열어야 해요(그냥 브라우저로 열면 공유할 화면을 고르는 창이 떠요). 학생이 화면
-              아래 [Stop sharing]을 누르면 끊기고, 여기 카드에 “화면 공유가 꺼져 있어요”로 떠요. PC 잠금과 지금 쓰는
-              프로그램(딴짓) 확인은 잠금 프로그램이 있어야 돼요.
             </p>
           </section>
         </>
