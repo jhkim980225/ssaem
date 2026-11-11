@@ -51,6 +51,19 @@ export default function BankNotesPage() {
 
   if (gate) return gate;
 
+  // 급수 × 이론/실무별 오답 수 — 출력은 급수·종류 단위로 묶어서 한다 (/bank/print?wrong=1)
+  const printSets = (() => {
+    const m = new Map<string, { subject: string; kind: "theory" | "practice"; n: number }>();
+    for (const n of data?.notes ?? []) {
+      const kind = n.category === "이론" ? "theory" : "practice";
+      const key = `${n.subject}|${kind}`;
+      const cur = m.get(key) ?? { subject: n.subject, kind, n: 0 };
+      cur.n++;
+      m.set(key, cur);
+    }
+    return [...m.values()].sort((a, b) => a.subject.localeCompare(b.subject, "ko") || (a.kind === "practice" ? -1 : 1));
+  })();
+
   return (
     <main className="flex-1 w-full max-w-3xl lg:max-w-4xl mx-auto px-4 lg:px-6 py-6 lg:py-8 flex flex-col gap-3">
       <div className="rise px-1 pt-1 flex items-start justify-between gap-3">
@@ -90,6 +103,25 @@ export default function BankNotesPage() {
         <Link href="/bank?retry=wrong" className="rise d1 btn btn-primary h-[50px] text-[17px] grid place-items-center text-center">
           오답 다시 풀기 ({data.totals.wrong}문제 중 최대 15문제)
         </Link>
+      )}
+
+      {/* 틀린 문제만 종이로 — 유형별로 묶인 문제지·정답지. 손으로 다시 풀고 오답노트 정리용 */}
+      {printSets.length > 0 && (
+        <section className="rise d1 card p-4 flex flex-col gap-2">
+          <p className="text-[14px] font-bold">틀린 문제 출력</p>
+          <p className="text-sub text-[13px] break-keep">유형별로 묶어 문제지와 정답·해설을 함께 뽑아요.</p>
+          <div className="flex flex-wrap gap-1.5">
+            {printSets.map((p) => (
+              <Link
+                key={`${p.subject}-${p.kind}`}
+                href={`/bank/print?${new URLSearchParams({ subject: p.subject, kind: p.kind, wrong: "1" })}`}
+                className="chip min-h-9 inline-flex items-center !text-[14px] font-semibold"
+              >
+                {p.subject} {p.kind === "theory" ? "이론" : "실무"} {p.n}문제
+              </Link>
+            ))}
+          </div>
+        </section>
       )}
 
       {data && data.notes.length === 0 && (

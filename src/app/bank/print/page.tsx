@@ -23,6 +23,7 @@ type Q = {
 // 유형별 일괄 출력 — /bank/print?subject=전산세무2급&kind=practice&category=일반전표
 // 문제검색에서 들어온다. 다시 풀어 보고 오답노트에 정리하려고 종이로 뽑는 용도.
 // 유형마다 문제지(번호·회차·지문) 다음에 정답지(번호·지문 + 정답·해설) — 회차별이 아니라 유형별로 묶는다.
+// &wrong=1 → 본인이 틀린 문제만 (오답노트와 같은 기준). 화면에서 전체/틀린 문제만을 바꿀 수 있다.
 type Mode = "both" | "questions" | "answers";
 const MODES: [Mode, string][] = [
   ["both", "문제지 + 정답지"],
@@ -72,11 +73,25 @@ function PrintInner() {
   const [qs, setQs] = useState<Q[] | null>(null);
   const [err, setErr] = useState("");
   const [mode, setMode] = useState<Mode>("both");
+  const [wrongOnly, setWrongOnly] = useState(params.get("wrong") === "1");
+
+  // 전체 ↔ 틀린 문제만 — 주소에도 남겨 새로고침·뒤로가기 후에도 같은 목록이 보이게
+  const pickWrong = (v: boolean) => {
+    if (v === wrongOnly) return;
+    setWrongOnly(v);
+    setQs(null);
+    setErr("");
+    const p = new URLSearchParams(params.toString());
+    if (v) p.set("wrong", "1");
+    else p.delete("wrong");
+    window.history.replaceState(null, "", `?${p}`);
+  };
 
   useEffect(() => {
     if (!token) return;
     const p = new URLSearchParams({ subject, kind });
     if (filter) p.set(kind === "theory" ? "area" : "category", filter);
+    if (wrongOnly) p.set("wrong", "1");
     fetch(`/api/bank/print?${p}`, { headers: { Authorization: `Bearer ${token}` } })
       .then(async (r) => {
         const d = await r.json().catch(() => null);
@@ -84,7 +99,7 @@ function PrintInner() {
         setQs(d.questions ?? []);
       })
       .catch(() => setErr("불러오지 못했어요."));
-  }, [token, subject, kind, filter]);
+  }, [token, subject, kind, filter, wrongOnly]);
 
   // 유형별 묶음 (API가 유형 → 최근 회차 → 번호 순으로 준다)
   const groups = useMemo(() => {
@@ -95,7 +110,9 @@ function PrintInner() {
 
   if (gate) return gate;
 
-  const title = `${subject} ${kind === "theory" ? "이론" : "실무"}${filter ? ` · ${filter}` : ""}`;
+  const title = `${subject} ${kind === "theory" ? "이론" : "실무"}${filter ? ` · ${filter}` : ""}${wrongOnly ? " · 틀린 문제" : ""}`;
+  // 종이 머리글에도 "틀린 문제"를 남긴다 — 전체본과 섞여도 구분되게
+  const tag = wrongOnly ? " 틀린 문제" : "";
 
   const stem = (q: Q, small?: boolean) => (
     <div className={small ? "stem small" : "stem"}>
@@ -132,8 +149,20 @@ function PrintInner() {
         <BackButton fallback="/bank/browse?kind=practice" />
         <h1 className="text-[22px] lg:text-[26px] font-bold">{title} 출력</h1>
         <p className="text-sub text-[14px] break-keep">
-          {qs ? `${qs.length}문제를 유형별로 묶었어요. ` : ""}최근 회차부터 실려 있어요. 인쇄 창에서 &lsquo;PDF로 저장&rsquo;을 고르면 파일로도 받을 수 있어요.
+          {qs ? `${wrongOnly ? "틀린 " : ""}${qs.length}문제를 유형별로 묶었어요. ` : ""}최근 회차부터 실려 있어요. 인쇄 창에서 &lsquo;PDF로 저장&rsquo;을 고르면 파일로도 받을 수 있어요.
         </p>
+        <div className="flex flex-wrap items-center gap-1.5">
+          {(
+            [
+              [false, "전체 문제"],
+              [true, "틀린 문제만"],
+            ] as const
+          ).map(([v, label]) => (
+            <button key={label} onClick={() => pickWrong(v)} className={`chip !text-[14px] ${wrongOnly === v ? "chip-on font-bold" : ""}`}>
+              {label}
+            </button>
+          ))}
+        </div>
         <div className="flex flex-wrap items-center gap-1.5">
           {MODES.map(([m, label]) => (
             <button key={m} onClick={() => setMode(m)} className={`chip !text-[14px] ${mode === m ? "chip-on font-bold" : ""}`}>
@@ -152,7 +181,13 @@ function PrintInner() {
         {!qs && !err && <div className="skel h-40 !rounded-[12px]" />}
       </div>
 
-      {qs && qs.length === 0 && <p className="text-sub text-[14px] text-center py-10">이 조건에 맞는 문제가 없어요.</p>}
+      {qs && qs.length === 0 && (
+        <p className="text-sub text-[14px] text-center py-10 break-keep">
+          {wrongOnly
+            ? "이 유형에서 틀린 문제가 없어요. 문제를 풀고 틀리면 여기에 모여요(다시 맞히면 빠져요)."
+            : "이 조건에 맞는 문제가 없어요."}
+        </p>
+      )}
 
       {qs && qs.length > 0 && (
         <div className="paper rounded-[12px] border p-6 lg:p-10 flex flex-col">
@@ -162,7 +197,8 @@ function PrintInner() {
               {mode !== "answers" && (
                 <section key={`q-${g}`} className="sec flex flex-col gap-5">
                   <h2 className="text-[20px] font-bold border-b-2 pb-2" style={{ borderColor: "#111" }}>
-                    {subject} {g} <span className="text-[14px] font-normal">· 문제 {list.length}개</span>
+                    {subject} {g}
+                    {tag} <span className="text-[14px] font-normal">· 문제 {list.length}개</span>
                   </h2>
                   {list.map((q, i) => (
                     <div key={q.id} className="q">
@@ -175,7 +211,8 @@ function PrintInner() {
               {mode !== "questions" && (
                 <section key={`a-${g}`} className="sec flex flex-col gap-5">
                   <h2 className="text-[20px] font-bold border-b-2 pb-2" style={{ borderColor: "#111" }}>
-                    {subject} {g} <span className="text-[14px] font-normal">· 정답·해설</span>
+                    {subject} {g}
+                    {tag} <span className="text-[14px] font-normal">· 정답·해설</span>
                   </h2>
                   {list.map((q, i) => (
                     <div key={q.id} className="q flex flex-col gap-2 pb-4 border-b" style={{ borderColor: "var(--border)" }}>
